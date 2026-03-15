@@ -1,6 +1,9 @@
 import type { MetaFunction } from '@remix-run/node'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from '@remix-run/react'
+import { Button } from '../../src/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '../../src/components/ui/card'
+import { Input } from '../../src/components/ui/input'
 import { useAuth } from '../../src/auth/useAuth'
 import { getSafeRedirectTarget } from '../../src/auth/redirect'
 import { ApiError } from '../../src/api/client'
@@ -67,68 +70,86 @@ export default function SignupRoute() {
     }
 
     if (auth.status === 'loading') {
-        return <div className='page-loading'>Checking your session…</div>
+        return <div className='grid min-h-screen place-items-center text-slate-600'>Checking your session…</div>
     }
 
     return (
-        <main className='login-page'>
-            <section className='login-panel'>
-                <div className='login-copy'>
-                    <span className='login-eyebrow'>Get started</span>
-                    <h1>Create your account.</h1>
-                    <p>Sign up with your email and password to manage your vehicles and service history.</p>
-                </div>
+        <main className='grid min-h-screen place-items-center bg-slate-100 px-4 py-8'>
+            <Card className='w-full max-w-md'>
+                <CardHeader className='space-y-2'>
+                    <p className='text-xs font-semibold uppercase tracking-wide text-slate-500'>Get started</p>
+                    <CardTitle className='text-2xl'>Create your account.</CardTitle>
+                    <p className='text-sm text-slate-600'>
+                        Sign up with your email and password to manage your vehicles and service history.
+                    </p>
+                </CardHeader>
 
-                <form className='login-form' onSubmit={handleSubmit}>
-                    {(error || auth.bootstrapError) && <div className='form-error'>{error ?? auth.bootstrapError}</div>}
+                <CardContent>
+                    <form className='space-y-4' onSubmit={handleSubmit}>
+                        {(error || auth.bootstrapError) && (
+                            <div className='rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700'>
+                                {error ?? auth.bootstrapError}
+                            </div>
+                        )}
 
-                    <div className='form-group'>
-                        <label htmlFor='email'>Email</label>
-                        <input
-                            id='email'
-                            type='email'
-                            autoComplete='email'
-                            value={email}
-                            onChange={event => setEmail(event.target.value)}
-                            required
-                        />
-                    </div>
+                        <div className='space-y-2'>
+                            <label htmlFor='email' className='text-sm font-medium text-slate-700'>
+                                Email
+                            </label>
+                            <Input
+                                id='email'
+                                type='email'
+                                autoComplete='email'
+                                value={email}
+                                onChange={event => setEmail(event.target.value)}
+                                required
+                            />
+                        </div>
 
-                    <div className='form-group'>
-                        <label htmlFor='password'>Password</label>
-                        <input
-                            id='password'
-                            type='password'
-                            autoComplete='new-password'
-                            value={password}
-                            onChange={event => setPassword(event.target.value)}
-                            minLength={MIN_PASSWORD_LENGTH}
-                            required
-                        />
-                    </div>
+                        <div className='space-y-2'>
+                            <label htmlFor='password' className='text-sm font-medium text-slate-700'>
+                                Password
+                            </label>
+                            <Input
+                                id='password'
+                                type='password'
+                                autoComplete='new-password'
+                                value={password}
+                                onChange={event => setPassword(event.target.value)}
+                                minLength={MIN_PASSWORD_LENGTH}
+                                required
+                            />
+                        </div>
 
-                    <div className='form-group'>
-                        <label htmlFor='confirm-password'>Confirm password</label>
-                        <input
-                            id='confirm-password'
-                            type='password'
-                            autoComplete='new-password'
-                            value={confirmPassword}
-                            onChange={event => setConfirmPassword(event.target.value)}
-                            minLength={MIN_PASSWORD_LENGTH}
-                            required
-                        />
-                    </div>
+                        <div className='space-y-2'>
+                            <label htmlFor='confirm-password' className='text-sm font-medium text-slate-700'>
+                                Confirm password
+                            </label>
+                            <Input
+                                id='confirm-password'
+                                type='password'
+                                autoComplete='new-password'
+                                value={confirmPassword}
+                                onChange={event => setConfirmPassword(event.target.value)}
+                                minLength={MIN_PASSWORD_LENGTH}
+                                required
+                            />
+                        </div>
 
-                    <button className='btn-primary login-submit' type='submit' disabled={submitting}>
-                        {submitting ? 'Creating account…' : 'Create account'}
-                    </button>
-                </form>
+                        <Button className='w-full' type='submit' disabled={submitting}>
+                            {submitting ? 'Creating account…' : 'Create account'}
+                        </Button>
+                    </form>
 
-                <p className='login-help'>
-                    Already have an account? <Link to={loginLink}>Sign in</Link>.
-                </p>
-            </section>
+                    <p className='mt-4 text-sm text-slate-600'>
+                        Already have an account?{' '}
+                        <Link to={loginLink} className='font-semibold text-slate-900 hover:underline'>
+                            Sign in
+                        </Link>
+                        .
+                    </p>
+                </CardContent>
+            </Card>
         </main>
     )
 }

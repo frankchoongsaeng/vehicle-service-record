@@ -17,6 +17,38 @@ A web app to track maintenance and service history for your vehicles — accessi
 | Backend  | Node.js + Express 5             |
 | Database | Prisma ORM + SQLite             |
 
+## UI Styling Standard
+
+- Product UI must use shadcn-style shared primitives from `src/components/ui` and Tailwind utility classes.
+- Route or feature-specific custom CSS files are disallowed for product pages.
+- Keep all reusable controls (buttons, cards, inputs, tables, badges, select, textarea) in shared UI primitives and compose from those.
+
+Approved primitives currently include:
+
+- `Button`
+- `Card`
+- `Input`
+- `Textarea`
+- `Badge`
+- `Table`
+- `Select`
+
+## UI Policy Check Guidance
+
+Use ripgrep to verify no custom CSS imports were reintroduced in Remix/source modules:
+
+```bash
+rg -n "\\.css(\\?url)?['\"]" app src
+```
+
+Expected result:
+
+- `app/root.tsx` may import `src/index.css?url`
+- `src/main.tsx` may import `./index.css` for standalone local mounting
+- No other custom CSS imports should appear
+
+For CI or pre-merge checks, run the same command and fail builds if unexpected matches are found.
+
 ## Project Structure
 
 ```text

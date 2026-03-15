@@ -2,13 +2,11 @@ import { Links, LiveReload, Meta, Outlet, Scripts, ScrollRestoration } from '@re
 import type { LinksFunction } from '@remix-run/node'
 
 import globalStyles from '../src/index.css?url'
-import appStyles from '../src/App.css?url'
 import { AuthProvider } from '../src/auth/AuthProvider'
 
 export const links: LinksFunction = () => [
     { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
-    { rel: 'stylesheet', href: globalStyles },
-    { rel: 'stylesheet', href: appStyles }
+    { rel: 'stylesheet', href: globalStyles }
 ]
 
 export default function App() {

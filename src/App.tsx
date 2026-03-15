@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { AuthUser, Vehicle, ServiceRecord, VehicleInput, ServiceRecordInput } from './types'
 import * as api from './api/client'
+import { Button } from './components/ui/button'
+import { Card, CardContent } from './components/ui/card'
 import VehicleList from './components/VehicleList'
 import VehicleForm from './components/VehicleForm'
 import ServiceRecordList from './components/ServiceRecordList'
@@ -126,30 +128,42 @@ export default function App({ currentUser, onLogout }: AppProps) {
     // ── Render ─────────────────────────────────────────────────────────────────
 
     return (
-        <div className='app'>
-            <nav className='navbar'>
-                <button className='nav-brand' onClick={() => setView({ type: 'vehicles' })}>
-                    Vehicle Service Records
-                </button>
-                <div className='nav-session'>
-                    <span className='nav-user'>{currentUser.email}</span>
-                    <button className='btn-secondary nav-logout' onClick={handleLogout} disabled={loggingOut}>
-                        {loggingOut ? 'Signing out…' : 'Sign out'}
-                    </button>
+        <div className='min-h-screen bg-slate-100'>
+            <nav className='border-b border-slate-200 bg-white'>
+                <div className='mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6'>
+                    <Button
+                        variant='ghost'
+                        className='h-auto p-0 text-base font-semibold text-slate-900'
+                        onClick={() => setView({ type: 'vehicles' })}
+                    >
+                        Vehicle Service Records
+                    </Button>
+                    <div className='flex items-center gap-3'>
+                        <span className='text-sm text-slate-600'>{currentUser.email}</span>
+                        <Button variant='secondary' onClick={handleLogout} disabled={loggingOut}>
+                            {loggingOut ? 'Signing out…' : 'Sign out'}
+                        </Button>
+                    </div>
                 </div>
             </nav>
 
             {error && (
-                <div className='global-error'>
-                    ⚠️ {error}
-                    <button onClick={() => setError('')}>✕</button>
+                <div className='mx-auto max-w-6xl px-4 pt-4 sm:px-6'>
+                    <Card className='border-rose-200 bg-rose-50 shadow-none'>
+                        <CardContent className='flex items-center justify-between p-3 text-sm text-rose-700'>
+                            <span>{error}</span>
+                            <Button variant='ghost' size='sm' onClick={() => setError('')}>
+                                Dismiss
+                            </Button>
+                        </CardContent>
+                    </Card>
                 </div>
             )}
 
-            <main className='main-content'>
+            <main className='mx-auto w-full max-w-6xl px-4 py-6 sm:px-6'>
                 {view.type === 'vehicles' &&
                     (loadingVehicles ? (
-                        <div className='loading'>Loading vehicles…</div>
+                        <div className='py-16 text-center text-slate-600'>Loading vehicles…</div>
                     ) : (
                         <VehicleList
                             vehicles={vehicles}
@@ -170,7 +184,7 @@ export default function App({ currentUser, onLogout }: AppProps) {
 
                 {view.type === 'records' &&
                     (loadingRecords ? (
-                        <div className='loading'>Loading records…</div>
+                        <div className='py-16 text-center text-slate-600'>Loading records…</div>
                     ) : (
                         <ServiceRecordList
                             vehicle={view.vehicle}

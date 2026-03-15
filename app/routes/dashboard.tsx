@@ -195,11 +195,11 @@ export default function DashboardRoute() {
     }, [auth.status, location.hash, location.pathname, location.search, navigate])
 
     if (auth.status === 'loading') {
-        return <div className='page-loading'>Checking your session…</div>
+        return <div className='grid min-h-screen place-items-center text-slate-600'>Checking your session…</div>
     }
 
     if (!auth.user) {
-        return <div className='page-loading'>Redirecting to login…</div>
+        return <div className='grid min-h-screen place-items-center text-slate-600'>Redirecting to login…</div>
     }
 
     return (

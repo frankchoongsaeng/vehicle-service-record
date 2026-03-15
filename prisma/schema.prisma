@@ -7,8 +7,22 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id            String          @id @default(cuid())
+  email         String          @unique
+  password_hash String
+  created_at    DateTime        @default(now())
+  updated_at    DateTime        @updatedAt
+
+  vehicles       Vehicle[]
+  service_records ServiceRecord[]
+
+  @@map("users")
+}
+
 model Vehicle {
   id        Int             @id @default(autoincrement())
+  user_id   String
   make      String
   model     String
   year      Int
@@ -19,13 +33,16 @@ model Vehicle {
   created_at DateTime       @default(now())
   updated_at DateTime       @updatedAt
 
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
   service_records ServiceRecord[]
 
+  @@index([user_id])
   @@map("vehicles")
 }
 
 model ServiceRecord {
   id           Int      @id @default(autoincrement())
+  user_id      String
   vehicle_id   Int
   service_type String
   description  String
@@ -36,8 +53,11 @@ model ServiceRecord {
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
 
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
   vehicle Vehicle @relation(fields: [vehicle_id], references: [id], onDelete: Cascade)
 
+  @@index([user_id])
   @@index([vehicle_id])
+  @@index([user_id, vehicle_id])
   @@map("service_records")
 }

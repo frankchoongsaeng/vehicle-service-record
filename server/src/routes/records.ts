@@ -1,33 +1,34 @@
 import { Router, Request, Response } from "express";
-import db from "../db";
+import { prisma } from "../db";
 
 const router = Router({ mergeParams: true });
 
 // GET /api/vehicles/:vehicleId/records
-router.get("/", (req: Request, res: Response) => {
-  const vehicle = db
-    .prepare(`SELECT id FROM vehicles WHERE id = ?`)
-    .get(req.params.vehicleId);
+router.get("/", async (req: Request, res: Response) => {
+  const vehicleId = Number(req.params.vehicleId);
+  const vehicle = await prisma.vehicle.findUnique({ where: { id: vehicleId } });
   if (!vehicle) {
     res.status(404).json({ error: "Vehicle not found" });
     return;
   }
 
-  const records = db
-    .prepare(
-      `SELECT * FROM service_records WHERE vehicle_id = ? ORDER BY date DESC, id DESC`
-    )
-    .all(req.params.vehicleId);
+  const records = await prisma.serviceRecord.findMany({
+    where: { vehicle_id: vehicleId },
+    orderBy: [{ date: "desc" }, { id: "desc" }],
+  });
   res.json(records);
 });
 
 // GET /api/vehicles/:vehicleId/records/:id
-router.get("/:id", (req: Request, res: Response) => {
-  const record = db
-    .prepare(
-      `SELECT * FROM service_records WHERE id = ? AND vehicle_id = ?`
-    )
-    .get(req.params.id, req.params.vehicleId);
+router.get("/:id", async (req: Request, res: Response) => {
+  const recordId = Number(req.params.id);
+  const vehicleId = Number(req.params.vehicleId);
+  const record = await prisma.serviceRecord.findFirst({
+    where: {
+      id: recordId,
+      vehicle_id: vehicleId,
+    },
+  });
   if (!record) {
     res.status(404).json({ error: "Service record not found" });
     return;
@@ -36,7 +37,7 @@ router.get("/:id", (req: Request, res: Response) => {
 });
 
 // POST /api/vehicles/:vehicleId/records
-router.post("/", (req: Request, res: Response) => {
+router.post("/", async (req: Request, res: Response) => {
   const { service_type, description, date, mileage, cost, notes } =
     req.body as {
       service_type: string;
@@ -54,36 +55,29 @@ router.post("/", (req: Request, res: Response) => {
     return;
   }
 
-  const vehicle = db
-    .prepare(`SELECT id FROM vehicles WHERE id = ?`)
-    .get(req.params.vehicleId);
+  const vehicleId = Number(req.params.vehicleId);
+  const vehicle = await prisma.vehicle.findUnique({ where: { id: vehicleId } });
   if (!vehicle) {
     res.status(404).json({ error: "Vehicle not found" });
     return;
   }
 
-  const stmt = db.prepare(
-    `INSERT INTO service_records (vehicle_id, service_type, description, date, mileage, cost, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
-  );
-  const result = stmt.run(
-    req.params.vehicleId,
-    service_type,
-    description,
-    date,
-    mileage ?? null,
-    cost ?? null,
-    notes ?? null
-  );
-
-  const created = db
-    .prepare(`SELECT * FROM service_records WHERE id = ?`)
-    .get(result.lastInsertRowid);
+  const created = await prisma.serviceRecord.create({
+    data: {
+      vehicle_id: vehicleId,
+      service_type,
+      description,
+      date,
+      mileage: mileage ?? null,
+      cost: cost ?? null,
+      notes: notes || null,
+    },
+  });
   res.status(201).json(created);
 });
 
 // PUT /api/vehicles/:vehicleId/records/:id
-router.put("/:id", (req: Request, res: Response) => {
+router.put("/:id", async (req: Request, res: Response) => {
   const { service_type, description, date, mileage, cost, notes } =
     req.body as {
       service_type: string;
@@ -101,53 +95,49 @@ router.put("/:id", (req: Request, res: Response) => {
     return;
   }
 
-  const existing = db
-    .prepare(
-      `SELECT id FROM service_records WHERE id = ? AND vehicle_id = ?`
-    )
-    .get(req.params.id, req.params.vehicleId);
+  const recordId = Number(req.params.id);
+  const vehicleId = Number(req.params.vehicleId);
+  const existing = await prisma.serviceRecord.findFirst({
+    where: {
+      id: recordId,
+      vehicle_id: vehicleId,
+    },
+  });
   if (!existing) {
     res.status(404).json({ error: "Service record not found" });
     return;
   }
 
-  db.prepare(
-    `UPDATE service_records
-     SET service_type = ?, description = ?, date = ?, mileage = ?,
-         cost = ?, notes = ?, updated_at = datetime('now')
-     WHERE id = ? AND vehicle_id = ?`
-  ).run(
-    service_type,
-    description,
-    date,
-    mileage ?? null,
-    cost ?? null,
-    notes ?? null,
-    req.params.id,
-    req.params.vehicleId
-  );
-
-  const updated = db
-    .prepare(`SELECT * FROM service_records WHERE id = ?`)
-    .get(req.params.id);
+  const updated = await prisma.serviceRecord.update({
+    where: { id: recordId },
+    data: {
+      service_type,
+      description,
+      date,
+      mileage: mileage ?? null,
+      cost: cost ?? null,
+      notes: notes || null,
+    },
+  });
   res.json(updated);
 });
 
 // DELETE /api/vehicles/:vehicleId/records/:id
-router.delete("/:id", (req: Request, res: Response) => {
-  const existing = db
-    .prepare(
-      `SELECT id FROM service_records WHERE id = ? AND vehicle_id = ?`
-    )
-    .get(req.params.id, req.params.vehicleId);
+router.delete("/:id", async (req: Request, res: Response) => {
+  const recordId = Number(req.params.id);
+  const vehicleId = Number(req.params.vehicleId);
+  const existing = await prisma.serviceRecord.findFirst({
+    where: {
+      id: recordId,
+      vehicle_id: vehicleId,
+    },
+  });
   if (!existing) {
     res.status(404).json({ error: "Service record not found" });
     return;
   }
 
-  db.prepare(
-    `DELETE FROM service_records WHERE id = ? AND vehicle_id = ?`
-  ).run(req.params.id, req.params.vehicleId);
+  await prisma.serviceRecord.delete({ where: { id: recordId } });
   res.status(204).send();
 });
 

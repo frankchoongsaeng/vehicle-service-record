@@ -1,0 +1,43 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Vehicle {
+  id        Int             @id @default(autoincrement())
+  make      String
+  model     String
+  year      Int
+  vin       String?
+  mileage   Int?
+  color     String?
+  notes     String?
+  created_at DateTime       @default(now())
+  updated_at DateTime       @updatedAt
+
+  service_records ServiceRecord[]
+
+  @@map("vehicles")
+}
+
+model ServiceRecord {
+  id           Int      @id @default(autoincrement())
+  vehicle_id   Int
+  service_type String
+  description  String
+  date         String
+  mileage      Int?
+  cost         Float?
+  notes        String?
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  vehicle Vehicle @relation(fields: [vehicle_id], references: [id], onDelete: Cascade)
+
+  @@index([vehicle_id])
+  @@map("service_records")
+}

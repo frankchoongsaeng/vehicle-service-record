@@ -1,23 +1,20 @@
 import { Router, Request, Response } from "express";
-import db from "../db";
+import { prisma } from "../db";
 
 const router = Router();
 
 // GET /api/vehicles
-router.get("/", (_req: Request, res: Response) => {
-  const vehicles = db
-    .prepare(
-      `SELECT * FROM vehicles ORDER BY make ASC, model ASC, year DESC`
-    )
-    .all();
+router.get("/", async (_req: Request, res: Response) => {
+  const vehicles = await prisma.vehicle.findMany({
+    orderBy: [{ make: "asc" }, { model: "asc" }, { year: "desc" }],
+  });
   res.json(vehicles);
 });
 
 // GET /api/vehicles/:id
-router.get("/:id", (req: Request, res: Response) => {
-  const vehicle = db
-    .prepare(`SELECT * FROM vehicles WHERE id = ?`)
-    .get(req.params.id);
+router.get("/:id", async (req: Request, res: Response) => {
+  const vehicleId = Number(req.params.id);
+  const vehicle = await prisma.vehicle.findUnique({ where: { id: vehicleId } });
   if (!vehicle) {
     res.status(404).json({ error: "Vehicle not found" });
     return;
@@ -26,7 +23,7 @@ router.get("/:id", (req: Request, res: Response) => {
 });
 
 // POST /api/vehicles
-router.post("/", (req: Request, res: Response) => {
+router.post("/", async (req: Request, res: Response) => {
   const { make, model, year, vin, mileage, color, notes } = req.body as {
     make: string;
     model: string;
@@ -42,28 +39,22 @@ router.post("/", (req: Request, res: Response) => {
     return;
   }
 
-  const stmt = db.prepare(
-    `INSERT INTO vehicles (make, model, year, vin, mileage, color, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
-  );
-  const result = stmt.run(
-    make,
-    model,
-    year,
-    vin ?? null,
-    mileage ?? null,
-    color ?? null,
-    notes ?? null
-  );
-
-  const created = db
-    .prepare(`SELECT * FROM vehicles WHERE id = ?`)
-    .get(result.lastInsertRowid);
+  const created = await prisma.vehicle.create({
+    data: {
+      make,
+      model,
+      year: Number(year),
+      vin: vin || null,
+      mileage: mileage ?? null,
+      color: color || null,
+      notes: notes || null,
+    },
+  });
   res.status(201).json(created);
 });
 
 // PUT /api/vehicles/:id
-router.put("/:id", (req: Request, res: Response) => {
+router.put("/:id", async (req: Request, res: Response) => {
   const { make, model, year, vin, mileage, color, notes } = req.body as {
     make: string;
     model: string;
@@ -79,47 +70,38 @@ router.put("/:id", (req: Request, res: Response) => {
     return;
   }
 
-  const existing = db
-    .prepare(`SELECT id FROM vehicles WHERE id = ?`)
-    .get(req.params.id);
+  const vehicleId = Number(req.params.id);
+  const existing = await prisma.vehicle.findUnique({ where: { id: vehicleId } });
   if (!existing) {
     res.status(404).json({ error: "Vehicle not found" });
     return;
   }
 
-  db.prepare(
-    `UPDATE vehicles
-     SET make = ?, model = ?, year = ?, vin = ?, mileage = ?,
-         color = ?, notes = ?, updated_at = datetime('now')
-     WHERE id = ?`
-  ).run(
-    make,
-    model,
-    year,
-    vin ?? null,
-    mileage ?? null,
-    color ?? null,
-    notes ?? null,
-    req.params.id
-  );
-
-  const updated = db
-    .prepare(`SELECT * FROM vehicles WHERE id = ?`)
-    .get(req.params.id);
+  const updated = await prisma.vehicle.update({
+    where: { id: vehicleId },
+    data: {
+      make,
+      model,
+      year: Number(year),
+      vin: vin || null,
+      mileage: mileage ?? null,
+      color: color || null,
+      notes: notes || null,
+    },
+  });
   res.json(updated);
 });
 
 // DELETE /api/vehicles/:id
-router.delete("/:id", (req: Request, res: Response) => {
-  const existing = db
-    .prepare(`SELECT id FROM vehicles WHERE id = ?`)
-    .get(req.params.id);
+router.delete("/:id", async (req: Request, res: Response) => {
+  const vehicleId = Number(req.params.id);
+  const existing = await prisma.vehicle.findUnique({ where: { id: vehicleId } });
   if (!existing) {
     res.status(404).json({ error: "Vehicle not found" });
     return;
   }
 
-  db.prepare(`DELETE FROM vehicles WHERE id = ?`).run(req.params.id);
+  await prisma.vehicle.delete({ where: { id: vehicleId } });
   res.status(204).send();
 });
 

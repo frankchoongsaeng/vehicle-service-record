@@ -30,5 +30,5 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Express API server running on http://localhost:${PORT}`);
 });

@@ -13,28 +13,29 @@ A web app to track maintenance and service history for your vehicles — accessi
 
 | Layer    | Technology                      |
 |----------|---------------------------------|
-| Frontend | React 19 + TypeScript + Vite    |
+| Frontend | Remix + React 19 + TypeScript   |
 | Backend  | Node.js + Express 5             |
-| Database | SQLite (via better-sqlite3)     |
+| Database | Prisma ORM + SQLite             |
 
 ## Project Structure
 
 ```
 vehicle-service-record/
-├── src/               # React frontend
+├── app/               # Remix app routes and document shell
+├── src/               # Shared React UI modules used by routes
 │   ├── api/           # API client (fetch wrapper)
 │   ├── components/    # UI components
 │   ├── types/         # Shared TypeScript types
-│   ├── App.tsx        # Main app with view routing
-│   └── main.tsx       # React entry point
+│   └── App.tsx        # Main app with view routing
+├── prisma/            # Prisma schema
 ├── server/            # Express backend
 │   └── src/
-│       ├── db.ts      # SQLite setup & schema
+│       ├── db.ts      # Prisma client singleton
 │       ├── index.ts   # Server entry point
 │       └── routes/
 │           ├── vehicles.ts  # Vehicle CRUD
 │           └── records.ts   # Service record CRUD
-└── vite.config.ts     # Vite config (with /api proxy)
+└── vite.config.ts     # Remix Vite config (with /api proxy)
 ```
 
 ## Getting Started
@@ -47,14 +48,20 @@ npm install
 
 The project is a single npm package: one install at the root covers both frontend and backend.
 
-### 2. Start both frontend and backend
+### 2. Initialize the database
+
+```bash
+npm run db:migrate -- --name init
+```
+
+### 3. Start both frontend and backend
 
 ```bash
 npm run dev
 ```
 
-- Frontend: http://localhost:5173
-- Backend API: http://localhost:3001
+- Frontend (Remix dev): http://localhost:5173
+- Backend API (Express): http://localhost:3001
 
 Open [http://localhost:5173](http://localhost:5173) in your browser.
 
@@ -76,6 +83,6 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ```bash
 npm run build
-# frontend output: dist/
+# frontend output: build/
 # backend output: server/dist/
 ```

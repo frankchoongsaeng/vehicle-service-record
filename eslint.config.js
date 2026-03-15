@@ -6,9 +6,9 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', 'server/dist']),
+  globalIgnores(['dist', 'build', 'server/dist']),
   {
-    files: ['src/**/*.{ts,tsx}'],
+    files: ['src/**/*.{ts,tsx}', 'app/**/*.{ts,tsx}', 'entry.*.tsx'],
     extends: [
       js.configs.recommended,
       tseslint.configs.recommended,

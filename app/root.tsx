@@ -11,6 +11,7 @@ import type { LinksFunction } from "@remix-run/node";
 import globalStyles from "../src/index.css?url";
 
 export const links: LinksFunction = () => [
+  { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
   { rel: "stylesheet", href: globalStyles },
 ];
 

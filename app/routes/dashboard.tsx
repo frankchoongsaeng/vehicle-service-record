@@ -1,4 +1,6 @@
-import type { LoaderFunctionArgs, MetaFunction } from '@remix-run/node'
+/* eslint-disable react-refresh/only-export-components */
+
+import type { MetaFunction } from '@remix-run/node'
 import { json } from '@remix-run/node'
 import { useLoaderData, useLocation, useNavigate } from '@remix-run/react'
 import { Activity, CalendarClock, CircleDollarSign, Download, Plus, TriangleAlert } from 'lucide-react'
@@ -38,7 +40,7 @@ interface DashboardLoaderData {
     timeline: TimelineEvent[]
 }
 
-export async function loader(_args: LoaderFunctionArgs) {
+export async function loader() {
     const summaryStats: SummaryStat[] = [
         {
             title: 'Current Mileage',
@@ -204,7 +206,7 @@ export default function DashboardRoute() {
 
     return (
         <main className='min-h-screen bg-slate-100/70 px-4 py-6 sm:px-6 lg:px-8'>
-            <div className='mx-auto w-full max-w-[1440px] space-y-6'>
+            <div className='mx-auto w-full max-w-screen-2xl space-y-6'>
                 <header className='flex flex-col justify-between gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-card sm:flex-row sm:items-center'>
                     <div>
                         <h1 className='text-2xl font-semibold capitalize text-slate-900'>

@@ -19,7 +19,7 @@ A web app to track maintenance and service history for your vehicles — accessi
 
 ## Project Structure
 
-```
+```text
 vehicle-service-record/
 ├── app/               # Remix app routes and document shell
 ├── src/               # Shared React UI modules used by routes
@@ -52,7 +52,15 @@ The project is a single npm package: one install at the root covers both fronten
 
 ```bash
 npm run db:migrate -- --name init
+npm run db:seed
 ```
+
+The seed step creates a development login by default:
+
+- Email: `demo@example.com`
+- Password: `change-me123`
+
+Override those values with `DEV_USER_EMAIL` and `DEV_USER_PASSWORD` in your environment if needed.
 
 ### 3. Start both frontend and backend
 
@@ -60,24 +68,58 @@ npm run db:migrate -- --name init
 npm run dev
 ```
 
-- Frontend (Remix dev): http://localhost:5173
-- Backend API (Express): http://localhost:3001
+- Frontend (Remix dev): <http://localhost:5173>
+- Backend API (Express): <http://localhost:3001>
 
 Open [http://localhost:5173](http://localhost:5173) in your browser.
 
+## Environment
+
+Copy `.env.example` to `.env` and adjust values for your environment.
+
+Important variables:
+
+- `DATABASE_URL`: Prisma SQLite connection string
+- `OPENAUTH_SECRET`: signing secret for the login session token
+- `OPENAUTH_ISSUER`: token issuer value, defaults to `vehicle-service-record-openauth`
+- `OPENAUTH_AUDIENCE`: token audience value, defaults to `vehicle-service-record-client`
+- `DEV_USER_EMAIL`: seeded development login email
+- `DEV_USER_PASSWORD`: seeded development login password
+
+## Login Flow
+
+- Unauthenticated users are redirected to `/login`
+- Successful sign-in creates an `HttpOnly` session cookie
+- Vehicle and service record API routes require an authenticated session and are scoped to the signed-in user
+- Use the sign-out button in the main app navbar to clear the current session
+
+## Manual Verification
+
+After running migrations, seed data, and the dev servers, validate the change with this flow:
+
+1. Open `/` and confirm the app redirects to `/login`
+2. Try an invalid password and confirm the login page shows an error
+3. Sign in with the seeded account and confirm the main application loads
+4. Refresh the page and confirm the session persists
+5. Sign out and confirm the session clears and the app returns to `/login`
+6. Request `/api/vehicles` without a session and confirm the API returns `401`
+
 ## API Endpoints
 
-| Method | Path                                        | Description                  |
-|--------|---------------------------------------------|------------------------------|
-| GET    | `/api/vehicles`                             | List all vehicles            |
-| POST   | `/api/vehicles`                             | Create a vehicle             |
-| PUT    | `/api/vehicles/:id`                         | Update a vehicle             |
-| DELETE | `/api/vehicles/:id`                         | Delete a vehicle             |
-| GET    | `/api/vehicles/:vehicleId/records`          | List service records         |
-| POST   | `/api/vehicles/:vehicleId/records`          | Add a service record         |
-| PUT    | `/api/vehicles/:vehicleId/records/:id`      | Update a service record      |
-| DELETE | `/api/vehicles/:vehicleId/records/:id`      | Delete a service record      |
-| GET    | `/api/health`                               | Health check                 |
+| Method | Path                                   | Description                     |
+| ------ | -------------------------------------- | ------------------------------- |
+| GET    | `/api/auth/session`                    | Get current authenticated user  |
+| POST   | `/api/auth/login`                      | Sign in with email and password |
+| POST   | `/api/auth/logout`                     | Clear the current session       |
+| GET    | `/api/vehicles`                        | List all vehicles               |
+| POST   | `/api/vehicles`                        | Create a vehicle                |
+| PUT    | `/api/vehicles/:id`                    | Update a vehicle                |
+| DELETE | `/api/vehicles/:id`                    | Delete a vehicle                |
+| GET    | `/api/vehicles/:vehicleId/records`     | List service records            |
+| POST   | `/api/vehicles/:vehicleId/records`     | Add a service record            |
+| PUT    | `/api/vehicles/:vehicleId/records/:id` | Update a service record         |
+| DELETE | `/api/vehicles/:vehicleId/records/:id` | Delete a service record         |
+| GET    | `/api/health`                          | Health check                    |
 
 ## Building for Production
 

@@ -39,21 +39,22 @@ vehicle-service-record/
 
 ## Getting Started
 
-### 1. Start the backend
+### 1. Install dependencies (root only)
 
 ```bash
-cd server
 npm install
-npm run dev      # starts on http://localhost:3001
 ```
 
-### 2. Start the frontend
+The project is a single npm package: one install at the root covers both frontend and backend.
+
+### 2. Start both frontend and backend
 
 ```bash
-# from the project root
-npm install
-npm run dev      # starts on http://localhost:5173
+npm run dev
 ```
+
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:3001
 
 Open [http://localhost:5173](http://localhost:5173) in your browser.
 
@@ -74,9 +75,7 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 ## Building for Production
 
 ```bash
-# Build the frontend
-npm run build          # outputs to dist/
-
-# Build the server
-cd server && npm run build   # outputs to server/dist/
+npm run build
+# frontend output: dist/
+# backend output: server/dist/
 ```

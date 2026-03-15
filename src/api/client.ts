@@ -1,4 +1,12 @@
-import type { AuthUser, LoginInput, Vehicle, VehicleInput, ServiceRecord, ServiceRecordInput } from '../types'
+import type {
+    AuthUser,
+    LoginInput,
+    SignupInput,
+    Vehicle,
+    VehicleInput,
+    ServiceRecord,
+    ServiceRecordInput
+} from '../types'
 
 const BASE = '/api'
 
@@ -36,6 +44,14 @@ export const getSession = async (): Promise<AuthUser> => {
 
 export const login = async (input: LoginInput): Promise<AuthUser> => {
     const data = await request<{ user: AuthUser }>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify(input)
+    })
+    return data.user
+}
+
+export const signup = async (input: SignupInput): Promise<AuthUser> => {
+    const data = await request<{ user: AuthUser }>('/auth/signup', {
         method: 'POST',
         body: JSON.stringify(input)
     })

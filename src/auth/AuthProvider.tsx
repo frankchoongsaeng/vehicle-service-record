@@ -1,6 +1,6 @@
 import { createContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import * as api from '../api/client'
-import type { AuthUser, LoginInput } from '../types'
+import type { AuthUser, LoginInput, SignupInput } from '../types'
 
 type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated'
 
@@ -9,6 +9,7 @@ type AuthContextValue = {
     status: AuthStatus
     bootstrapError: string | null
     login: (input: LoginInput) => Promise<AuthUser>
+    signup: (input: SignupInput) => Promise<AuthUser>
     logout: () => Promise<void>
     refreshSession: () => Promise<AuthUser | null>
 }
@@ -45,6 +46,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function login(input: LoginInput): Promise<AuthUser> {
         const nextUser = await api.login(input)
+        setUser(nextUser)
+        setBootstrapError(null)
+        setStatus('authenticated')
+        return nextUser
+    }
+
+    async function signup(input: SignupInput): Promise<AuthUser> {
+        const nextUser = await api.signup(input)
         setUser(nextUser)
         setBootstrapError(null)
         setStatus('authenticated')
@@ -98,6 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             status,
             bootstrapError,
             login,
+            signup,
             logout,
             refreshSession
         }),

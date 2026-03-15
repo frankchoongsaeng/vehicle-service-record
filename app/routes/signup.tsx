@@ -5,21 +5,25 @@ import { useAuth } from '../../src/auth/useAuth'
 import { getSafeRedirectTarget } from '../../src/auth/redirect'
 import { ApiError } from '../../src/api/client'
 
+const MIN_PASSWORD_LENGTH = 8
+
 export const meta: MetaFunction = () => {
     return [
-        { title: 'Login | Vehicle Service Record' },
-        { name: 'description', content: 'Sign in to access your vehicle service records.' }
+        { title: 'Sign Up | Vehicle Service Record' },
+        { name: 'description', content: 'Create an account to track your vehicle service records.' }
     ]
 }
 
-export default function LoginRoute() {
+export default function SignupRoute() {
     const auth = useAuth()
     const navigate = useNavigate()
     const [searchParams] = useSearchParams()
     const redirectTo = getSafeRedirectTarget(searchParams.get('redirectTo'))
-    const signupLink = `/signup?redirectTo=${encodeURIComponent(redirectTo)}`
+    const loginLink = `/login?redirectTo=${encodeURIComponent(redirectTo)}`
+
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
+    const [confirmPassword, setConfirmPassword] = useState('')
     const [submitting, setSubmitting] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
@@ -34,8 +38,20 @@ export default function LoginRoute() {
         setSubmitting(true)
         setError(null)
 
+        if (password.length < MIN_PASSWORD_LENGTH) {
+            setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters long.`)
+            setSubmitting(false)
+            return
+        }
+
+        if (password !== confirmPassword) {
+            setError('Passwords do not match.')
+            setSubmitting(false)
+            return
+        }
+
         try {
-            await auth.login({ email, password })
+            await auth.signup({ email, password })
             navigate(redirectTo, { replace: true })
         } catch (submitError) {
             if (submitError instanceof ApiError) {
@@ -43,7 +59,7 @@ export default function LoginRoute() {
             } else if (submitError instanceof Error) {
                 setError(submitError.message)
             } else {
-                setError('Unable to sign in right now.')
+                setError('Unable to create your account right now.')
             }
         } finally {
             setSubmitting(false)
@@ -58,9 +74,9 @@ export default function LoginRoute() {
         <main className='login-page'>
             <section className='login-panel'>
                 <div className='login-copy'>
-                    <span className='login-eyebrow'>Secure access</span>
-                    <h1>Sign in to manage your vehicles.</h1>
-                    <p>Your maintenance records are tied to your account. Use your email and password to continue.</p>
+                    <span className='login-eyebrow'>Get started</span>
+                    <h1>Create your account.</h1>
+                    <p>Sign up with your email and password to manage your vehicles and service history.</p>
                 </div>
 
                 <form className='login-form' onSubmit={handleSubmit}>
@@ -83,20 +99,34 @@ export default function LoginRoute() {
                         <input
                             id='password'
                             type='password'
-                            autoComplete='current-password'
+                            autoComplete='new-password'
                             value={password}
                             onChange={event => setPassword(event.target.value)}
+                            minLength={MIN_PASSWORD_LENGTH}
+                            required
+                        />
+                    </div>
+
+                    <div className='form-group'>
+                        <label htmlFor='confirm-password'>Confirm password</label>
+                        <input
+                            id='confirm-password'
+                            type='password'
+                            autoComplete='new-password'
+                            value={confirmPassword}
+                            onChange={event => setConfirmPassword(event.target.value)}
+                            minLength={MIN_PASSWORD_LENGTH}
                             required
                         />
                     </div>
 
                     <button className='btn-primary login-submit' type='submit' disabled={submitting}>
-                        {submitting ? 'Signing in…' : 'Sign in'}
+                        {submitting ? 'Creating account…' : 'Create account'}
                     </button>
                 </form>
 
                 <p className='login-help'>
-                    Need an account? <Link to={signupLink}>Create one</Link>.
+                    Already have an account? <Link to={loginLink}>Sign in</Link>.
                 </p>
             </section>
         </main>

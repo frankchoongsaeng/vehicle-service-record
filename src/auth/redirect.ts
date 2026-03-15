@@ -3,5 +3,9 @@ export function getSafeRedirectTarget(value: string | null | undefined): string 
         return '/'
     }
 
+    if (value === '/login' || value.startsWith('/login?') || value === '/signup' || value.startsWith('/signup?')) {
+        return '/'
+    }
+
     return value
 }

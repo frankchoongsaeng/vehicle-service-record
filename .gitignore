@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Server build output
+server/dist
+
+# SQLite database (runtime data)
+server/data/

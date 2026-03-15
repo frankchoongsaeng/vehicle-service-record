@@ -1,73 +1,82 @@
-# React + TypeScript + Vite
+# Vehicle Service Record
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A web app to track maintenance and service history for your vehicles — accessible from any device.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Manage multiple vehicles** — add make, model, year, color, mileage, and VIN
+- **Track service records** — oil changes, tire rotations, brake service, battery replacements, and more
+- **Rich record details** — service type, date, mileage at service, cost, and notes
+- **Cross-device access** — data is stored on the backend server, accessible from any device
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+| Layer    | Technology                      |
+|----------|---------------------------------|
+| Frontend | React 19 + TypeScript + Vite    |
+| Backend  | Node.js + Express 5             |
+| Database | SQLite (via better-sqlite3)     |
 
-## Expanding the ESLint configuration
+## Project Structure
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```
+vehicle-service-record/
+├── src/               # React frontend
+│   ├── api/           # API client (fetch wrapper)
+│   ├── components/    # UI components
+│   ├── types/         # Shared TypeScript types
+│   ├── App.tsx        # Main app with view routing
+│   └── main.tsx       # React entry point
+├── server/            # Express backend
+│   └── src/
+│       ├── db.ts      # SQLite setup & schema
+│       ├── index.ts   # Server entry point
+│       └── routes/
+│           ├── vehicles.ts  # Vehicle CRUD
+│           └── records.ts   # Service record CRUD
+└── vite.config.ts     # Vite config (with /api proxy)
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Getting Started
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### 1. Start the backend
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+cd server
+npm install
+npm run dev      # starts on http://localhost:3001
+```
+
+### 2. Start the frontend
+
+```bash
+# from the project root
+npm install
+npm run dev      # starts on http://localhost:5173
+```
+
+Open [http://localhost:5173](http://localhost:5173) in your browser.
+
+## API Endpoints
+
+| Method | Path                                        | Description                  |
+|--------|---------------------------------------------|------------------------------|
+| GET    | `/api/vehicles`                             | List all vehicles            |
+| POST   | `/api/vehicles`                             | Create a vehicle             |
+| PUT    | `/api/vehicles/:id`                         | Update a vehicle             |
+| DELETE | `/api/vehicles/:id`                         | Delete a vehicle             |
+| GET    | `/api/vehicles/:vehicleId/records`          | List service records         |
+| POST   | `/api/vehicles/:vehicleId/records`          | Add a service record         |
+| PUT    | `/api/vehicles/:vehicleId/records/:id`      | Update a service record      |
+| DELETE | `/api/vehicles/:vehicleId/records/:id`      | Delete a service record      |
+| GET    | `/api/health`                               | Health check                 |
+
+## Building for Production
+
+```bash
+# Build the frontend
+npm run build          # outputs to dist/
+
+# Build the server
+cd server && npm run build   # outputs to server/dist/
 ```

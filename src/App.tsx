@@ -136,7 +136,7 @@ export default function App({ currentUser, onLogout }: AppProps) {
                         className='h-auto p-0 text-base font-semibold text-slate-900'
                         onClick={() => setView({ type: 'vehicles' })}
                     >
-                        Vehicle Service Records
+                        Duralog
                     </Button>
                     <div className='flex items-center gap-3'>
                         <span className='text-sm text-slate-600'>{currentUser.email}</span>

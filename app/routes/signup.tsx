@@ -12,8 +12,8 @@ const MIN_PASSWORD_LENGTH = 8
 
 export const meta: MetaFunction = () => {
     return [
-        { title: 'Sign Up | Vehicle Service Record' },
-        { name: 'description', content: 'Create an account to track your vehicle service records.' }
+        { title: 'Sign Up | Duralog' },
+        { name: 'description', content: 'Create a Duralog account to track your vehicle service records.' }
     ]
 }
 

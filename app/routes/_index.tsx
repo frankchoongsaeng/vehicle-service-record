@@ -5,10 +5,7 @@ import VehicleServiceApp from '../../src/App'
 import { useAuth } from '../../src/auth/useAuth'
 
 export const meta: MetaFunction = () => {
-    return [
-        { title: 'Vehicle Service Record' },
-        { name: 'description', content: 'Track vehicle maintenance and service history.' }
-    ]
+    return [{ title: 'Duralog' }, { name: 'description', content: 'Track vehicle maintenance and service history.' }]
 }
 
 export default function Index() {

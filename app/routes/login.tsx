@@ -10,8 +10,8 @@ import { ApiError } from '../../src/api/client'
 
 export const meta: MetaFunction = () => {
     return [
-        { title: 'Login | Vehicle Service Record' },
-        { name: 'description', content: 'Sign in to access your vehicle service records.' }
+        { title: 'Login | Duralog' },
+        { name: 'description', content: 'Sign in to access Duralog and your vehicle service records.' }
     ]
 }
 

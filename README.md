@@ -1,6 +1,6 @@
-# Vehicle Service Record
+# Duralog
 
-A web app to track maintenance and service history for your vehicles — accessible from any device.
+Duralog is a web app to track maintenance and service history for your vehicles - accessible from any device.
 
 ## Features
 

@@ -7,7 +7,7 @@ import recordsRouter from './routes/records'
 import { attachAuthUser } from './middleware/auth'
 
 const app = express()
-const PORT = process.env.PORT || 3001
+const PORT = Number(process.env.PORT) || 3001
 
 app.set('trust proxy', 1)
 app.use(cors())
@@ -34,6 +34,6 @@ app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
-app.listen(PORT, () => {
-    console.log(`Express API server running on http://localhost:${PORT}`)
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Express API server running on http://0.0.0.0:${PORT}`)
 })

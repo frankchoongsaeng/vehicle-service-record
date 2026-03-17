@@ -1,10 +1,10 @@
 import { Router, Request, Response } from 'express'
 import { Prisma } from '@prisma/client'
-import { prisma } from '../db'
-import { hashPassword, verifyPassword } from '../openauth/password'
-import { issueOpenAuthToken } from '../openauth/token'
-import { clearSessionCookie, serializeSessionCookie } from '../auth/cookie'
-import { requireAuth } from '../middleware/auth'
+import { prisma } from '../db.js'
+import { hashPassword, verifyPassword } from '../openauth/password.js'
+import { issueOpenAuthToken } from '../openauth/token.js'
+import { clearSessionCookie, serializeSessionCookie } from '../auth/cookie.js'
+import { requireAuth } from '../middleware/auth.js'
 
 const router = Router()
 const MIN_PASSWORD_LENGTH = 8

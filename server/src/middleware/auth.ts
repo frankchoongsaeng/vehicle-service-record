@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from 'express'
-import { getAuthenticatedUser } from '../auth/session'
+import { getAuthenticatedUser } from '../auth/session.js'
 
 export async function attachAuthUser(req: Request, _res: Response, next: NextFunction) {
     try {

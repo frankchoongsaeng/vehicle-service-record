@@ -1,10 +1,10 @@
 import express from 'express'
 import cors from 'cors'
 import rateLimit from 'express-rate-limit'
-import authRouter from './routes/auth'
-import vehiclesRouter from './routes/vehicles'
-import recordsRouter from './routes/records'
-import { attachAuthUser } from './middleware/auth'
+import authRouter from './routes/auth.js'
+import vehiclesRouter from './routes/vehicles.js'
+import recordsRouter from './routes/records.js'
+import { attachAuthUser } from './middleware/auth.js'
 
 const app = express()
 const PORT = Number(process.env.PORT) || 3001

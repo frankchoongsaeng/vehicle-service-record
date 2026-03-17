@@ -1,8 +1,8 @@
 import type { Request } from 'express'
-import { prisma } from '../db'
-import { verifyOpenAuthToken } from '../openauth/token'
-import type { AuthUser } from '../types/auth'
-import { readSessionToken } from './cookie'
+import { prisma } from '../db.js'
+import { verifyOpenAuthToken } from '../openauth/token.js'
+import type { AuthUser } from '../types/auth.js'
+import { readSessionToken } from './cookie.js'
 
 export async function getAuthenticatedUser(request: Request): Promise<AuthUser | null> {
     const token = readSessionToken(request.headers.cookie)

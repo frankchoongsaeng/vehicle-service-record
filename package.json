@@ -7,8 +7,7 @@
         "dev": "concurrently \"npm run dev:client\" \"npm run dev:server\"",
         "dev:client": "remix vite:dev",
         "dev:server": "tsx watch server/src/index.ts",
-        "start:server": "tsx server/src/index.ts",
-        "start:client": "remix-serve ./build/server/index.js",
+        "start": "node ./build/server/index.js",
         "build": "npm run build:client && npm run build:server",
         "build:client": "remix vite:build",
         "build:server": "tsc -p server/tsconfig.json",
@@ -18,7 +17,7 @@
         "db:seed": "tsx prisma/seed.ts",
         "postinstall": "prisma generate",
         "lint": "eslint .",
-        "preview": "npm run start:client"
+        "preview": "npm run start"
     },
     "dependencies": {
         "@openauthjs/openauth": "^0.4.3",

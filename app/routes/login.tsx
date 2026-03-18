@@ -1,12 +1,12 @@
 import type { MetaFunction } from '@remix-run/node'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from '@remix-run/react'
-import { Button } from '../../src/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '../../src/components/ui/card'
-import { Input } from '../../src/components/ui/input'
-import { useAuth } from '../../src/auth/useAuth'
-import { getSafeRedirectTarget } from '../../src/auth/redirect'
-import { ApiError } from '../../src/api/client'
+import { Button } from '../../../../src-xxx/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '../../../../src-xxx/components/ui/card'
+import { Input } from '../../../../src-xxx/components/ui/input'
+import { useAuth } from '../../../../src-xxx/auth/useAuth'
+import { getSafeRedirectTarget } from '../../../../src-xxx/auth/redirect'
+import { ApiError } from '../../../../src-xxx/api/client'
 
 export const meta: MetaFunction = () => {
     return [

@@ -1,12 +1,12 @@
 import type { MetaFunction } from '@remix-run/node'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from '@remix-run/react'
-import { Button } from '../../../../src-xxx/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '../../../../src-xxx/components/ui/card'
-import { Input } from '../../../../src-xxx/components/ui/input'
-import { useAuth } from '../../../../src-xxx/auth/useAuth'
-import { getSafeRedirectTarget } from '../../../../src-xxx/auth/redirect'
-import { ApiError } from '../../../../src-xxx/api/client'
+import { Button } from '../components/ui/button.js'
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.js'
+import { Input } from '../components/ui/input.js'
+import { useAuth } from '../auth/useAuth.js'
+import { getSafeRedirectTarget } from '../auth/redirect.js'
+import { ApiError } from '../api/client.js'
 
 const MIN_PASSWORD_LENGTH = 8
 

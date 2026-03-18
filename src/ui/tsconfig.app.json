@@ -29,5 +29,8 @@
         "erasableSyntaxOnly": true,
         "noFallthroughCasesInSwitch": true,
         "noUncheckedSideEffectImports": true
-    }
+    },
+    "include": [
+        "./**/*"
+    ]
 }

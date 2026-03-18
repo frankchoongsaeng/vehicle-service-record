@@ -45,7 +45,7 @@ const viteDevServer =
               })
           )
 
-app.use(viteDevServer ? viteDevServer.middlewares : express.static('../dist/ui/client'))
+app.use(viteDevServer ? viteDevServer.middlewares : express.static('./dist/ui/client'))
 
 const build = viteDevServer
     ? () => viteDevServer.ssrLoadModule('virtual:remix/server-build')

@@ -1,8 +1,8 @@
 import type { MetaFunction } from '@remix-run/node'
 import { useEffect } from 'react'
 import { useLocation, useNavigate } from '@remix-run/react'
-import VehicleServiceApp from '../../../../src-xxx/App'
-import { useAuth } from '../../../../src-xxx/auth/useAuth'
+import VehicleServiceApp from '../App.js'
+import { useAuth } from '../auth/useAuth.js'
 
 export const meta: MetaFunction = () => {
     return [{ title: 'Duralog' }, { name: 'description', content: 'Track vehicle maintenance and service history.' }]

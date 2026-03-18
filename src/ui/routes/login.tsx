@@ -1,32 +1,28 @@
 import type { MetaFunction } from '@remix-run/node'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from '@remix-run/react'
-import { Button } from '../../../../src-xxx/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '../../../../src-xxx/components/ui/card'
-import { Input } from '../../../../src-xxx/components/ui/input'
-import { useAuth } from '../../../../src-xxx/auth/useAuth'
-import { getSafeRedirectTarget } from '../../../../src-xxx/auth/redirect'
-import { ApiError } from '../../../../src-xxx/api/client'
-
-const MIN_PASSWORD_LENGTH = 8
+import { Button } from '../components/ui/button.js'
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.js'
+import { Input } from '../components/ui/input.js'
+import { useAuth } from '../auth/useAuth.js'
+import { getSafeRedirectTarget } from '../auth/redirect.js'
+import { ApiError } from '../api/client.js'
 
 export const meta: MetaFunction = () => {
     return [
-        { title: 'Sign Up | Duralog' },
-        { name: 'description', content: 'Create a Duralog account to track your vehicle service records.' }
+        { title: 'Login | Duralog' },
+        { name: 'description', content: 'Sign in to access Duralog and your vehicle service records.' }
     ]
 }
 
-export default function SignupRoute() {
+export default function LoginRoute() {
     const auth = useAuth()
     const navigate = useNavigate()
     const [searchParams] = useSearchParams()
     const redirectTo = getSafeRedirectTarget(searchParams.get('redirectTo'))
-    const loginLink = `/login?redirectTo=${encodeURIComponent(redirectTo)}`
-
+    const signupLink = `/signup?redirectTo=${encodeURIComponent(redirectTo)}`
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
-    const [confirmPassword, setConfirmPassword] = useState('')
     const [submitting, setSubmitting] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
@@ -41,20 +37,8 @@ export default function SignupRoute() {
         setSubmitting(true)
         setError(null)
 
-        if (password.length < MIN_PASSWORD_LENGTH) {
-            setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters long.`)
-            setSubmitting(false)
-            return
-        }
-
-        if (password !== confirmPassword) {
-            setError('Passwords do not match.')
-            setSubmitting(false)
-            return
-        }
-
         try {
-            await auth.signup({ email, password })
+            await auth.login({ email, password })
             navigate(redirectTo, { replace: true })
         } catch (submitError) {
             if (submitError instanceof ApiError) {
@@ -62,7 +46,7 @@ export default function SignupRoute() {
             } else if (submitError instanceof Error) {
                 setError(submitError.message)
             } else {
-                setError('Unable to create your account right now.')
+                setError('Unable to sign in right now.')
             }
         } finally {
             setSubmitting(false)
@@ -77,10 +61,10 @@ export default function SignupRoute() {
         <main className='grid min-h-screen place-items-center bg-slate-100 px-4 py-8'>
             <Card className='w-full max-w-md'>
                 <CardHeader className='space-y-2'>
-                    <p className='text-xs font-semibold uppercase tracking-wide text-slate-500'>Get started</p>
-                    <CardTitle className='text-2xl'>Create your account.</CardTitle>
+                    <p className='text-xs font-semibold uppercase tracking-wide text-slate-500'>Secure access</p>
+                    <CardTitle className='text-2xl'>Sign in to manage your vehicles.</CardTitle>
                     <p className='text-sm text-slate-600'>
-                        Sign up with your email and password to manage your vehicles and service history.
+                        Your maintenance records are tied to your account. Use your email and password to continue.
                     </p>
                 </CardHeader>
 
@@ -113,38 +97,22 @@ export default function SignupRoute() {
                             <Input
                                 id='password'
                                 type='password'
-                                autoComplete='new-password'
+                                autoComplete='current-password'
                                 value={password}
                                 onChange={event => setPassword(event.target.value)}
-                                minLength={MIN_PASSWORD_LENGTH}
-                                required
-                            />
-                        </div>
-
-                        <div className='space-y-2'>
-                            <label htmlFor='confirm-password' className='text-sm font-medium text-slate-700'>
-                                Confirm password
-                            </label>
-                            <Input
-                                id='confirm-password'
-                                type='password'
-                                autoComplete='new-password'
-                                value={confirmPassword}
-                                onChange={event => setConfirmPassword(event.target.value)}
-                                minLength={MIN_PASSWORD_LENGTH}
                                 required
                             />
                         </div>
 
                         <Button className='w-full' type='submit' disabled={submitting}>
-                            {submitting ? 'Creating account…' : 'Create account'}
+                            {submitting ? 'Signing in…' : 'Sign in'}
                         </Button>
                     </form>
 
                     <p className='mt-4 text-sm text-slate-600'>
-                        Already have an account?{' '}
-                        <Link to={loginLink} className='font-semibold text-slate-900 hover:underline'>
-                            Sign in
+                        Need an account?{' '}
+                        <Link to={signupLink} className='font-semibold text-slate-900 hover:underline'>
+                            Create one
                         </Link>
                         .
                     </p>

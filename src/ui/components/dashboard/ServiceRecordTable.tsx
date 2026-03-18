@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Search } from 'lucide-react'
+import { useSearchParams } from '@remix-run/react'
 
 import { Input } from '../ui/input.js'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js'
@@ -15,11 +16,29 @@ interface ServiceRecordTableProps {
 const statusFilters: Array<ServiceStatus | 'All'> = ['All', 'Completed', 'Upcoming', 'Planned', 'Overdue']
 
 export function ServiceRecordTable({ records }: ServiceRecordTableProps) {
-    const [query, setQuery] = useState('')
-    const [category, setCategory] = useState('All')
-    const [status, setStatus] = useState<ServiceStatus | 'All'>('All')
+    const [searchParams, setSearchParams] = useSearchParams()
+
+    const query = searchParams.get('recordsQuery') ?? ''
+    const categoryFromUrl = searchParams.get('recordsCategory') ?? 'All'
+    const statusFromUrl = searchParams.get('recordsStatus') ?? 'All'
 
     const categories = useMemo(() => ['All', ...new Set(records.map(record => record.category))], [records])
+    const category = categories.includes(categoryFromUrl) ? categoryFromUrl : 'All'
+    const status = statusFilters.includes(statusFromUrl as ServiceStatus | 'All')
+        ? (statusFromUrl as ServiceStatus | 'All')
+        : 'All'
+
+    const updateFilter = (key: 'recordsQuery' | 'recordsCategory' | 'recordsStatus', value: string) => {
+        const next = new URLSearchParams(searchParams)
+
+        if (!value || value === 'All') {
+            next.delete(key)
+        } else {
+            next.set(key, value)
+        }
+
+        setSearchParams(next, { replace: true })
+    }
 
     const filteredRecords = useMemo(() => {
         const loweredQuery = query.toLowerCase().trim()
@@ -51,14 +70,14 @@ export function ServiceRecordTable({ records }: ServiceRecordTableProps) {
                         <Search className='pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-muted-foreground' />
                         <Input
                             value={query}
-                            onChange={event => setQuery(event.target.value)}
+                            onChange={event => updateFilter('recordsQuery', event.target.value)}
                             className='pl-9'
                             placeholder='Search by service or workshop'
                             aria-label='Search records'
                         />
                     </div>
 
-                    <Select value={category} onValueChange={setCategory}>
+                    <Select value={category} onValueChange={value => updateFilter('recordsCategory', value)}>
                         <SelectTrigger>
                             <SelectValue placeholder='Category' />
                         </SelectTrigger>
@@ -71,7 +90,10 @@ export function ServiceRecordTable({ records }: ServiceRecordTableProps) {
                         </SelectContent>
                     </Select>
 
-                    <Select value={status} onValueChange={value => setStatus(value as ServiceStatus | 'All')}>
+                    <Select
+                        value={status}
+                        onValueChange={value => updateFilter('recordsStatus', value as ServiceStatus | 'All')}
+                    >
                         <SelectTrigger>
                             <SelectValue placeholder='Status' />
                         </SelectTrigger>

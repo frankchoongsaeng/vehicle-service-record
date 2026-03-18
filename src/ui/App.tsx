@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from '@remix-run/react'
 import type { AuthUser, Vehicle, ServiceRecord, VehicleInput, ServiceRecordInput } from './types/index.js'
 import * as api from './api/client.js'
 import { Button } from './components/ui/button.js'
@@ -20,10 +21,94 @@ type AppProps = {
     onLogout: () => Promise<void>
 }
 
+type ViewQuery = 'vehicles' | 'vehicle-form' | 'records' | 'record-form'
+
+const viewQueryValues: ReadonlySet<ViewQuery> = new Set(['vehicles', 'vehicle-form', 'records', 'record-form'])
+
+function parsePositiveInt(value: string | null): number | null {
+    if (!value) {
+        return null
+    }
+
+    const parsed = Number(value)
+    if (!Number.isInteger(parsed) || parsed < 1) {
+        return null
+    }
+
+    return parsed
+}
+
+function buildSearchParams(view: View): URLSearchParams {
+    const params = new URLSearchParams()
+    params.set('view', view.type)
+
+    if (view.type === 'records' || view.type === 'record-form') {
+        params.set('vehicleId', String(view.vehicle.id))
+    }
+
+    if (view.type === 'vehicle-form' && view.vehicle) {
+        params.set('vehicleId', String(view.vehicle.id))
+    }
+
+    if (view.type === 'record-form' && view.record) {
+        params.set('recordId', String(view.record.id))
+    }
+
+    return params
+}
+
+function isSameView(current: View, next: View): boolean {
+    if (current.type !== next.type) {
+        return false
+    }
+
+    if (
+        current.type === 'records' ||
+        current.type === 'record-form' ||
+        next.type === 'records' ||
+        next.type === 'record-form'
+    ) {
+        if (
+            (current.type !== 'records' && current.type !== 'record-form') ||
+            (next.type !== 'records' && next.type !== 'record-form')
+        ) {
+            return false
+        }
+
+        if (current.vehicle.id !== next.vehicle.id) {
+            return false
+        }
+    }
+
+    if (current.type === 'record-form' || next.type === 'record-form') {
+        if (current.type !== 'record-form' || next.type !== 'record-form') {
+            return false
+        }
+
+        if (current.record?.id !== next.record?.id) {
+            return false
+        }
+    }
+
+    if (current.type === 'vehicle-form' || next.type === 'vehicle-form') {
+        if (current.type !== 'vehicle-form' || next.type !== 'vehicle-form') {
+            return false
+        }
+
+        if (current.vehicle?.id !== next.vehicle?.id) {
+            return false
+        }
+    }
+
+    return true
+}
+
 export default function App({ currentUser, onLogout }: AppProps) {
+    const [searchParams, setSearchParams] = useSearchParams()
     const [view, setView] = useState<View>({ type: 'vehicles' })
     const [vehicles, setVehicles] = useState<Vehicle[]>([])
     const [records, setRecords] = useState<ServiceRecord[]>([])
+    const [recordsVehicleId, setRecordsVehicleId] = useState<number | null>(null)
     const [loadingVehicles, setLoadingVehicles] = useState(true)
     const [loadingRecords, setLoadingRecords] = useState(false)
     const [error, setError] = useState('')
@@ -38,24 +123,103 @@ export default function App({ currentUser, onLogout }: AppProps) {
     }, [])
 
     // Load records when a vehicle is selected
-    const loadRecords = useCallback((vehicleId: number) => {
+    const loadRecords = useCallback(async (vehicleId: number) => {
         setLoadingRecords(true)
-        api.getRecords(vehicleId)
-            .then(setRecords)
-            .catch(() => setError('Failed to load service records.'))
-            .finally(() => setLoadingRecords(false))
+        try {
+            const nextRecords = await api.getRecords(vehicleId)
+            setRecords(nextRecords)
+            setRecordsVehicleId(vehicleId)
+        } catch {
+            setError('Failed to load service records.')
+        } finally {
+            setLoadingRecords(false)
+        }
     }, [])
+
+    const setViewAndSyncUrl = useCallback(
+        (nextView: View) => {
+            setView(nextView)
+
+            const nextParams = buildSearchParams(nextView)
+            if (nextParams.toString() !== searchParams.toString()) {
+                setSearchParams(nextParams)
+            }
+        },
+        [searchParams, setSearchParams]
+    )
+
+    useEffect(() => {
+        if (loadingVehicles) {
+            return
+        }
+
+        const requestedView = searchParams.get('view')
+        const isKnownView = requestedView && viewQueryValues.has(requestedView as ViewQuery)
+        const viewType: ViewQuery = isKnownView ? (requestedView as ViewQuery) : 'vehicles'
+
+        const vehicleId = parsePositiveInt(searchParams.get('vehicleId'))
+        const recordId = parsePositiveInt(searchParams.get('recordId'))
+        const selectedVehicle = vehicleId ? vehicles.find(vehicle => vehicle.id === vehicleId) : undefined
+        const selectedRecord =
+            recordId && recordsVehicleId === vehicleId ? records.find(record => record.id === recordId) : undefined
+
+        if (
+            (viewType === 'records' || viewType === 'record-form') &&
+            vehicleId &&
+            recordsVehicleId !== vehicleId &&
+            !loadingRecords
+        ) {
+            void loadRecords(vehicleId)
+        }
+
+        let nextView: View = { type: 'vehicles' }
+
+        if (viewType === 'vehicle-form') {
+            nextView = selectedVehicle ? { type: 'vehicle-form', vehicle: selectedVehicle } : { type: 'vehicle-form' }
+        }
+
+        if (viewType === 'records' && selectedVehicle) {
+            nextView = { type: 'records', vehicle: selectedVehicle }
+        }
+
+        if (viewType === 'record-form' && selectedVehicle) {
+            nextView = selectedRecord
+                ? { type: 'record-form', vehicle: selectedVehicle, record: selectedRecord }
+                : { type: 'record-form', vehicle: selectedVehicle }
+        }
+
+        if (!isSameView(view, nextView)) {
+            setView(nextView)
+        }
+
+        const canonicalParams = buildSearchParams(nextView)
+        if (canonicalParams.toString() !== searchParams.toString()) {
+            setSearchParams(canonicalParams, { replace: true })
+        }
+    }, [
+        loadRecords,
+        loadingRecords,
+        loadingVehicles,
+        records,
+        recordsVehicleId,
+        searchParams,
+        setSearchParams,
+        vehicles,
+        view
+    ])
 
     // ── Vehicle handlers ───────────────────────────────────────────────────────
 
     const handleSelectVehicle = (v: Vehicle) => {
-        setView({ type: 'records', vehicle: v })
-        loadRecords(v.id)
+        setViewAndSyncUrl({ type: 'records', vehicle: v })
+        if (recordsVehicleId !== v.id) {
+            void loadRecords(v.id)
+        }
     }
 
-    const handleAddVehicle = () => setView({ type: 'vehicle-form' })
+    const handleAddVehicle = () => setViewAndSyncUrl({ type: 'vehicle-form' })
 
-    const handleEditVehicle = (v: Vehicle) => setView({ type: 'vehicle-form', vehicle: v })
+    const handleEditVehicle = (v: Vehicle) => setViewAndSyncUrl({ type: 'vehicle-form', vehicle: v })
 
     const handleDeleteVehicle = async (v: Vehicle) => {
         if (!confirm(`Delete ${v.year} ${v.make} ${v.model} and all its service records?`)) return
@@ -76,19 +240,19 @@ export default function App({ currentUser, onLogout }: AppProps) {
             const created = await api.createVehicle(data)
             setVehicles(prev => [...prev, created])
         }
-        setView({ type: 'vehicles' })
+        setViewAndSyncUrl({ type: 'vehicles' })
     }
 
     // ── Record handlers ────────────────────────────────────────────────────────
 
     const handleAddRecord = () => {
         if (view.type !== 'records') return
-        setView({ type: 'record-form', vehicle: view.vehicle })
+        setViewAndSyncUrl({ type: 'record-form', vehicle: view.vehicle })
     }
 
     const handleEditRecord = (r: ServiceRecord) => {
         if (view.type !== 'records') return
-        setView({ type: 'record-form', vehicle: view.vehicle, record: r })
+        setViewAndSyncUrl({ type: 'record-form', vehicle: view.vehicle, record: r })
     }
 
     const handleDeleteRecord = async (r: ServiceRecord) => {
@@ -112,7 +276,7 @@ export default function App({ currentUser, onLogout }: AppProps) {
             const created = await api.createRecord(vehicle.id, data)
             setRecords(prev => [created, ...prev])
         }
-        setView({ type: 'records', vehicle })
+        setViewAndSyncUrl({ type: 'records', vehicle })
     }
 
     const handleLogout = async () => {
@@ -135,7 +299,7 @@ export default function App({ currentUser, onLogout }: AppProps) {
                     <Button
                         variant='ghost'
                         className='h-auto p-0 text-base font-semibold text-foreground hover:bg-transparent'
-                        onClick={() => setView({ type: 'vehicles' })}
+                        onClick={() => setViewAndSyncUrl({ type: 'vehicles' })}
                     >
                         <span className='flex items-center gap-3'>
                             <span className='h-9 w-9 text-foreground'>
@@ -184,7 +348,7 @@ export default function App({ currentUser, onLogout }: AppProps) {
                     <VehicleForm
                         initial={view.vehicle}
                         onSubmit={handleSubmitVehicle}
-                        onCancel={() => setView({ type: 'vehicles' })}
+                        onCancel={() => setViewAndSyncUrl({ type: 'vehicles' })}
                     />
                 )}
 
@@ -198,7 +362,7 @@ export default function App({ currentUser, onLogout }: AppProps) {
                             onAdd={handleAddRecord}
                             onEdit={handleEditRecord}
                             onDelete={handleDeleteRecord}
-                            onBack={() => setView({ type: 'vehicles' })}
+                            onBack={() => setViewAndSyncUrl({ type: 'vehicles' })}
                         />
                     ))}
 
@@ -206,7 +370,7 @@ export default function App({ currentUser, onLogout }: AppProps) {
                     <ServiceRecordForm
                         initial={view.record}
                         onSubmit={handleSubmitRecord}
-                        onCancel={() => setView({ type: 'records', vehicle: view.vehicle })}
+                        onCancel={() => setViewAndSyncUrl({ type: 'records', vehicle: view.vehicle })}
                     />
                 )}
             </main>

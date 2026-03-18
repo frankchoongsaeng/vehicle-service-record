@@ -182,3 +182,95 @@ body {
     color: rgb(15 23 42);
     background-color: rgb(248 250 252);
 }
+
+.duralog-mascot {
+    max-width: 256px;
+    max-height: 256px;
+}
+
+.duralog-mascot .float-wrap {
+    animation: duralog-mascot-float-y 2s ease-in-out infinite;
+    transform-origin: center;
+}
+
+/* .duralog-mascot .cap {
+    animation: duralog-mascot-cap-tilt 2s ease-in-out infinite;
+    transform-origin: 50% 26%;
+    transform-box: fill-box;
+} */
+
+.duralog-mascot .shadow {
+    animation: duralog-mascot-shadow-pulse 2s ease-in-out infinite;
+    transform-origin: center;
+    transform-box: fill-box;
+    border-radius: 100%;
+    width: 70%;
+    margin: auto;
+    margin-top: -1.5rem;
+}
+
+.duralog-mascot .blink {
+    transform-origin: center;
+    transform-box: fill-box;
+    animation: duralog-mascot-blink 4.8s infinite;
+}
+
+/* .duralog-mascot .mouth {
+    animation: duralog-mascot-mouth-bob 2s ease-in-out infinite;
+    transform-origin: center;
+    transform-box: fill-box;
+} */
+
+@keyframes duralog-mascot-float-y {
+    0%,
+    100% {
+        transform: translateY(0px);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+@keyframes duralog-mascot-shadow-pulse {
+    0%,
+    100% {
+        transform: scaleX(1) scaleY(1);
+        background-color: hsl(0 0% 80% / 1);
+    }
+    50% {
+        transform: scaleX(0.9) scaleY(0.85);
+        background-color: hsl(0 0% 80% / 0.9);
+    }
+}
+
+@keyframes duralog-mascot-cap-tilt {
+    0%,
+    100% {
+        transform: rotate(0deg) translateY(0px);
+    }
+    50% {
+        transform: rotate(-4deg) translateY(-2px);
+    }
+}
+
+@keyframes duralog-mascot-blink {
+    0%,
+    44%,
+    48%,
+    100% {
+        transform: scaleY(1);
+    }
+    46% {
+        transform: scaleY(0.08);
+    }
+}
+
+@keyframes duralog-mascot-mouth-bob {
+    0%,
+    100% {
+        transform: translateY(0px) scaleX(1);
+    }
+    50% {
+        transform: translateY(-1px) scaleX(1.03);
+    }
+}

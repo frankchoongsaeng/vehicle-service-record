@@ -31,5 +31,9 @@ export default function Index() {
         return <div className='grid min-h-screen place-items-center text-muted-foreground'>Redirecting to login…</div>
     }
 
-    return <VehicleServiceApp currentUser={auth.user} onLogout={auth.logout} />
+    return (
+        <>
+            <VehicleServiceApp currentUser={auth.user} onLogout={auth.logout} />
+        </>
+    )
 }

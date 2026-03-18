@@ -3,6 +3,7 @@ import type { AuthUser, Vehicle, ServiceRecord, VehicleInput, ServiceRecordInput
 import * as api from './api/client.js'
 import { Button } from './components/ui/button.js'
 import { Card, CardContent } from './components/ui/card.js'
+import Logo from './components/ui/logo.js'
 import VehicleList from './components/VehicleList.js'
 import VehicleForm from './components/VehicleForm.js'
 import ServiceRecordList from './components/ServiceRecordList.js'
@@ -133,10 +134,15 @@ export default function App({ currentUser, onLogout }: AppProps) {
                 <div className='mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6'>
                     <Button
                         variant='ghost'
-                        className='h-auto p-0 text-base font-semibold text-foreground'
+                        className='h-auto p-0 text-base font-semibold text-foreground hover:bg-transparent'
                         onClick={() => setView({ type: 'vehicles' })}
                     >
-                        Duralog
+                        <span className='flex items-center gap-3'>
+                            <span className='h-9 w-9 text-foreground'>
+                                <Logo className='h-full w-full' />
+                            </span>
+                            <span className='text-lg font-semibold tracking-tight'>Duralog</span>
+                        </span>
                     </Button>
                     <div className='flex items-center gap-3'>
                         <span className='text-sm text-muted-foreground'>{currentUser.email}</span>

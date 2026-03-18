@@ -1,6 +1,10 @@
-export default function Mascot() {
+type MascotProps = {
+    className?: string
+}
+
+export default function Mascot({ className }: MascotProps) {
     return (
-        <div>
+        <div className={className} style={{ maxWidth: '256px', maxHeight: '256px' }} aria-hidden='true'>
             <style>{`
             .float-wrap {
               animation: floatY 2.8s ease-in-out infinite;

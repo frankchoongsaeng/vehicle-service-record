@@ -1,6 +1,7 @@
 import type { MetaFunction } from '@remix-run/node'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from '@remix-run/react'
+import BrandedLoadingScreen from '../components/BrandedLoadingScreen.js'
 import { Button } from '../components/ui/button.js'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.js'
 import { Input } from '../components/ui/input.js'
@@ -70,7 +71,7 @@ export default function SignupRoute() {
     }
 
     if (auth.status === 'loading') {
-        return <div className='grid min-h-screen place-items-center text-muted-foreground'>Checking your session…</div>
+        return <BrandedLoadingScreen message='Checking your session…' />
     }
 
     return (

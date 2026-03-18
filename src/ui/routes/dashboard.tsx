@@ -6,6 +6,7 @@ import { useLoaderData, useLocation, useNavigate } from '@remix-run/react'
 import { Activity, CalendarClock, CircleDollarSign, Download, Plus, TriangleAlert } from 'lucide-react'
 import { useEffect } from 'react'
 
+import BrandedLoadingScreen from '../components/BrandedLoadingScreen'
 import { Button } from '../components/ui/button'
 import { QuickAddServiceForm } from '../components/dashboard/QuickAddServiceForm'
 import { MaintenanceTimeline } from '../components/dashboard/MaintenanceTimeline'
@@ -197,7 +198,7 @@ export default function DashboardRoute() {
     }, [auth.status, location.hash, location.pathname, location.search, navigate])
 
     if (auth.status === 'loading') {
-        return <div className='grid min-h-screen place-items-center text-muted-foreground'>Checking your session…</div>
+        return <BrandedLoadingScreen message='Checking your session…' />
     }
 
     if (!auth.user) {

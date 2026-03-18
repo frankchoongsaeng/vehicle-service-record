@@ -2,6 +2,7 @@ import type { MetaFunction } from '@remix-run/node'
 import { useEffect } from 'react'
 import { useLocation, useNavigate } from '@remix-run/react'
 import VehicleServiceApp from '../App.js'
+import BrandedLoadingScreen from '../components/BrandedLoadingScreen'
 import { useAuth } from '../auth/useAuth.js'
 
 export const meta: MetaFunction = () => {
@@ -23,7 +24,7 @@ export default function Index() {
     }, [auth.status, location.hash, location.pathname, location.search, navigate])
 
     if (auth.status === 'loading') {
-        return <div className='grid min-h-screen place-items-center text-muted-foreground'>Checking your session…</div>
+        return <BrandedLoadingScreen message='Checking your session…' />
     }
 
     if (!auth.user) {

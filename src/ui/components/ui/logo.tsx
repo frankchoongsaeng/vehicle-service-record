@@ -1,6 +1,18 @@
-export default function Logo() {
+type LogoProps = {
+    className?: string
+    width?: number
+    height?: number
+}
+
+export default function Logo({ className, width = 48, height = 48 }: LogoProps) {
     return (
-        <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1024 1024' width='1024' height='1024'>
+        <svg
+            xmlns='http://www.w3.org/2000/svg'
+            viewBox='0 0 1024 1024'
+            width={width}
+            height={height}
+            className={className}
+        >
             <rect width='100%' height='100%' fill='none'></rect>
             <g>
                 <g transform='matrix(0.99877, 0, 0, 0.99877, 12.6195, 5.920221)'>

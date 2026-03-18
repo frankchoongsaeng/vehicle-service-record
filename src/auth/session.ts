@@ -1,8 +1,11 @@
 import type { Request } from 'express'
 import { prisma } from '../db.js'
+import { createLogger } from '../logging/logger.js'
 import { verifyOpenAuthToken } from '../openauth/token.js'
 import type { AuthUser } from '../types/auth.js'
 import { readSessionToken } from './cookie.js'
+
+const sessionLogger = createLogger({ component: 'session-auth' })
 
 export async function getAuthenticatedUser(request: Request): Promise<AuthUser | null> {
     const token = readSessionToken(request.headers.cookie)
@@ -12,6 +15,10 @@ export async function getAuthenticatedUser(request: Request): Promise<AuthUser |
 
     const claims = verifyOpenAuthToken(token)
     if (!claims) {
+        sessionLogger.warn('auth.invalid_session_token', {
+            requestId: request.requestId,
+            path: request.originalUrl
+        })
         return null
     }
 
@@ -24,8 +31,19 @@ export async function getAuthenticatedUser(request: Request): Promise<AuthUser |
     })
 
     if (!user) {
+        sessionLogger.warn('auth.session_user_not_found', {
+            requestId: request.requestId,
+            userId: claims.sub,
+            path: request.originalUrl
+        })
         return null
     }
+
+    sessionLogger.debug('auth.session_resolved', {
+        requestId: request.requestId,
+        userId: user.id,
+        path: request.originalUrl
+    })
 
     return user
 }

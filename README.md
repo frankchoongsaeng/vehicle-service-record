@@ -117,6 +117,21 @@ Important variables:
 - `OPENAUTH_AUDIENCE`: token audience value, defaults to `vehicle-service-record-client`
 - `DEV_USER_EMAIL`: seeded development login email
 - `DEV_USER_PASSWORD`: seeded development login password
+- `LOG_LEVEL`: backend log threshold, for example `debug`, `info`, `warn`, or `error`
+- `LOG_READ_REQUEST_SAMPLE_RATE`: production sampling rate for successful read-request lifecycle logs between `0` and `1`
+- `LOG_FILE_PATH`: optional NDJSON backend log file path, useful for searching `requestId` values outside the terminal
+
+## Backend Logging
+
+Backend logs are always written to stdout/stderr as structured JSON.
+
+If you also want persistent searchable logs, set `LOG_FILE_PATH` to an NDJSON file path, for example:
+
+```bash
+LOG_FILE_PATH=./logs/backend.ndjson
+```
+
+Each line in that file is one JSON log record, so you can grep or ingest it with external tooling while preserving the same `requestId` values emitted by the frontend API client and backend request logger.
 
 ## Login Flow
 

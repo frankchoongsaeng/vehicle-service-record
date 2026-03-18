@@ -9,29 +9,98 @@ import type {
 } from '../types/index.js'
 
 const BASE = '/api'
+const REQUEST_ID_HEADER = 'x-request-id'
+const REQUEST_ID_STORAGE_KEY = 'duralog.apiRequestSessionId'
+
+let requestSequence = 0
+
+function createRandomId(): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID()
+    }
+
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+function getBrowserSessionId(): string {
+    if (typeof window === 'undefined') {
+        return `server-${createRandomId()}`
+    }
+
+    const existing = window.sessionStorage.getItem(REQUEST_ID_STORAGE_KEY)
+    if (existing) {
+        return existing
+    }
+
+    const sessionId = createRandomId()
+    window.sessionStorage.setItem(REQUEST_ID_STORAGE_KEY, sessionId)
+    return sessionId
+}
+
+function createRequestId(): string {
+    requestSequence += 1
+    return `${getBrowserSessionId()}-${requestSequence}`
+}
+
+function getResponseRequestId(res: Response, fallbackRequestId: string): string {
+    return res.headers.get(REQUEST_ID_HEADER) ?? fallbackRequestId
+}
+
+function logApiEvent(level: 'debug' | 'warn', message: string, context: Record<string, unknown>): void {
+    if (level === 'warn') {
+        console.warn(`[api] ${message}`, context)
+        return
+    }
+
+    if (import.meta.env.DEV) {
+        console.debug(`[api] ${message}`, context)
+    }
+}
 
 export class ApiError extends Error {
     status: number
+    requestId: string
 
-    constructor(message: string, status: number) {
+    constructor(message: string, status: number, requestId: string) {
         super(message)
         this.name = 'ApiError'
         this.status = status
+        this.requestId = requestId
     }
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+    const requestId = createRequestId()
     const res = await fetch(`${BASE}${path}`, {
         credentials: 'same-origin',
         ...options,
         headers: {
             'Content-Type': 'application/json',
+            [REQUEST_ID_HEADER]: requestId,
             ...(options?.headers ?? {})
         }
     })
+
+    const responseRequestId = getResponseRequestId(res, requestId)
+    logApiEvent('debug', 'request.completed', {
+        requestId: responseRequestId,
+        method: options?.method ?? 'GET',
+        path,
+        status: res.status
+    })
+
     if (res.status === 204) return undefined as T
     const data = await res.json()
-    if (!res.ok) throw new ApiError(data.error ?? 'Request failed', res.status)
+    if (!res.ok) {
+        logApiEvent('warn', 'request.failed', {
+            requestId: responseRequestId,
+            method: options?.method ?? 'GET',
+            path,
+            status: res.status,
+            error: data.error ?? 'Request failed'
+        })
+        throw new ApiError(data.error ?? 'Request failed', res.status, responseRequestId)
+    }
     return data as T
 }
 

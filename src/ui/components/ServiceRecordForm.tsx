@@ -55,14 +55,14 @@ export default function ServiceRecordForm({ initial, onSubmit, onCancel }: Props
             <CardContent>
                 <form className='space-y-4' onSubmit={handleSubmit}>
                     {error && (
-                        <p className='rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700'>
+                        <p className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'>
                             {error}
                         </p>
                     )}
 
                     <div className='grid gap-4 md:grid-cols-2'>
                         <div className='space-y-2'>
-                            <label className='text-sm font-medium text-slate-700'>Service Type *</label>
+                            <label className='text-sm font-medium text-foreground'>Service Type *</label>
                             <Select
                                 value={form.service_type}
                                 onValueChange={value =>
@@ -83,13 +83,13 @@ export default function ServiceRecordForm({ initial, onSubmit, onCancel }: Props
                         </div>
 
                         <div className='space-y-2'>
-                            <label className='text-sm font-medium text-slate-700'>Date *</label>
+                            <label className='text-sm font-medium text-foreground'>Date *</label>
                             <Input type='date' value={form.date} onChange={e => set('date', e.target.value)} required />
                         </div>
                     </div>
 
                     <div className='space-y-2'>
-                        <label className='text-sm font-medium text-slate-700'>Description *</label>
+                        <label className='text-sm font-medium text-foreground'>Description *</label>
                         <Input
                             type='text'
                             value={form.description}
@@ -101,7 +101,7 @@ export default function ServiceRecordForm({ initial, onSubmit, onCancel }: Props
 
                     <div className='grid gap-4 md:grid-cols-2'>
                         <div className='space-y-2'>
-                            <label className='text-sm font-medium text-slate-700'>Mileage at Service</label>
+                            <label className='text-sm font-medium text-foreground'>Mileage at Service</label>
                             <Input
                                 type='number'
                                 value={form.mileage ?? ''}
@@ -111,7 +111,7 @@ export default function ServiceRecordForm({ initial, onSubmit, onCancel }: Props
                             />
                         </div>
                         <div className='space-y-2'>
-                            <label className='text-sm font-medium text-slate-700'>Cost ($)</label>
+                            <label className='text-sm font-medium text-foreground'>Cost ($)</label>
                             <Input
                                 type='number'
                                 value={form.cost ?? ''}
@@ -124,7 +124,7 @@ export default function ServiceRecordForm({ initial, onSubmit, onCancel }: Props
                     </div>
 
                     <div className='space-y-2'>
-                        <label className='text-sm font-medium text-slate-700'>Notes</label>
+                        <label className='text-sm font-medium text-foreground'>Notes</label>
                         <Textarea
                             value={form.notes ?? ''}
                             onChange={e => set('notes', e.target.value)}

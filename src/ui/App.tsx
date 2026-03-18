@@ -128,18 +128,18 @@ export default function App({ currentUser, onLogout }: AppProps) {
     // ── Render ─────────────────────────────────────────────────────────────────
 
     return (
-        <div className='min-h-screen bg-slate-100'>
-            <nav className='border-b border-slate-200 bg-white'>
+        <div className='min-h-screen bg-background'>
+            <nav className='border-b bg-background'>
                 <div className='mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6'>
                     <Button
                         variant='ghost'
-                        className='h-auto p-0 text-base font-semibold text-slate-900'
+                        className='h-auto p-0 text-base font-semibold text-foreground'
                         onClick={() => setView({ type: 'vehicles' })}
                     >
                         Duralog
                     </Button>
                     <div className='flex items-center gap-3'>
-                        <span className='text-sm text-slate-600'>{currentUser.email}</span>
+                        <span className='text-sm text-muted-foreground'>{currentUser.email}</span>
                         <Button variant='secondary' onClick={handleLogout} disabled={loggingOut}>
                             {loggingOut ? 'Signing out…' : 'Sign out'}
                         </Button>
@@ -149,8 +149,8 @@ export default function App({ currentUser, onLogout }: AppProps) {
 
             {error && (
                 <div className='mx-auto max-w-6xl px-4 pt-4 sm:px-6'>
-                    <Card className='border-rose-200 bg-rose-50 shadow-none'>
-                        <CardContent className='flex items-center justify-between p-3 text-sm text-rose-700'>
+                    <Card className='border-destructive/30 bg-destructive/10 shadow-none'>
+                        <CardContent className='flex items-center justify-between p-3 text-sm text-destructive'>
                             <span>{error}</span>
                             <Button variant='ghost' size='sm' onClick={() => setError('')}>
                                 Dismiss
@@ -163,7 +163,7 @@ export default function App({ currentUser, onLogout }: AppProps) {
             <main className='mx-auto w-full max-w-6xl px-4 py-6 sm:px-6'>
                 {view.type === 'vehicles' &&
                     (loadingVehicles ? (
-                        <div className='py-16 text-center text-slate-600'>Loading vehicles…</div>
+                        <div className='py-16 text-center text-muted-foreground'>Loading vehicles…</div>
                     ) : (
                         <VehicleList
                             vehicles={vehicles}
@@ -184,7 +184,7 @@ export default function App({ currentUser, onLogout }: AppProps) {
 
                 {view.type === 'records' &&
                     (loadingRecords ? (
-                        <div className='py-16 text-center text-slate-600'>Loading records…</div>
+                        <div className='py-16 text-center text-muted-foreground'>Loading records…</div>
                     ) : (
                         <ServiceRecordList
                             vehicle={view.vehicle}

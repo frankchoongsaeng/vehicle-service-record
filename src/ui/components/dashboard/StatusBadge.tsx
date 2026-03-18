@@ -5,11 +5,11 @@ interface StatusBadgeProps {
     status: ServiceStatus
 }
 
-const statusVariantMap: Record<ServiceStatus, 'success' | 'info' | 'warning' | 'danger'> = {
-    Completed: 'success',
-    Upcoming: 'info',
-    Planned: 'warning',
-    Overdue: 'danger'
+const statusVariantMap: Record<ServiceStatus, 'default' | 'secondary' | 'outline' | 'destructive'> = {
+    Completed: 'default',
+    Upcoming: 'secondary',
+    Planned: 'outline',
+    Overdue: 'destructive'
 }
 
 export function StatusBadge({ status }: StatusBadgeProps) {

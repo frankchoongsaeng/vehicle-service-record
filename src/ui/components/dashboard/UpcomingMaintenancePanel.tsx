@@ -11,15 +11,17 @@ export function UpcomingMaintenancePanel({ items }: UpcomingMaintenancePanelProp
         <Card>
             <CardHeader>
                 <CardTitle>Upcoming Maintenance</CardTitle>
-                <p className='text-sm text-slate-500'>Prioritized service items based on due date and condition.</p>
+                <p className='text-sm text-muted-foreground'>
+                    Prioritized service items based on due date and condition.
+                </p>
             </CardHeader>
             <CardContent className='space-y-3'>
                 {items.map(item => (
-                    <div key={item.id} className='rounded-lg border border-slate-200 p-3'>
+                    <div key={item.id} className='rounded-lg border p-3'>
                         <div className='flex items-start justify-between gap-3'>
                             <div>
-                                <p className='text-sm font-semibold text-slate-800'>{item.title}</p>
-                                <p className='text-xs text-slate-500'>{item.due}</p>
+                                <p className='text-sm font-semibold text-foreground'>{item.title}</p>
+                                <p className='text-xs text-muted-foreground'>{item.due}</p>
                             </div>
                             <StatusBadge status={item.status} />
                         </div>

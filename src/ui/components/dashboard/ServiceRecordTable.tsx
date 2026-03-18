@@ -41,12 +41,14 @@ export function ServiceRecordTable({ records }: ServiceRecordTableProps) {
             <CardHeader className='space-y-4'>
                 <div>
                     <CardTitle>Service Records</CardTitle>
-                    <p className='mt-1 text-sm text-slate-500'>Track recent and planned maintenance activities.</p>
+                    <p className='mt-1 text-sm text-muted-foreground'>
+                        Track recent and planned maintenance activities.
+                    </p>
                 </div>
 
                 <div className='grid gap-3 md:grid-cols-[1fr_180px_180px]'>
                     <div className='relative'>
-                        <Search className='pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400' />
+                        <Search className='pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-muted-foreground' />
                         <Input
                             value={query}
                             onChange={event => setQuery(event.target.value)}
@@ -101,7 +103,7 @@ export function ServiceRecordTable({ records }: ServiceRecordTableProps) {
                             <TableRow key={record.id}>
                                 <TableCell>{record.date}</TableCell>
                                 <TableCell>{record.mileage}</TableCell>
-                                <TableCell className='font-medium text-slate-800'>{record.service}</TableCell>
+                                <TableCell className='font-medium text-foreground'>{record.service}</TableCell>
                                 <TableCell>{record.workshop}</TableCell>
                                 <TableCell className='text-right'>{record.cost}</TableCell>
                                 <TableCell>
@@ -111,7 +113,7 @@ export function ServiceRecordTable({ records }: ServiceRecordTableProps) {
                         ))}
                         {filteredRecords.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={6} className='py-8 text-center text-sm text-slate-500'>
+                                <TableCell colSpan={6} className='py-8 text-center text-sm text-muted-foreground'>
                                     No service records match the selected filters.
                                 </TableCell>
                             </TableRow>

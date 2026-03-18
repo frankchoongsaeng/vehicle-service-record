@@ -12,7 +12,7 @@ export function VehicleSnapshotCard({ vehicleLabel, fields }: VehicleSnapshotCar
         <Card>
             <CardHeader>
                 <CardTitle>Vehicle Snapshot</CardTitle>
-                <p className='text-sm text-slate-500'>{vehicleLabel}</p>
+                <p className='text-sm text-muted-foreground'>{vehicleLabel}</p>
             </CardHeader>
             <CardContent className='space-y-1'>
                 {fields.map(field => (

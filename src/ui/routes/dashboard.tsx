@@ -197,22 +197,22 @@ export default function DashboardRoute() {
     }, [auth.status, location.hash, location.pathname, location.search, navigate])
 
     if (auth.status === 'loading') {
-        return <div className='grid min-h-screen place-items-center text-slate-600'>Checking your session…</div>
+        return <div className='grid min-h-screen place-items-center text-muted-foreground'>Checking your session…</div>
     }
 
     if (!auth.user) {
-        return <div className='grid min-h-screen place-items-center text-slate-600'>Redirecting to login…</div>
+        return <div className='grid min-h-screen place-items-center text-muted-foreground'>Redirecting to login…</div>
     }
 
     return (
-        <main className='min-h-screen bg-slate-100/70 px-4 py-6 sm:px-6 lg:px-8'>
+        <main className='min-h-screen bg-background px-4 py-6 sm:px-6 lg:px-8'>
             <div className='mx-auto w-full max-w-screen-2xl space-y-6'>
-                <header className='flex flex-col justify-between gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-card sm:flex-row sm:items-center'>
+                <header className='flex flex-col justify-between gap-4 rounded-xl border bg-card p-5 shadow-sm sm:flex-row sm:items-center'>
                     <div>
-                        <h1 className='text-2xl font-semibold capitalize text-slate-900'>
+                        <h1 className='text-2xl font-semibold capitalize text-foreground'>
                             vehicle maintenance dashboard
                         </h1>
-                        <p className='mt-1 text-sm text-slate-600'>
+                        <p className='mt-1 text-sm text-muted-foreground'>
                             Service logbook and maintenance tracker for your 2010 Kia Forte.
                         </p>
                     </div>

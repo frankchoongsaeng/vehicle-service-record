@@ -18,8 +18,8 @@ export default function VehicleList({ vehicles, onSelect, onEdit, onDelete, onAd
         <div className='space-y-5'>
             <header className='flex flex-wrap items-start justify-between gap-3'>
                 <div>
-                    <h1 className='text-2xl font-semibold text-slate-900'>My Vehicles</h1>
-                    <p className='mt-1 text-sm text-slate-600'>Select a vehicle to view its service history.</p>
+                    <h1 className='text-2xl font-semibold text-foreground'>My Vehicles</h1>
+                    <p className='mt-1 text-sm text-muted-foreground'>Select a vehicle to view its service history.</p>
                 </div>
                 <Button onClick={onAdd}>
                     <Plus className='h-4 w-4' />
@@ -30,8 +30,8 @@ export default function VehicleList({ vehicles, onSelect, onEdit, onDelete, onAd
             {vehicles.length === 0 ? (
                 <Card>
                     <CardContent className='flex flex-col items-center gap-3 py-12 text-center'>
-                        <p className='text-lg font-semibold text-slate-800'>No vehicles yet</p>
-                        <p className='max-w-md text-sm text-slate-600'>
+                        <p className='text-lg font-semibold text-foreground'>No vehicles yet</p>
+                        <p className='max-w-md text-sm text-muted-foreground'>
                             Add your first vehicle to start tracking service records.
                         </p>
                         <Button onClick={onAdd}>
@@ -45,7 +45,7 @@ export default function VehicleList({ vehicles, onSelect, onEdit, onDelete, onAd
                     {vehicles.map(v => (
                         <Card
                             key={v.id}
-                            className='cursor-pointer border-slate-200 transition-all hover:border-slate-300 hover:shadow-md'
+                            className='cursor-pointer transition-all hover:border-ring/50 hover:shadow-md'
                             onClick={() => onSelect(v)}
                             role='button'
                             tabIndex={0}
@@ -53,23 +53,23 @@ export default function VehicleList({ vehicles, onSelect, onEdit, onDelete, onAd
                         >
                             <CardContent className='space-y-3 p-4'>
                                 <div>
-                                    <p className='text-xs font-medium uppercase tracking-wide text-slate-500'>
+                                    <p className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
                                         {v.year}
                                     </p>
-                                    <p className='text-lg font-semibold text-slate-900'>
+                                    <p className='text-lg font-semibold text-foreground'>
                                         {v.make} {v.model}
                                     </p>
                                 </div>
 
                                 <div className='flex flex-wrap gap-2'>
-                                    {v.color && <Badge variant='neutral'>Color: {v.color}</Badge>}
+                                    {v.color && <Badge variant='secondary'>Color: {v.color}</Badge>}
                                     {v.mileage != null && (
-                                        <Badge variant='neutral'>{v.mileage.toLocaleString()} mi</Badge>
+                                        <Badge variant='secondary'>{v.mileage.toLocaleString()} mi</Badge>
                                     )}
                                 </div>
 
                                 {v.vin && (
-                                    <p className='truncate text-xs text-slate-500' title={v.vin}>
+                                    <p className='truncate text-xs text-muted-foreground' title={v.vin}>
                                         VIN: {v.vin}
                                     </p>
                                 )}
@@ -90,7 +90,7 @@ export default function VehicleList({ vehicles, onSelect, onEdit, onDelete, onAd
                                         title='Delete vehicle'
                                         onClick={() => onDelete(v)}
                                         aria-label='Delete vehicle'
-                                        className='text-rose-700 hover:bg-rose-50 hover:text-rose-700'
+                                        className='text-destructive hover:bg-destructive/10 hover:text-destructive'
                                     >
                                         <Trash2 className='h-4 w-4' />
                                     </Button>

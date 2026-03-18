@@ -55,14 +55,14 @@ export default function VehicleForm({ initial, onSubmit, onCancel }: Props) {
             <CardContent>
                 <form className='space-y-4' onSubmit={handleSubmit}>
                     {error && (
-                        <p className='rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700'>
+                        <p className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'>
                             {error}
                         </p>
                     )}
 
                     <div className='grid gap-4 md:grid-cols-2'>
                         <div className='space-y-2'>
-                            <label className='text-sm font-medium text-slate-700'>Make *</label>
+                            <label className='text-sm font-medium text-foreground'>Make *</label>
                             <Input
                                 type='text'
                                 value={form.make}
@@ -72,7 +72,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel }: Props) {
                             />
                         </div>
                         <div className='space-y-2'>
-                            <label className='text-sm font-medium text-slate-700'>Model *</label>
+                            <label className='text-sm font-medium text-foreground'>Model *</label>
                             <Input
                                 type='text'
                                 value={form.model}
@@ -85,7 +85,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel }: Props) {
 
                     <div className='grid gap-4 md:grid-cols-2'>
                         <div className='space-y-2'>
-                            <label className='text-sm font-medium text-slate-700'>Year *</label>
+                            <label className='text-sm font-medium text-foreground'>Year *</label>
                             <Input
                                 type='number'
                                 value={form.year}
@@ -96,7 +96,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel }: Props) {
                             />
                         </div>
                         <div className='space-y-2'>
-                            <label className='text-sm font-medium text-slate-700'>Color</label>
+                            <label className='text-sm font-medium text-foreground'>Color</label>
                             <Input
                                 type='text'
                                 value={form.color ?? ''}
@@ -108,7 +108,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel }: Props) {
 
                     <div className='grid gap-4 md:grid-cols-2'>
                         <div className='space-y-2'>
-                            <label className='text-sm font-medium text-slate-700'>Current Mileage</label>
+                            <label className='text-sm font-medium text-foreground'>Current Mileage</label>
                             <Input
                                 type='number'
                                 value={form.mileage ?? ''}
@@ -118,7 +118,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel }: Props) {
                             />
                         </div>
                         <div className='space-y-2'>
-                            <label className='text-sm font-medium text-slate-700'>VIN</label>
+                            <label className='text-sm font-medium text-foreground'>VIN</label>
                             <Input
                                 type='text'
                                 value={form.vin ?? ''}
@@ -130,7 +130,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel }: Props) {
                     </div>
 
                     <div className='space-y-2'>
-                        <label className='text-sm font-medium text-slate-700'>Notes</label>
+                        <label className='text-sm font-medium text-foreground'>Notes</label>
                         <Textarea
                             value={form.notes ?? ''}
                             onChange={e => set('notes', e.target.value)}

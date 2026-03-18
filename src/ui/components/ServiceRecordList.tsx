@@ -44,10 +44,10 @@ export default function ServiceRecordList({ vehicle, records, onAdd, onEdit, onD
                         Back
                     </Button>
                     <div>
-                        <h1 className='text-2xl font-semibold text-slate-900'>
+                        <h1 className='text-2xl font-semibold text-foreground'>
                             {vehicle.year} {vehicle.make} {vehicle.model}
                         </h1>
-                        <p className='mt-1 text-sm text-slate-600'>
+                        <p className='mt-1 text-sm text-muted-foreground'>
                             {vehicle.color && `${vehicle.color} · `}
                             {vehicle.mileage != null && `${vehicle.mileage.toLocaleString()} mi`}
                         </p>
@@ -62,8 +62,8 @@ export default function ServiceRecordList({ vehicle, records, onAdd, onEdit, onD
             {records.length === 0 ? (
                 <Card>
                     <CardContent className='flex flex-col items-center gap-3 py-12 text-center'>
-                        <p className='text-lg font-semibold text-slate-800'>No service records yet</p>
-                        <p className='max-w-md text-sm text-slate-600'>
+                        <p className='text-lg font-semibold text-foreground'>No service records yet</p>
+                        <p className='max-w-md text-sm text-muted-foreground'>
                             Start tracking maintenance and repairs for this vehicle.
                         </p>
                         <Button onClick={onAdd}>
@@ -80,10 +80,10 @@ export default function ServiceRecordList({ vehicle, records, onAdd, onEdit, onD
                                 <div className='pt-0.5 text-xl'>{SERVICE_ICONS[r.service_type] ?? '🔧'}</div>
                                 <div>
                                     <div className='flex flex-wrap items-center justify-between gap-2'>
-                                        <span className='font-semibold text-slate-900'>
+                                        <span className='font-semibold text-foreground'>
                                             {serviceLabel(r.service_type)}
                                         </span>
-                                        <span className='text-sm text-slate-500'>
+                                        <span className='text-sm text-muted-foreground'>
                                             {new Date(r.date + 'T00:00:00').toLocaleDateString(undefined, {
                                                 year: 'numeric',
                                                 month: 'short',
@@ -91,16 +91,18 @@ export default function ServiceRecordList({ vehicle, records, onAdd, onEdit, onD
                                             })}
                                         </span>
                                     </div>
-                                    <p className='mt-1 text-sm text-slate-700'>{r.description}</p>
+                                    <p className='mt-1 text-sm text-foreground'>{r.description}</p>
 
                                     <div className='mt-2 flex flex-wrap gap-2'>
                                         {r.mileage != null && (
-                                            <Badge variant='neutral'>Mileage: {r.mileage.toLocaleString()} mi</Badge>
+                                            <Badge variant='secondary'>Mileage: {r.mileage.toLocaleString()} mi</Badge>
                                         )}
-                                        {r.cost != null && <Badge variant='neutral'>Cost: ${r.cost.toFixed(2)}</Badge>}
+                                        {r.cost != null && (
+                                            <Badge variant='secondary'>Cost: ${r.cost.toFixed(2)}</Badge>
+                                        )}
                                     </div>
 
-                                    {r.notes && <p className='mt-2 text-sm italic text-slate-500'>{r.notes}</p>}
+                                    {r.notes && <p className='mt-2 text-sm italic text-muted-foreground'>{r.notes}</p>}
                                 </div>
 
                                 <div className='flex gap-2'>
@@ -119,7 +121,7 @@ export default function ServiceRecordList({ vehicle, records, onAdd, onEdit, onD
                                         title='Delete record'
                                         onClick={() => onDelete(r)}
                                         aria-label='Delete record'
-                                        className='text-rose-700 hover:bg-rose-50 hover:text-rose-700'
+                                        className='text-destructive hover:bg-destructive/10 hover:text-destructive'
                                     >
                                         <Trash2 className='h-4 w-4' />
                                     </Button>

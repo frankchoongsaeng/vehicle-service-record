@@ -31,6 +31,21 @@ let fileTransportReady: Promise<void> | null = null
 let fileTransportWriteChain: Promise<void> = Promise.resolve()
 let fileTransportFailureReported = false
 
+const CONSOLE_METADATA_KEYS = [
+    'service',
+    'component',
+    'requestId',
+    'method',
+    'path',
+    'statusCode',
+    'durationMs',
+    'userId',
+    'vehicleId',
+    'recordId',
+    'email',
+    'port'
+] as const
+
 function resolveLogLevel(value: string): LogLevel {
     const normalized = value.trim().toLowerCase()
     if (normalized === 'debug' || normalized === 'info' || normalized === 'warn' || normalized === 'error') {
@@ -44,21 +59,66 @@ function shouldLog(level: LogLevel): boolean {
     return LOG_LEVEL_RANK[level] >= LOG_LEVEL_RANK[configuredLogLevel]
 }
 
+function formatConsoleValue(value: unknown): string {
+    return inspect(value, { depth: 4, breakLength: 100, compact: true, colors: process.stdout.isTTY })
+}
+
+function formatConsoleLog(level: LogLevel, payload: Record<string, unknown>): string {
+    const metadata: string[] = []
+    const remainingContext: Record<string, unknown> = {}
+
+    for (const key of CONSOLE_METADATA_KEYS) {
+        const value = payload[key]
+        if (value == null) {
+            continue
+        }
+
+        metadata.push(`${key}=${formatConsoleValue(value)}`)
+    }
+
+    for (const [key, value] of Object.entries(payload)) {
+        if (key === 'timestamp' || key === 'level' || key === 'message') {
+            continue
+        }
+
+        if ((CONSOLE_METADATA_KEYS as readonly string[]).includes(key)) {
+            continue
+        }
+
+        if (value == null) {
+            continue
+        }
+
+        remainingContext[key] = value
+    }
+
+    const segments = [String(payload.timestamp), level.toUpperCase().padEnd(5), String(payload.message)]
+
+    if (metadata.length > 0) {
+        segments.push(metadata.join(' '))
+    }
+
+    if (Object.keys(remainingContext).length > 0) {
+        segments.push(formatConsoleValue(remainingContext))
+    }
+
+    return segments.join(' | ')
+}
+
 function reportFileTransportFailure(error: unknown): void {
     if (fileTransportFailureReported) {
         return
     }
 
     fileTransportFailureReported = true
-    console.error(
-        JSON.stringify({
-            timestamp: new Date().toISOString(),
-            level: 'error',
-            message: 'logger.file_transport_failed',
-            logFilePath: configuredLogFilePath,
-            error: sanitizeValue(error)
-        })
-    )
+    const payload = {
+        timestamp: new Date().toISOString(),
+        level: 'error',
+        message: 'logger.file_transport_failed',
+        logFilePath: configuredLogFilePath,
+        error: sanitizeValue(error)
+    }
+    console.error(formatConsoleLog('error', payload))
 }
 
 async function ensureFileTransportReady(): Promise<void> {
@@ -162,25 +222,26 @@ function writeLog(level: LogLevel, message: string, context: LogContext = {}): v
 
         return value
     })
+    const formattedConsoleLog = formatConsoleLog(level, payload)
 
     writeToFileTransport(serialized)
 
     if (level === 'error') {
-        console.error(serialized)
+        console.error(formattedConsoleLog)
         return
     }
 
     if (level === 'warn') {
-        console.warn(serialized)
+        console.warn(formattedConsoleLog)
         return
     }
 
     if (level === 'debug') {
-        console.debug(serialized)
+        console.debug(formattedConsoleLog)
         return
     }
 
-    console.info(serialized)
+    console.info(formattedConsoleLog)
 }
 
 function mergeContext(baseContext: LogContext, context?: LogContext): LogContext {

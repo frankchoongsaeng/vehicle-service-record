@@ -8,7 +8,7 @@
         "dev:client": "remix vite:dev",
         "dev:server": "tsx watch server/src/index.ts",
         "start": "node ./server/dist/index.js",
-        "start:client": "vite preview --host 0.0.0.0",
+        "start:client": "vite preview --host 0.0.0.0 --port $PORT",
         "build": "npm run build:client && npm run build:server",
         "build:client": "remix vite:build",
         "build:server": "tsc -p server/tsconfig.json",

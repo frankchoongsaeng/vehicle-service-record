@@ -218,7 +218,12 @@ export default function VehicleDashboardRoute() {
     }
 
     return (
-        <AuthenticatedShell currentUser={auth.user} onLogout={auth.logout}>
+        <AuthenticatedShell
+            currentUser={auth.user}
+            onLogout={auth.logout}
+            selectedVehicleLabel={vehicleLabel}
+            selectedVehicleTo={`/garage/${vehicleId}`}
+        >
             <div className='space-y-6'>
                 <PageHeader
                     eyebrow='Dashboard'

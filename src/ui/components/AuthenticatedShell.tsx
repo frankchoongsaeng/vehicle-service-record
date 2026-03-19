@@ -11,6 +11,8 @@ import Logo from './ui/logo.js'
 type AuthenticatedShellProps = {
     currentUser: AuthUser
     onLogout: () => Promise<void>
+    selectedVehicleLabel?: string
+    selectedVehicleTo?: string
     children: React.ReactNode
 }
 
@@ -23,7 +25,13 @@ const navigationItems = [
     }
 ] as const
 
-export function AuthenticatedShell({ currentUser, onLogout, children }: AuthenticatedShellProps) {
+export function AuthenticatedShell({
+    currentUser,
+    onLogout,
+    selectedVehicleLabel,
+    selectedVehicleTo,
+    children
+}: AuthenticatedShellProps) {
     const [loggingOut, setLoggingOut] = useState(false)
     const location = useLocation()
     const [searchParams, setSearchParams] = useSearchParams()
@@ -68,9 +76,9 @@ export function AuthenticatedShell({ currentUser, onLogout, children }: Authenti
                             </Button>
 
                             <Button asChild variant='outline' className='hidden sm:inline-flex'>
-                                <NavLink to='/garage/add-new'>
-                                    <Plus className='h-4 w-4' />
-                                    Add Vehicle
+                                <NavLink to={selectedVehicleTo ?? '/garage/add-new'}>
+                                    {selectedVehicleLabel ? <CarFront className='h-4 w-4' /> : <Plus className='h-4 w-4' />}
+                                    {selectedVehicleLabel ?? 'Add Vehicle'}
                                 </NavLink>
                             </Button>
                         </div>

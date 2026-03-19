@@ -77,7 +77,11 @@ export function AuthenticatedShell({
 
                             <Button asChild variant='outline' className='hidden sm:inline-flex'>
                                 <NavLink to={selectedVehicleTo ?? '/garage/add-new'}>
-                                    {selectedVehicleLabel ? <CarFront className='h-4 w-4' /> : <Plus className='h-4 w-4' />}
+                                    {selectedVehicleLabel ? (
+                                        <CarFront className='h-4 w-4' />
+                                    ) : (
+                                        <Plus className='h-4 w-4' />
+                                    )}
                                     {selectedVehicleLabel ?? 'Add Vehicle'}
                                 </NavLink>
                             </Button>

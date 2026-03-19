@@ -8,51 +8,51 @@
 
 | Layer    | Technology |
 |----------|------------|
-| Frontend | Remix v2 + React 18 + TypeScript (in `app/` and `src/`) |
-| Backend  | Node.js + Express 5 + TypeScript (in `server/`) |
+| Frontend | Remix v2 + React 18 + TypeScript (in `src/ui/`) |
+| Backend  | Node.js + Express 4 + TypeScript (in `src/`) |
 | Database | Prisma ORM + SQLite |
 | Styling  | Tailwind CSS v4 + shadcn-style primitives |
 | Build    | Vite 6 (Remix Vite plugin) |
-| Runtime  | Node.js (ESM at root, CommonJS in `server/`) |
+| Runtime  | Node.js (ESM throughout, NodeNext module resolution) |
 
 ## Project Layout
 
 ```
 vehicle-service-record/
 ├── .github/                    # GitHub config and Copilot instructions
-├── app/                        # Remix routes and document shell
-│   ├── routes/                 # File-based Remix routes
-│   ├── entry.client.tsx
-│   ├── entry.server.tsx
-│   └── root.tsx
-├── src/                        # Shared React UI modules
-│   ├── api/                    # API client (fetch wrappers)
-│   ├── auth/                   # Auth context and helpers
-│   ├── components/ui/          # Shared shadcn-style primitives (Button, Card, Input, etc.)
-│   ├── lib/                    # Utility functions (e.g. cn())
-│   ├── types/                  # Shared TypeScript types
-│   └── App.tsx                 # Main app shell
-├── server/                     # Express backend
-│   ├── src/
-│   │   ├── auth/               # Auth helpers
-│   │   ├── middleware/         # Express middleware (auth, etc.)
-│   │   ├── openauth/           # OpenAuth integration
-│   │   ├── routes/             # API route handlers
-│   │   │   ├── auth.ts         # /api/auth/* (login, logout, session)
-│   │   │   ├── vehicles.ts     # /api/vehicles CRUD
-│   │   │   └── records.ts      # /api/vehicles/:id/records CRUD
-│   │   ├── types/              # Backend TypeScript types
-│   │   ├── db.ts               # Prisma client singleton
-│   │   └── index.ts            # Express app entry point (port 3001)
-│   └── tsconfig.json           # CommonJS target, outDir: ./dist
+├── src/                        # All application source code
+│   ├── index.ts                # Express app entry point (port 3001)
+│   ├── db.ts                   # Prisma client singleton
+│   ├── auth/                   # Auth helpers (cookie, session, password, token)
+│   ├── logging/                # Structured JSON logger
+│   ├── middleware/             # Express middleware (auth, requestLogging, asyncHandler)
+│   ├── openauth/               # OpenAuth integration
+│   ├── routes/                 # API route handlers
+│   │   ├── auth.ts             # /api/auth/* (login, logout, session)
+│   │   ├── vehicles.ts         # /api/vehicles CRUD
+│   │   └── records.ts          # /api/vehicles/:id/records CRUD
+│   ├── types/                  # Backend TypeScript types
+│   └── ui/                     # Remix frontend
+│       ├── routes/             # File-based Remix routes
+│       ├── components/         # Feature and UI components
+│       │   └── ui/             # Shared shadcn-style primitives (Button, Card, Input, etc.)
+│       ├── api/                # API client (fetch wrappers)
+│       ├── auth/               # Auth context and hooks
+│       ├── lib/                # Utility functions (e.g. cn())
+│       ├── types/              # Frontend TypeScript types
+│       ├── App.tsx             # Main app shell
+│       ├── root.tsx            # Remix document shell
+│       ├── entry.client.tsx
+│       ├── entry.server.tsx
+│       └── tsconfig.app.json   # Frontend TS config
 ├── prisma/
 │   ├── schema.prisma           # Prisma schema (SQLite)
 │   └── seed.ts                 # Dev seed script
 ├── openspec/                   # OpenSpec change management (do not modify manually)
 ├── package.json                # Root package (type: "module", all scripts here)
-├── vite.config.ts              # Remix Vite config + /api proxy to localhost:3001
-├── tsconfig.json               # Root TS config (references app and server)
-├── tsconfig.app.json           # Frontend TS config
+├── vite.config.ts              # Remix Vite config (appDirectory: src/ui, buildDirectory: dist/ui)
+├── tsconfig.json               # Root TS config (references src/ui and tsconfig.node.json)
+├── tsconfig.node.json          # Backend TS config (NodeNext, outDir: dist/)
 ├── eslint.config.js            # ESLint flat config
 ├── tailwind.config.ts          # Tailwind config
 └── .env.example                # Environment variable template
@@ -80,17 +80,11 @@ npm run db:seed
 ## Development
 
 ```bash
-# Start both frontend (Remix dev, port 5173) and backend (Express, port 3001)
+# Start the server with hot reload (serves both API and Remix UI via Vite middleware)
 npm run dev
-
-# Start frontend only
-npm run dev:client
-
-# Start backend only (tsx watch for hot reload)
-npm run dev:server
 ```
 
-The Vite dev server proxies all `/api` requests to `http://localhost:3001`.
+The Express server runs on port 3001. In development, it integrates the Vite dev server as middleware so the Remix frontend is served on the same port — no separate frontend server or proxy is needed.
 
 ## Build
 
@@ -98,8 +92,8 @@ The Vite dev server proxies all `/api` requests to `http://localhost:3001`.
 # Build everything (frontend + backend)
 npm run build
 
-# Frontend output: build/  (Remix/Vite build)
-# Backend output: server/dist/  (tsc CommonJS bundle)
+# Frontend output: dist/ui/  (Remix/Vite build)
+# Backend output: dist/      (tsc NodeNext bundle)
 
 # Build frontend only
 npm run build:client
@@ -113,7 +107,7 @@ npm run build:server
 ```bash
 # After npm run build:
 npm run start
-# Runs: node ./build/server/index.js
+# Runs: node ./dist/index.js
 ```
 
 ## Lint
@@ -137,14 +131,15 @@ After modifying `prisma/schema.prisma`, always run `npm run db:generate` and cre
 ## Key Conventions
 
 ### UI / Styling
-- Use shadcn-style shared primitives from `src/components/ui` and Tailwind utility classes for all product UI.
-- **Route or feature-specific custom CSS files are disallowed.** Only `app/root.tsx` may import `src/index.css?url` and `src/main.tsx` may import `./index.css`.
-- Add new reusable controls to `src/components/ui/` rather than inlining styles.
-- Use the `cn()` utility from `src/lib/utils.ts` for conditional class merging.
+- Use shadcn-style shared primitives from `src/ui/components/ui` and Tailwind utility classes for all product UI.
+- **Route or feature-specific custom CSS files are disallowed.** Only `src/ui/root.tsx` may import `./index.css?url` and `src/ui/main.tsx` may import `./index.css`.
+- Add new reusable controls to `src/ui/components/ui/` rather than inlining styles.
+- Use the `cn()` utility from `src/ui/lib/utils.ts` for conditional class merging.
 
 ### TypeScript
-- Root project is `"type": "module"` (ESM). The `server/` subproject uses CommonJS (`"module": "CommonJS"` in `server/tsconfig.json`).
-- Do not add `"type": "module"` to `server/package.json` — the server compiles to CommonJS.
+- The entire project uses ESM (`"type": "module"` in `package.json`).
+- Backend compiles via `tsconfig.node.json` with `"module": "NodeNext"` to `dist/`.
+- Frontend compiles via `src/ui/tsconfig.app.json`.
 - Strict TypeScript is enabled everywhere. Avoid `any`.
 
 ### Auth
@@ -157,6 +152,11 @@ After modifying `prisma/schema.prisma`, always run `npm run db:generate` and cre
 - Rate limiting is applied globally to `/api` (200 req/min per IP).
 - Vehicle and record routes are scoped to the authenticated user.
 
+### Logging
+- Backend uses structured JSON logging via `src/logging/logger.ts`.
+- Logs are always written to stdout/stderr. Optionally write to a file via `LOG_FILE_PATH`.
+- Each log record includes a `requestId` for correlating frontend and backend events.
+
 ## Environment Variables
 
 | Variable | Description | Default |
@@ -168,6 +168,9 @@ After modifying `prisma/schema.prisma`, always run `npm run db:generate` and cre
 | `OPENAUTH_AUDIENCE` | Token audience | `vehicle-service-record-client` |
 | `DEV_USER_EMAIL` | Seeded dev login email | `demo@example.com` |
 | `DEV_USER_PASSWORD` | Seeded dev login password | `change-me123` |
+| `LOG_LEVEL` | Backend log threshold (`debug`, `info`, `warn`, `error`) | `debug` in dev, `info` in prod |
+| `LOG_READ_REQUEST_SAMPLE_RATE` | Sampling rate for read-request logs (0–1) | `1` in dev, `0.1` in prod |
+| `LOG_FILE_PATH` | Optional NDJSON log file path | _(disabled)_ |
 
 ## CI / Validation
 
@@ -176,11 +179,11 @@ There are no automated tests in this repository. Manual verification steps are d
 Before submitting changes, always:
 1. Run `npm run lint` — fix any ESLint errors.
 2. Run `npm run build` — ensure the full build succeeds without errors.
-3. For UI changes, verify no custom CSS imports were added: `rg -n "\.css(\?url)?['\"]" app src`
+3. For UI changes, verify no custom CSS imports were added: `rg -n "\.css(\?url)?['\"]" src/ui`
 
 ## Common Pitfalls
 
-- **`exports is not defined` error at runtime**: The root `package.json` has `"type": "module"`. The server compiles to CommonJS via `server/tsconfig.json`. Do not mix ESM/CJS in `server/`.
+- **Module resolution errors**: The project uses `"type": "module"` with NodeNext resolution. Backend imports must use explicit `.js` extensions (e.g., `import './routes/auth.js'`).
 - **Prisma client not found**: Run `npm install` (triggers `postinstall: prisma generate`) or run `npm run db:generate` manually.
-- **Port conflicts**: Frontend runs on 5173, backend on 3001. Both must be running for full-stack dev.
+- **Single server in dev**: There is no separate frontend dev server. `npm run dev` starts one Express server on port 3001 that serves both the API and Remix UI.
 - **Missing `.env`**: Copy `.env.example` to `.env` before starting the server.

@@ -1,8 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
 
-import type { MetaFunction } from '@remix-run/node'
+import type { LoaderFunctionArgs, MetaFunction } from '@remix-run/node'
 import { json } from '@remix-run/node'
-import { Link, useLoaderData, useLocation, useNavigate } from '@remix-run/react'
+import { Link, useLoaderData, useLocation, useNavigate, useOutlet } from '@remix-run/react'
 import { Activity, CalendarClock, CircleDollarSign, Download, Plus, TriangleAlert } from 'lucide-react'
 import { useEffect } from 'react'
 
@@ -27,7 +27,7 @@ import { useAuth } from '../auth/useAuth'
 
 export const meta: MetaFunction = () => {
     return [
-        { title: 'Vehicle Maintenance Dashboard' },
+        { title: 'Vehicle Dashboard | Duralog' },
         {
             name: 'description',
             content: 'A practical service logbook dashboard for tracking vehicle maintenance history and upcoming work.'
@@ -36,6 +36,8 @@ export const meta: MetaFunction = () => {
 }
 
 interface DashboardLoaderData {
+    vehicleId: string | undefined
+    vehicleLabel: string
     summaryStats: SummaryStat[]
     serviceRecords: ServiceRecord[]
     upcomingItems: UpcomingItem[]
@@ -43,7 +45,7 @@ interface DashboardLoaderData {
     timeline: TimelineEvent[]
 }
 
-export async function loader() {
+export async function loader({ params }: LoaderFunctionArgs) {
     const summaryStats: SummaryStat[] = [
         {
             title: 'Current Mileage',
@@ -174,6 +176,8 @@ export async function loader() {
     ]
 
     return json<DashboardLoaderData>({
+        vehicleId: params.vehicleId,
+        vehicleLabel: '2010 Kia Forte',
         summaryStats,
         serviceRecords,
         upcomingItems,
@@ -184,20 +188,26 @@ export async function loader() {
 
 const summaryIcons = [Activity, CircleDollarSign, TriangleAlert, CalendarClock] as const
 
-export default function DashboardRoute() {
+export default function VehicleDashboardRoute() {
     const auth = useAuth()
     const navigate = useNavigate()
     const location = useLocation()
-    const { summaryStats, serviceRecords, upcomingItems, snapshot, timeline } = useLoaderData<typeof loader>()
+    const outlet = useOutlet()
+    const { vehicleId, vehicleLabel, summaryStats, serviceRecords, upcomingItems, snapshot, timeline } =
+        useLoaderData<typeof loader>()
 
     useEffect(() => {
         if (auth.status !== 'unauthenticated') {
             return
         }
 
-        const redirectTo = `${location.pathname}${location.search}${location.hash}` || '/dashboard'
+        const redirectTo = `${location.pathname}${location.search}${location.hash}` || `/garage/${vehicleId ?? ''}`
         navigate(`/login?redirectTo=${encodeURIComponent(redirectTo)}`, { replace: true })
-    }, [auth.status, location.hash, location.pathname, location.search, navigate])
+    }, [auth.status, location.hash, location.pathname, location.search, navigate, vehicleId])
+
+    if (outlet) {
+        return outlet
+    }
 
     if (auth.status === 'loading') {
         return <BrandedLoadingScreen message='Checking your session…' />
@@ -213,11 +223,11 @@ export default function DashboardRoute() {
                 <PageHeader
                     eyebrow='Dashboard'
                     title='Vehicle maintenance dashboard'
-                    description='Service activity, upcoming work, and vehicle health snapshots for your 2010 Kia Forte.'
+                    description={`Service activity, upcoming work, and vehicle health snapshots for ${vehicleLabel}.`}
                     actions={
                         <>
                             <Button asChild variant='outline'>
-                                <Link to='/garage/1/records'>
+                                <Link to={`/garage/${vehicleId}/records`}>
                                     <Download className='h-4 w-4' />
                                     Review Records
                                 </Link>
@@ -247,7 +257,7 @@ export default function DashboardRoute() {
 
                     <div className='space-y-6'>
                         <UpcomingMaintenancePanel items={upcomingItems} />
-                        <VehicleSnapshotCard vehicleLabel='2010 Kia Forte' fields={snapshot} />
+                        <VehicleSnapshotCard vehicleLabel={vehicleLabel} fields={snapshot} />
                     </div>
                 </section>
 

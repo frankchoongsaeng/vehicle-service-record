@@ -114,8 +114,8 @@ export default function App({ currentUser, onLogout }: AppProps) {
 
     // ── Vehicle handlers ───────────────────────────────────────────────────────
 
-    const handleSelectVehicle = (v: Vehicle) => {
-        navigate(`/garage/${v.id}/records`)
+    const handleSelectVehicle = (vehicle: Vehicle) => {
+        navigate(`/garage/${vehicle.id}`)
     }
 
     const handleEditVehicle = (v: Vehicle) => setViewAndSyncUrl({ type: 'vehicle-form', vehicle: v })
@@ -157,7 +157,7 @@ export default function App({ currentUser, onLogout }: AppProps) {
                 <PageHeader
                     eyebrow='Garage'
                     title='Your vehicles'
-                    description='Select a vehicle to review records or update its profile.'
+                    description='Select a vehicle to open its dashboard or update its profile.'
                 />
 
                 <main>

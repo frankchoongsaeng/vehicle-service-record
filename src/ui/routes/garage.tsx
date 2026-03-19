@@ -1,6 +1,6 @@
 import type { MetaFunction } from '@remix-run/node'
 import { useEffect } from 'react'
-import { useLocation, useNavigate } from '@remix-run/react'
+import { useLocation, useNavigate, useOutlet } from '@remix-run/react'
 
 import VehicleServiceApp from '../App.js'
 import BrandedLoadingScreen from '../components/BrandedLoadingScreen'
@@ -14,6 +14,7 @@ export default function GarageRoute() {
     const auth = useAuth()
     const location = useLocation()
     const navigate = useNavigate()
+    const outlet = useOutlet()
 
     useEffect(() => {
         if (auth.status !== 'unauthenticated') {
@@ -23,6 +24,10 @@ export default function GarageRoute() {
         const redirectTo = `${location.pathname}${location.search}${location.hash}` || '/garage'
         navigate(`/login?redirectTo=${encodeURIComponent(redirectTo)}`, { replace: true })
     }, [auth.status, location.hash, location.pathname, location.search, navigate])
+
+    if (outlet) {
+        return outlet
+    }
 
     if (auth.status === 'loading') {
         return <BrandedLoadingScreen message='Checking your session…' />

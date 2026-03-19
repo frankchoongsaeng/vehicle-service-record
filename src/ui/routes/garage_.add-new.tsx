@@ -6,7 +6,6 @@ import * as api from '../api/client.js'
 import { useAuth } from '../auth/useAuth.js'
 import BrandedLoadingScreen from '../components/BrandedLoadingScreen'
 import { AuthenticatedShell } from '../components/AuthenticatedShell'
-import { PageHeader } from '../components/PageHeader'
 import VehicleForm from '../components/VehicleForm.js'
 import type { VehicleInput } from '../types/index.js'
 
@@ -47,13 +46,15 @@ export default function AddNewVehicleRoute() {
     return (
         <AuthenticatedShell currentUser={auth.user} onLogout={auth.logout}>
             <div className='space-y-6'>
-                <PageHeader
-                    eyebrow='Garage'
-                    title='Add new vehicle'
-                    description='Create a new vehicle profile to start tracking its service history.'
-                />
-
-                <VehicleForm onSubmit={handleSubmitVehicle} onCancel={() => navigate('/garage')} />
+                <div className='relative h-56 overflow-hidden sm:h-72 lg:h-88'>
+                    <img
+                        src='/images/add-car-bg.png'
+                        alt=''
+                        aria-hidden='true'
+                        className='h-full w-full object-contain object-center'
+                    />
+                </div>
+                <VehicleForm layout='feature' onSubmit={handleSubmitVehicle} onCancel={() => navigate('/garage')} />
             </div>
         </AuthenticatedShell>
     )

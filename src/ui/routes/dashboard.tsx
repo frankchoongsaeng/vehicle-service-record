@@ -2,11 +2,13 @@
 
 import type { MetaFunction } from '@remix-run/node'
 import { json } from '@remix-run/node'
-import { useLoaderData, useLocation, useNavigate } from '@remix-run/react'
+import { Link, useLoaderData, useLocation, useNavigate } from '@remix-run/react'
 import { Activity, CalendarClock, CircleDollarSign, Download, Plus, TriangleAlert } from 'lucide-react'
 import { useEffect } from 'react'
 
+import { AuthenticatedShell } from '../components/AuthenticatedShell'
 import BrandedLoadingScreen from '../components/BrandedLoadingScreen'
+import { PageHeader } from '../components/PageHeader'
 import { Button } from '../components/ui/button'
 import { QuickAddServiceForm } from '../components/dashboard/QuickAddServiceForm'
 import { MaintenanceTimeline } from '../components/dashboard/MaintenanceTimeline'
@@ -206,28 +208,27 @@ export default function DashboardRoute() {
     }
 
     return (
-        <main className='min-h-screen bg-background px-4 py-6 sm:px-6 lg:px-8'>
-            <div className='mx-auto w-full max-w-screen-2xl space-y-6'>
-                <header className='flex flex-col justify-between gap-4 rounded-xl border bg-card p-5 shadow-sm sm:flex-row sm:items-center'>
-                    <div>
-                        <h1 className='text-2xl font-semibold capitalize text-foreground'>
-                            vehicle maintenance dashboard
-                        </h1>
-                        <p className='mt-1 text-sm text-muted-foreground'>
-                            Service logbook and maintenance tracker for your 2010 Kia Forte.
-                        </p>
-                    </div>
-                    <div className='flex flex-wrap gap-2'>
-                        <Button variant='secondary'>
-                            <Download className='h-4 w-4' />
-                            Export Records
-                        </Button>
-                        <Button>
-                            <Plus className='h-4 w-4' />
-                            Add Service Record
-                        </Button>
-                    </div>
-                </header>
+        <AuthenticatedShell currentUser={auth.user} onLogout={auth.logout}>
+            <div className='space-y-6'>
+                <PageHeader
+                    eyebrow='Dashboard'
+                    title='Vehicle maintenance dashboard'
+                    description='Service activity, upcoming work, and vehicle health snapshots for your 2010 Kia Forte.'
+                    actions={
+                        <>
+                            <Button asChild variant='outline'>
+                                <Link to='/garage/1/records'>
+                                    <Download className='h-4 w-4' />
+                                    Review Records
+                                </Link>
+                            </Button>
+                            <Button>
+                                <Plus className='h-4 w-4' />
+                                Add Service Record
+                            </Button>
+                        </>
+                    }
+                />
 
                 <section className='grid gap-4 sm:grid-cols-2 xl:grid-cols-4'>
                     {summaryStats.map((stat, index) => (
@@ -255,6 +256,6 @@ export default function DashboardRoute() {
                     <QuickAddServiceForm />
                 </section>
             </div>
-        </main>
+        </AuthenticatedShell>
     )
 }

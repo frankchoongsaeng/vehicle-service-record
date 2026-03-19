@@ -18,8 +18,10 @@ export default function VehicleList({ vehicles, onSelect, onEdit, onDelete, onAd
         <div className='space-y-5'>
             <header className='flex flex-wrap items-start justify-between gap-3'>
                 <div>
-                    <h1 className='text-2xl font-semibold text-foreground'>My Vehicles</h1>
-                    <p className='mt-1 text-sm text-muted-foreground'>Select a vehicle to view its service history.</p>
+                    <h2 className='text-2xl font-semibold tracking-tight text-foreground'>Garage</h2>
+                    <p className='mt-1 text-sm text-muted-foreground'>
+                        Select a vehicle to review service history or update profile details.
+                    </p>
                 </div>
                 <Button onClick={onAdd}>
                     <Plus className='h-4 w-4' />
@@ -32,7 +34,7 @@ export default function VehicleList({ vehicles, onSelect, onEdit, onDelete, onAd
                     <CardContent className='flex flex-col items-center gap-3 py-12 text-center'>
                         <p className='text-lg font-semibold text-foreground'>No vehicles yet</p>
                         <p className='max-w-md text-sm text-muted-foreground'>
-                            Add your first vehicle to start tracking service records.
+                            Add your first vehicle to start building a cleaner maintenance history.
                         </p>
                         <Button onClick={onAdd}>
                             <Plus className='h-4 w-4' />
@@ -45,7 +47,7 @@ export default function VehicleList({ vehicles, onSelect, onEdit, onDelete, onAd
                     {vehicles.map(v => (
                         <Card
                             key={v.id}
-                            className='cursor-pointer transition-all hover:border-ring/50 hover:shadow-md'
+                            className='cursor-pointer transition-all hover:border-ring/50 hover:-translate-y-0.5 hover:shadow-md'
                             onClick={() => onSelect(v)}
                             role='button'
                             tabIndex={0}
@@ -54,7 +56,7 @@ export default function VehicleList({ vehicles, onSelect, onEdit, onDelete, onAd
                             <CardContent className='space-y-3 p-4'>
                                 <div>
                                     <p className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
-                                        {v.year}
+                                        {v.year} vehicle profile
                                     </p>
                                     <p className='text-lg font-semibold text-foreground'>
                                         {v.make} {v.model}

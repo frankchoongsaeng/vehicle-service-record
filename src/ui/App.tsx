@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from 'react'
-import { useNavigate, useSearchParams } from '@remix-run/react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { Link, useNavigate, useSearchParams } from '@remix-run/react'
+import { CarFront, FolderClock, Gauge, Plus } from 'lucide-react'
 import type { AuthUser, Vehicle, VehicleInput } from './types/index.js'
 import * as api from './api/client.js'
 import { Button } from './components/ui/button.js'
 import { Card, CardContent } from './components/ui/card.js'
-import Logo from './components/ui/logo.js'
+import { AuthenticatedShell } from './components/AuthenticatedShell.js'
+import { PageHeader } from './components/PageHeader.js'
 import VehicleList from './components/VehicleList.js'
 import VehicleForm from './components/VehicleForm.js'
 
@@ -46,11 +48,9 @@ function buildSearchParams(view: View): URLSearchParams {
 export default function App({ currentUser, onLogout }: AppProps) {
     const navigate = useNavigate()
     const [searchParams, setSearchParams] = useSearchParams()
-    const [view, setView] = useState<View>({ type: 'vehicles' })
     const [vehicles, setVehicles] = useState<Vehicle[]>([])
     const [loadingVehicles, setLoadingVehicles] = useState(true)
     const [error, setError] = useState('')
-    const [loggingOut, setLoggingOut] = useState(false)
 
     // Load vehicles on mount
     useEffect(() => {
@@ -62,8 +62,6 @@ export default function App({ currentUser, onLogout }: AppProps) {
 
     const setViewAndSyncUrl = useCallback(
         (nextView: View) => {
-            setView(nextView)
-
             const nextParams = buildSearchParams(nextView)
             if (nextParams.toString() !== searchParams.toString()) {
                 setSearchParams(nextParams)
@@ -72,11 +70,7 @@ export default function App({ currentUser, onLogout }: AppProps) {
         [searchParams, setSearchParams]
     )
 
-    useEffect(() => {
-        if (loadingVehicles) {
-            return
-        }
-
+    const view = useMemo<View>(() => {
         const requestedView = searchParams.get('view')
         const isKnownView = requestedView && viewQueryValues.has(requestedView as ViewQuery)
         const viewType: ViewQuery = isKnownView ? (requestedView as ViewQuery) : 'vehicles'
@@ -84,26 +78,23 @@ export default function App({ currentUser, onLogout }: AppProps) {
         const vehicleId = parsePositiveInt(searchParams.get('vehicleId'))
         const selectedVehicle = vehicleId ? vehicles.find(vehicle => vehicle.id === vehicleId) : undefined
 
-        let nextView: View = { type: 'vehicles' }
-
         if (viewType === 'vehicle-form') {
-            nextView = selectedVehicle ? { type: 'vehicle-form', vehicle: selectedVehicle } : { type: 'vehicle-form' }
+            return selectedVehicle ? { type: 'vehicle-form', vehicle: selectedVehicle } : { type: 'vehicle-form' }
         }
 
-        if (
-            nextView.type !== view.type ||
-            (nextView.type === 'vehicle-form' &&
-                view.type === 'vehicle-form' &&
-                nextView.vehicle?.id !== view.vehicle?.id)
-        ) {
-            setView(nextView)
+        return { type: 'vehicles' }
+    }, [searchParams, vehicles])
+
+    useEffect(() => {
+        if (loadingVehicles) {
+            return
         }
 
-        const canonicalParams = buildSearchParams(nextView)
+        const canonicalParams = buildSearchParams(view)
         if (canonicalParams.toString() !== searchParams.toString()) {
             setSearchParams(canonicalParams, { replace: true })
         }
-    }, [loadingVehicles, searchParams, setSearchParams, vehicles, view])
+    }, [loadingVehicles, searchParams, setSearchParams, view])
 
     // ── Vehicle handlers ───────────────────────────────────────────────────────
 
@@ -137,79 +128,112 @@ export default function App({ currentUser, onLogout }: AppProps) {
         setViewAndSyncUrl({ type: 'vehicles' })
     }
 
-    const handleLogout = async () => {
-        try {
-            setLoggingOut(true)
-            await onLogout()
-        } catch {
-            setError('Failed to sign out.')
-        } finally {
-            setLoggingOut(false)
-        }
-    }
+    const vehiclesWithMileage = vehicles.filter(vehicle => vehicle.mileage != null)
+    const highestMileage = vehiclesWithMileage.length
+        ? Math.max(...vehiclesWithMileage.map(vehicle => vehicle.mileage ?? 0)).toLocaleString()
+        : '0'
+    const vehiclesNeedingDetails = vehicles.filter(vehicle => !vehicle.vin || !vehicle.color).length
 
     // ── Render ─────────────────────────────────────────────────────────────────
 
     return (
-        <div className='min-h-screen bg-background'>
-            <nav className='border-b bg-background'>
-                <div className='mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6'>
-                    <Button
-                        variant='ghost'
-                        className='h-auto p-0 text-base font-semibold text-foreground hover:bg-transparent'
-                        onClick={() => setViewAndSyncUrl({ type: 'vehicles' })}
-                    >
-                        <span className='flex items-center gap-3'>
-                            <span className='h-9 w-9 text-foreground'>
-                                <Logo className='h-full w-full' />
-                            </span>
-                            <span className='text-lg font-semibold tracking-tight'>Duralog</span>
-                        </span>
-                    </Button>
-                    <div className='flex items-center gap-3'>
-                        <span className='text-sm text-muted-foreground'>{currentUser.email}</span>
-                        <Button variant='secondary' onClick={handleLogout} disabled={loggingOut}>
-                            {loggingOut ? 'Signing out…' : 'Sign out'}
-                        </Button>
-                    </div>
-                </div>
-            </nav>
-
+        <AuthenticatedShell currentUser={currentUser} onLogout={onLogout}>
             {error && (
-                <div className='mx-auto max-w-6xl px-4 pt-4 sm:px-6'>
-                    <Card className='border-destructive/30 bg-destructive/10 shadow-none'>
-                        <CardContent className='flex items-center justify-between p-3 text-sm text-destructive'>
-                            <span>{error}</span>
-                            <Button variant='ghost' size='sm' onClick={() => setError('')}>
-                                Dismiss
-                            </Button>
-                        </CardContent>
-                    </Card>
-                </div>
+                <Card className='mb-6 border-destructive/30 bg-destructive/10 shadow-none'>
+                    <CardContent className='flex items-center justify-between p-3 text-sm text-destructive'>
+                        <span>{error}</span>
+                        <Button variant='ghost' size='sm' onClick={() => setError('')}>
+                            Dismiss
+                        </Button>
+                    </CardContent>
+                </Card>
             )}
 
-            <main className='mx-auto w-full max-w-6xl px-4 py-6 sm:px-6'>
-                {view.type === 'vehicles' &&
-                    (loadingVehicles ? (
-                        <div className='py-16 text-center text-muted-foreground'>Loading vehicles…</div>
-                    ) : (
-                        <VehicleList
-                            vehicles={vehicles}
-                            onSelect={handleSelectVehicle}
-                            onEdit={handleEditVehicle}
-                            onDelete={handleDeleteVehicle}
-                            onAdd={handleAddVehicle}
-                        />
-                    ))}
+            <div className='space-y-6'>
+                <PageHeader
+                    eyebrow='Garage overview'
+                    title='Your vehicles, service-ready and easier to scan.'
+                    description='Keep vehicle details complete, jump into records quickly, and add new entries without bouncing through disconnected screens.'
+                    actions={
+                        <>
+                            <Button asChild variant='outline'>
+                                <Link to='/dashboard'>Open Dashboard</Link>
+                            </Button>
+                            <Button onClick={handleAddVehicle}>
+                                <Plus className='h-4 w-4' />
+                                Add Vehicle
+                            </Button>
+                        </>
+                    }
+                >
+                    <div className='grid gap-3 md:grid-cols-3'>
+                        <Card className='shadow-none'>
+                            <CardContent className='flex items-start gap-3 p-4'>
+                                <div className='rounded-xl border bg-secondary/50 p-2'>
+                                    <CarFront className='h-4 w-4' />
+                                </div>
+                                <div>
+                                    <p className='text-sm text-muted-foreground'>Tracked vehicles</p>
+                                    <p className='mt-1 text-2xl font-semibold text-foreground'>{vehicles.length}</p>
+                                </div>
+                            </CardContent>
+                        </Card>
 
-                {view.type === 'vehicle-form' && (
-                    <VehicleForm
-                        initial={view.vehicle}
-                        onSubmit={handleSubmitVehicle}
-                        onCancel={() => setViewAndSyncUrl({ type: 'vehicles' })}
-                    />
-                )}
-            </main>
-        </div>
+                        <Card className='shadow-none'>
+                            <CardContent className='flex items-start gap-3 p-4'>
+                                <div className='rounded-xl border bg-secondary/50 p-2'>
+                                    <Gauge className='h-4 w-4' />
+                                </div>
+                                <div>
+                                    <p className='text-sm text-muted-foreground'>Highest recorded mileage</p>
+                                    <p className='mt-1 text-2xl font-semibold text-foreground'>{highestMileage}</p>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className='shadow-none'>
+                            <CardContent className='flex items-start gap-3 p-4'>
+                                <div className='rounded-xl border bg-secondary/50 p-2'>
+                                    <FolderClock className='h-4 w-4' />
+                                </div>
+                                <div>
+                                    <p className='text-sm text-muted-foreground'>Profiles missing details</p>
+                                    <p className='mt-1 text-2xl font-semibold text-foreground'>
+                                        {vehiclesNeedingDetails}
+                                    </p>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                </PageHeader>
+
+                <main>
+                    {view.type === 'vehicles' &&
+                        (loadingVehicles ? (
+                            <Card>
+                                <CardContent className='py-16 text-center text-muted-foreground'>
+                                    Loading vehicles…
+                                </CardContent>
+                            </Card>
+                        ) : (
+                            <VehicleList
+                                vehicles={vehicles}
+                                onSelect={handleSelectVehicle}
+                                onEdit={handleEditVehicle}
+                                onDelete={handleDeleteVehicle}
+                                onAdd={handleAddVehicle}
+                            />
+                        ))}
+
+                    {view.type === 'vehicle-form' && (
+                        <VehicleForm
+                            initial={view.vehicle}
+                            onSubmit={handleSubmitVehicle}
+                            onCancel={() => setViewAndSyncUrl({ type: 'vehicles' })}
+                        />
+                    )}
+                </main>
+            </div>
+        </AuthenticatedShell>
     )
 }

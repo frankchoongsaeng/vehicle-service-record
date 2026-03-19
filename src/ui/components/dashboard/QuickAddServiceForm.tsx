@@ -6,14 +6,19 @@ import { Button } from '../ui/button.js'
 export function QuickAddServiceForm() {
     return (
         <Card>
-            <CardHeader>
+            <CardHeader className='space-y-2'>
                 <CardTitle>Quick Add Service Record</CardTitle>
                 <p className='text-sm text-muted-foreground'>
-                    Capture work details now and finalize before filing to your history.
+                    Capture work details now and finalize before filing them to your history.
                 </p>
             </CardHeader>
             <CardContent>
                 <form className='space-y-4'>
+                    <div className='rounded-xl border bg-muted/40 p-4 text-sm text-muted-foreground'>
+                        Use this shortcut when you have partial information from a receipt, mechanic call, or roadside
+                        note.
+                    </div>
+
                     <div className='grid gap-4 sm:grid-cols-2'>
                         <div className='space-y-2'>
                             <label className='text-sm font-medium text-foreground' htmlFor='serviceType'>

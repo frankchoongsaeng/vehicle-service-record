@@ -61,7 +61,7 @@ export function ServiceRecordTable({ records }: ServiceRecordTableProps) {
                 <div>
                     <CardTitle>Service Records</CardTitle>
                     <p className='mt-1 text-sm text-muted-foreground'>
-                        Track recent and planned maintenance activities.
+                        Track recent and planned maintenance activities with URL-backed filters.
                     </p>
                 </div>
 
@@ -109,6 +109,12 @@ export function ServiceRecordTable({ records }: ServiceRecordTableProps) {
             </CardHeader>
 
             <CardContent>
+                <div className='mb-4 flex items-center justify-between gap-3 text-sm text-muted-foreground'>
+                    <span>
+                        {filteredRecords.length} visible record{filteredRecords.length === 1 ? '' : 's'}
+                    </span>
+                    <span>Filters stay in the URL so views are shareable.</span>
+                </div>
                 <Table>
                     <TableHeader>
                         <TableRow>

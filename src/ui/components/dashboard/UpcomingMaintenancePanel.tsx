@@ -17,7 +17,7 @@ export function UpcomingMaintenancePanel({ items }: UpcomingMaintenancePanelProp
             </CardHeader>
             <CardContent className='space-y-3'>
                 {items.map(item => (
-                    <div key={item.id} className='rounded-lg border p-3'>
+                    <div key={item.id} className='rounded-lg border bg-muted/20 p-3'>
                         <div className='flex items-start justify-between gap-3'>
                             <div>
                                 <p className='text-sm font-semibold text-foreground'>{item.title}</p>

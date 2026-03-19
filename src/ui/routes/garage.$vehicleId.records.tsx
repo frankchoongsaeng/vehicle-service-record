@@ -2,10 +2,12 @@
 import type { LoaderFunctionArgs, MetaFunction } from '@remix-run/node'
 import { json } from '@remix-run/node'
 import { Link, Outlet, useLoaderData, useNavigate, useParams, useSearchParams } from '@remix-run/react'
-import { ChevronLeft, Plus, Search } from 'lucide-react'
+import { ChevronLeft, LayoutPanelLeft, Plus, Search } from 'lucide-react'
 import { useEffect, useMemo } from 'react'
 
+import { AuthenticatedShell } from '../components/AuthenticatedShell'
 import BrandedLoadingScreen from '../components/BrandedLoadingScreen'
+import { PageHeader } from '../components/PageHeader'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { StatusBadge } from '../components/dashboard/StatusBadge'
@@ -157,30 +159,55 @@ export default function RecordsRoute() {
     }
 
     return (
-        <main className='min-h-screen bg-background px-4 py-6 sm:px-6 lg:px-8'>
-            <div className='mx-auto w-full max-w-screen-2xl space-y-6'>
-                <header className='flex flex-col justify-between gap-4 rounded-xl border bg-card p-5 shadow-sm sm:flex-row sm:items-center'>
-                    <div className='flex items-start gap-3'>
-                        <Link
-                            to='/'
-                            className='mt-1 text-muted-foreground transition-colors hover:text-foreground'
-                            aria-label='Back to vehicles'
-                        >
-                            <ChevronLeft className='h-5 w-5' />
-                        </Link>
-                        <div>
-                            <p className='text-xs text-muted-foreground'>{vehicleLabel}</p>
-                            <h1 className='text-2xl font-semibold text-foreground'>Service Records</h1>
-                            <p className='mt-1 text-sm text-muted-foreground'>
-                                Complete maintenance history and scheduled work.
-                            </p>
-                        </div>
+        <AuthenticatedShell currentUser={auth.user} onLogout={auth.logout}>
+            <div className='space-y-6'>
+                <PageHeader
+                    eyebrow={vehicleLabel}
+                    title='Service records'
+                    description='Filter maintenance history, inspect record details, and keep planned work visible without leaving the page.'
+                    actions={
+                        <>
+                            <Button asChild variant='outline'>
+                                <Link to='/'>
+                                    <ChevronLeft className='h-4 w-4' />
+                                    Back to Garage
+                                </Link>
+                            </Button>
+                            <Button>
+                                <Plus className='h-4 w-4' />
+                                Add Record
+                            </Button>
+                        </>
+                    }
+                >
+                    <div className='grid gap-3 sm:grid-cols-3'>
+                        <Card className='shadow-none'>
+                            <CardContent className='p-4'>
+                                <p className='text-sm text-muted-foreground'>Total records</p>
+                                <p className='mt-1 text-2xl font-semibold text-foreground'>{records.length}</p>
+                            </CardContent>
+                        </Card>
+                        <Card className='shadow-none'>
+                            <CardContent className='p-4'>
+                                <p className='text-sm text-muted-foreground'>Filtered records</p>
+                                <p className='mt-1 text-2xl font-semibold text-foreground'>{filteredRecords.length}</p>
+                            </CardContent>
+                        </Card>
+                        <Card className='shadow-none'>
+                            <CardContent className='flex items-center gap-3 p-4'>
+                                <div className='rounded-xl border bg-secondary/50 p-2'>
+                                    <LayoutPanelLeft className='h-4 w-4' />
+                                </div>
+                                <div>
+                                    <p className='text-sm text-muted-foreground'>Detail panel</p>
+                                    <p className='mt-1 font-medium text-foreground'>
+                                        {isDetailOpen ? 'Open for selected record' : 'Select a row to inspect details'}
+                                    </p>
+                                </div>
+                            </CardContent>
+                        </Card>
                     </div>
-                    <Button>
-                        <Plus className='h-4 w-4' />
-                        Add Record
-                    </Button>
-                </header>
+                </PageHeader>
 
                 <div className={cn('grid gap-6', isDetailOpen && 'xl:grid-cols-[minmax(0,1fr)_420px]')}>
                     <Card>
@@ -277,6 +304,6 @@ export default function RecordsRoute() {
                     <Outlet context={{ records, vehicleId }} />
                 </div>
             </div>
-        </main>
+        </AuthenticatedShell>
     )
 }

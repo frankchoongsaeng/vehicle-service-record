@@ -1,9 +1,9 @@
 import type { MetaFunction } from '@remix-run/node'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from '@remix-run/react'
+import { AuthScreen } from '../components/AuthScreen.js'
 import BrandedLoadingScreen from '../components/BrandedLoadingScreen.js'
 import { Button } from '../components/ui/button.js'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.js'
 import { Input } from '../components/ui/input.js'
 import { useAuth } from '../auth/useAuth.js'
 import { getSafeRedirectTarget } from '../auth/redirect.js'
@@ -75,82 +75,75 @@ export default function SignupRoute() {
     }
 
     return (
-        <main className='grid min-h-screen place-items-center bg-background px-4 py-8'>
-            <Card className='w-full max-w-md'>
-                <CardHeader className='space-y-2'>
-                    <p className='text-xs font-semibold uppercase tracking-wide text-muted-foreground'>Get started</p>
-                    <CardTitle className='text-2xl'>Create your account.</CardTitle>
-                    <p className='text-sm text-muted-foreground'>
-                        Sign up with your email and password to manage your vehicles and service history.
-                    </p>
-                </CardHeader>
+        <AuthScreen
+            eyebrow='Get started'
+            title='Create your account.'
+            description='Sign up with your email and password to manage your vehicles and service history.'
+            footer={
+                <p>
+                    Already have an account?{' '}
+                    <Link to={loginLink} className='font-semibold text-foreground hover:underline'>
+                        Sign in
+                    </Link>
+                    .
+                </p>
+            }
+        >
+            <form className='space-y-4' onSubmit={handleSubmit}>
+                {(error || auth.bootstrapError) && (
+                    <div className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'>
+                        {error ?? auth.bootstrapError}
+                    </div>
+                )}
 
-                <CardContent>
-                    <form className='space-y-4' onSubmit={handleSubmit}>
-                        {(error || auth.bootstrapError) && (
-                            <div className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'>
-                                {error ?? auth.bootstrapError}
-                            </div>
-                        )}
+                <div className='space-y-2'>
+                    <label htmlFor='email' className='text-sm font-medium text-foreground'>
+                        Email
+                    </label>
+                    <Input
+                        id='email'
+                        type='email'
+                        autoComplete='email'
+                        value={email}
+                        onChange={event => setEmail(event.target.value)}
+                        required
+                    />
+                </div>
 
-                        <div className='space-y-2'>
-                            <label htmlFor='email' className='text-sm font-medium text-foreground'>
-                                Email
-                            </label>
-                            <Input
-                                id='email'
-                                type='email'
-                                autoComplete='email'
-                                value={email}
-                                onChange={event => setEmail(event.target.value)}
-                                required
-                            />
-                        </div>
+                <div className='space-y-2'>
+                    <label htmlFor='password' className='text-sm font-medium text-foreground'>
+                        Password
+                    </label>
+                    <Input
+                        id='password'
+                        type='password'
+                        autoComplete='new-password'
+                        value={password}
+                        onChange={event => setPassword(event.target.value)}
+                        minLength={MIN_PASSWORD_LENGTH}
+                        required
+                    />
+                </div>
 
-                        <div className='space-y-2'>
-                            <label htmlFor='password' className='text-sm font-medium text-foreground'>
-                                Password
-                            </label>
-                            <Input
-                                id='password'
-                                type='password'
-                                autoComplete='new-password'
-                                value={password}
-                                onChange={event => setPassword(event.target.value)}
-                                minLength={MIN_PASSWORD_LENGTH}
-                                required
-                            />
-                        </div>
+                <div className='space-y-2'>
+                    <label htmlFor='confirm-password' className='text-sm font-medium text-foreground'>
+                        Confirm password
+                    </label>
+                    <Input
+                        id='confirm-password'
+                        type='password'
+                        autoComplete='new-password'
+                        value={confirmPassword}
+                        onChange={event => setConfirmPassword(event.target.value)}
+                        minLength={MIN_PASSWORD_LENGTH}
+                        required
+                    />
+                </div>
 
-                        <div className='space-y-2'>
-                            <label htmlFor='confirm-password' className='text-sm font-medium text-foreground'>
-                                Confirm password
-                            </label>
-                            <Input
-                                id='confirm-password'
-                                type='password'
-                                autoComplete='new-password'
-                                value={confirmPassword}
-                                onChange={event => setConfirmPassword(event.target.value)}
-                                minLength={MIN_PASSWORD_LENGTH}
-                                required
-                            />
-                        </div>
-
-                        <Button className='w-full' type='submit' disabled={submitting}>
-                            {submitting ? 'Creating account…' : 'Create account'}
-                        </Button>
-                    </form>
-
-                    <p className='mt-4 text-sm text-muted-foreground'>
-                        Already have an account?{' '}
-                        <Link to={loginLink} className='font-semibold text-foreground hover:underline'>
-                            Sign in
-                        </Link>
-                        .
-                    </p>
-                </CardContent>
-            </Card>
-        </main>
+                <Button className='w-full' type='submit' disabled={submitting}>
+                    {submitting ? 'Creating account…' : 'Create account'}
+                </Button>
+            </form>
+        </AuthScreen>
     )
 }

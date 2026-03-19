@@ -44,7 +44,10 @@ export default function RecordDetailRoute() {
     return (
         <aside className='sticky top-6 max-h-[calc(100vh-6rem)] overflow-y-auto rounded-xl border bg-card shadow-sm'>
             <div className='flex items-center justify-between border-b p-4'>
-                <h2 className='font-semibold text-foreground'>Record Details</h2>
+                <div>
+                    <p className='text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground'>Inspector</p>
+                    <h2 className='font-semibold text-foreground'>Record Details</h2>
+                </div>
                 <Link
                     to={`/garage/${vehicleId}/records`}
                     className='rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'

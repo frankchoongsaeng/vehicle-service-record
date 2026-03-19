@@ -11,6 +11,9 @@ export function MaintenanceTimeline({ events }: MaintenanceTimelineProps) {
         <Card>
             <CardHeader>
                 <CardTitle>Maintenance Timeline</CardTitle>
+                <p className='text-sm text-muted-foreground'>
+                    A running view of completed work, alerts, and upcoming appointments.
+                </p>
             </CardHeader>
             <CardContent>
                 {events.map((event, index) => (

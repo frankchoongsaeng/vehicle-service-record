@@ -49,8 +49,11 @@ export default function VehicleForm({ initial, onSubmit, onCancel }: Props) {
 
     return (
         <Card className='mx-auto max-w-3xl'>
-            <CardHeader>
+            <CardHeader className='space-y-2'>
                 <CardTitle>{initial ? 'Edit Vehicle' : 'Add Vehicle'}</CardTitle>
+                <p className='text-sm text-muted-foreground'>
+                    Capture the core details first. You can always refine notes and identifiers later.
+                </p>
             </CardHeader>
             <CardContent>
                 <form className='space-y-4' onSubmit={handleSubmit}>
@@ -137,6 +140,13 @@ export default function VehicleForm({ initial, onSubmit, onCancel }: Props) {
                             placeholder='Any additional notes about this vehicle'
                             rows={3}
                         />
+                    </div>
+
+                    <div className='rounded-xl border bg-muted/40 p-4'>
+                        <p className='text-sm font-medium text-foreground'>Profile completeness</p>
+                        <p className='mt-1 text-sm text-muted-foreground'>
+                            VIN, current mileage, and notes make future records easier to trust and search.
+                        </p>
                     </div>
 
                     <div className='flex justify-end gap-2'>

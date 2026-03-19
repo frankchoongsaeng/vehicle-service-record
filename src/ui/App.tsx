@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Link, useNavigate, useSearchParams } from '@remix-run/react'
-import { CarFront, FolderClock, Gauge, Plus } from 'lucide-react'
+import { useNavigate, useSearchParams } from '@remix-run/react'
+import { Plus } from 'lucide-react'
 import type { AuthUser, Vehicle, VehicleInput } from './types/index.js'
 import * as api from './api/client.js'
 import { Button } from './components/ui/button.js'
@@ -36,10 +36,13 @@ function parsePositiveInt(value: string | null): number | null {
 
 function buildSearchParams(view: View): URLSearchParams {
     const params = new URLSearchParams()
-    params.set('view', view.type)
 
-    if (view.type === 'vehicle-form' && view.vehicle) {
-        params.set('vehicleId', String(view.vehicle.id))
+    if (view.type === 'vehicle-form') {
+        params.set('view', view.type)
+
+        if (view.vehicle) {
+            params.set('vehicleId', String(view.vehicle.id))
+        }
     }
 
     return params
@@ -142,12 +145,6 @@ export default function App({ currentUser, onLogout }: AppProps) {
         setViewAndSyncUrl({ type: 'vehicles' })
     }
 
-    const vehiclesWithMileage = vehicles.filter(vehicle => vehicle.mileage != null)
-    const highestMileage = vehiclesWithMileage.length
-        ? Math.max(...vehiclesWithMileage.map(vehicle => vehicle.mileage ?? 0)).toLocaleString()
-        : '0'
-    const vehiclesNeedingDetails = vehicles.filter(vehicle => !vehicle.vin || !vehicle.color).length
-
     // ── Render ─────────────────────────────────────────────────────────────────
 
     return (
@@ -165,61 +162,16 @@ export default function App({ currentUser, onLogout }: AppProps) {
 
             <div className='space-y-6'>
                 <PageHeader
-                    eyebrow='Garage overview'
-                    title='Your vehicles, service-ready and easier to scan.'
-                    description='Keep vehicle details complete, jump into records quickly, and add new entries without bouncing through disconnected screens.'
+                    eyebrow='Garage'
+                    title='Your vehicles'
+                    description='Select a vehicle to review records or update its profile.'
                     actions={
-                        <>
-                            <Button asChild variant='outline'>
-                                <Link to='/dashboard'>Open Dashboard</Link>
-                            </Button>
-                            <Button onClick={handleAddVehicle}>
-                                <Plus className='h-4 w-4' />
-                                Add Vehicle
-                            </Button>
-                        </>
+                        <Button onClick={handleAddVehicle}>
+                            <Plus className='h-4 w-4' />
+                            Add Vehicle
+                        </Button>
                     }
-                >
-                    <div className='grid gap-3 md:grid-cols-3'>
-                        <Card className='shadow-none'>
-                            <CardContent className='flex items-start gap-3 p-4'>
-                                <div className='rounded-xl border bg-secondary/50 p-2'>
-                                    <CarFront className='h-4 w-4' />
-                                </div>
-                                <div>
-                                    <p className='text-sm text-muted-foreground'>Tracked vehicles</p>
-                                    <p className='mt-1 text-2xl font-semibold text-foreground'>{vehicles.length}</p>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        <Card className='shadow-none'>
-                            <CardContent className='flex items-start gap-3 p-4'>
-                                <div className='rounded-xl border bg-secondary/50 p-2'>
-                                    <Gauge className='h-4 w-4' />
-                                </div>
-                                <div>
-                                    <p className='text-sm text-muted-foreground'>Highest recorded mileage</p>
-                                    <p className='mt-1 text-2xl font-semibold text-foreground'>{highestMileage}</p>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        <Card className='shadow-none'>
-                            <CardContent className='flex items-start gap-3 p-4'>
-                                <div className='rounded-xl border bg-secondary/50 p-2'>
-                                    <FolderClock className='h-4 w-4' />
-                                </div>
-                                <div>
-                                    <p className='text-sm text-muted-foreground'>Profiles missing details</p>
-                                    <p className='mt-1 text-2xl font-semibold text-foreground'>
-                                        {vehiclesNeedingDetails}
-                                    </p>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
-                </PageHeader>
+                />
 
                 <main>
                     {view.type === 'vehicles' &&

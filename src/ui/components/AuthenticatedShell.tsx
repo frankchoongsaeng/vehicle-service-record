@@ -17,9 +17,9 @@ type AuthenticatedShellProps = {
 const navigationItems = [
     {
         label: 'Garage',
-        to: '/',
+        to: '/garage',
         icon: CarFront,
-        matches: (pathname: string) => pathname === '/' || pathname.startsWith('/garage')
+        matches: (pathname: string) => pathname === '/garage' || pathname.startsWith('/garage/')
     },
     {
         label: 'Dashboard',
@@ -73,7 +73,7 @@ export function AuthenticatedShell({ currentUser, onLogout, children }: Authenti
                             {isMenuOpen ? <X className='h-5 w-5' /> : <Menu className='h-5 w-5' />}
                         </Button>
 
-                        <NavLink to='/' className='mx-auto flex items-center gap-3'>
+                        <NavLink to='/garage' className='mx-auto flex items-center gap-3'>
                             <div className='flex h-11 w-11 items-center justify-center'>
                                 <Logo className='h-7 w-7 text-foreground' />
                             </div>
@@ -112,7 +112,7 @@ export function AuthenticatedShell({ currentUser, onLogout, children }: Authenti
                             const Icon = item.icon
 
                             return (
-                                <NavLink key={item.to} to={item.to} end={item.to === '/'}>
+                                <NavLink key={item.to} to={item.to} end={item.to === '/garage'}>
                                     {({ isActive }) => {
                                         const active = isActive || item.matches(location.pathname)
 
@@ -134,7 +134,7 @@ export function AuthenticatedShell({ currentUser, onLogout, children }: Authenti
                             )
                         })}
 
-                        <NavLink to='/?view=vehicle-form'>
+                        <NavLink to='/garage?view=vehicle-form'>
                             <span className='inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground'>
                                 <Plus className='h-4 w-4' />
                                 Add Vehicle

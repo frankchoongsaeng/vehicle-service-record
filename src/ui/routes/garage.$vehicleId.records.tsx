@@ -168,7 +168,7 @@ export default function RecordsRoute() {
                     actions={
                         <>
                             <Button asChild variant='outline'>
-                                <Link to='/'>
+                                <Link to='/garage'>
                                     <ChevronLeft className='h-4 w-4' />
                                     Back to Garage
                                 </Link>

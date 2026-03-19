@@ -47,8 +47,8 @@ export function AuthenticatedShell({ currentUser, onLogout, children }: Authenti
             <div className='border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80'>
                 <div className='mx-auto flex w-full max-w-screen-2xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8'>
                     <div className='flex flex-wrap items-center justify-between gap-3'>
-                        <NavLink to='/' className='group flex items-center gap-3'>
-                            <div className='flex h-11 w-11 items-center justify-center rounded-xl border bg-card shadow-sm transition-transform group-hover:scale-[1.02]'>
+                        <NavLink to='/' className='flex items-center gap-3'>
+                            <div className='flex h-11 w-11 items-center justify-center'>
                                 <Logo className='h-7 w-7 text-foreground' />
                             </div>
                             <div>

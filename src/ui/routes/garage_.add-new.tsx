@@ -1,5 +1,5 @@
 import type { MetaFunction } from '@remix-run/node'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from '@remix-run/react'
 
 import * as api from '../api/client.js'
@@ -16,10 +16,30 @@ export const meta: MetaFunction = () => {
     ]
 }
 
+const fallbackVehicleImage = '/images/add-car.png'
+const vehicleTypeImages: Record<string, string> = {
+    atv: '/images/add-atv.png',
+    car: '/images/add-car.png',
+    motorcycle: '/images/add-motorcycle.png',
+    scooter: '/images/add-scooter.png',
+    suv: '/images/add-suv.png',
+    truck: '/images/add-truck.webp',
+    utv: '/images/add-utv.png',
+    van: '/images/add-van.png'
+}
+
+function getVehicleTypeImage(vehicleType: string): string {
+    const normalizedVehicleType = vehicleType.trim().toLowerCase().replace(/\s+/g, '-')
+    return vehicleTypeImages[normalizedVehicleType] ?? fallbackVehicleImage
+}
+
 export default function AddNewVehicleRoute() {
     const auth = useAuth()
     const location = useLocation()
     const navigate = useNavigate()
+    const [selectedVehicleType, setSelectedVehicleType] = useState('')
+
+    const heroImage = getVehicleTypeImage(selectedVehicleType)
 
     useEffect(() => {
         if (auth.status !== 'unauthenticated') {
@@ -48,13 +68,25 @@ export default function AddNewVehicleRoute() {
             <div className='space-y-6'>
                 <div className='relative h-56 overflow-hidden sm:h-72 lg:h-88'>
                     <img
-                        src='/images/add-car.png'
+                        src={heroImage}
                         alt=''
                         aria-hidden='true'
                         className='h-full w-full object-contain object-center'
+                        onError={event => {
+                            if (event.currentTarget.src.endsWith(fallbackVehicleImage)) {
+                                return
+                            }
+
+                            event.currentTarget.src = fallbackVehicleImage
+                        }}
                     />
                 </div>
-                <VehicleForm layout='feature' onSubmit={handleSubmitVehicle} onCancel={() => navigate('/garage')} />
+                <VehicleForm
+                    layout='feature'
+                    onSubmit={handleSubmitVehicle}
+                    onCancel={() => navigate('/garage')}
+                    onVehicleTypeChange={setSelectedVehicleType}
+                />
             </div>
         </AuthenticatedShell>
     )

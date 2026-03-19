@@ -203,10 +203,11 @@ interface Props {
     initial?: Vehicle
     onSubmit: (data: VehicleInput) => Promise<void>
     onCancel: () => void
+    onVehicleTypeChange?: (vehicleType: string) => void
     layout?: 'default' | 'feature'
 }
 
-export default function VehicleForm({ initial, onSubmit, onCancel, layout = 'default' }: Props) {
+export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleTypeChange, layout = 'default' }: Props) {
     const initialYear = initial?.year ?? new Date().getFullYear()
     const [form, setForm] = useState<VehicleInput>({
         make: initial?.make ?? '',
@@ -318,6 +319,10 @@ export default function VehicleForm({ initial, onSubmit, onCancel, layout = 'def
             window.clearTimeout(timeout)
         }
     }, [canAutoLookupVin, form.vin, initialYear])
+
+    useEffect(() => {
+        onVehicleTypeChange?.(form.vehicleType ?? '')
+    }, [form.vehicleType, onVehicleTypeChange])
 
     const vinMessageClassName = cn('text-xs leading-5 text-muted-foreground', {
         'text-foreground': vinLookupStatus === 'success',

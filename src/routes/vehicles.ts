@@ -7,6 +7,45 @@ import { requireAuth } from '../middleware/auth.js'
 const router = Router()
 const vehiclesLogger = createLogger({ component: 'vehicle-routes' })
 
+function serializeVehicle(vehicle: {
+    id: number
+    user_id: string
+    make: string
+    model: string
+    year: number
+    trim: string
+    plate_number: string | null
+    vin: string | null
+    engine: string | null
+    transmission: string
+    fuel_type: string
+    purchase_mileage: number | null
+    mileage: number | null
+    color: string | null
+    notes: string | null
+    created_at: Date
+    updated_at: Date
+}) {
+    return {
+        id: vehicle.id,
+        make: vehicle.make,
+        model: vehicle.model,
+        year: vehicle.year,
+        trim: vehicle.trim,
+        plateNumber: vehicle.plate_number,
+        vin: vehicle.vin,
+        engine: vehicle.engine,
+        transmission: vehicle.transmission,
+        fuelType: vehicle.fuel_type,
+        purchaseMileage: vehicle.purchase_mileage,
+        mileage: vehicle.mileage,
+        color: vehicle.color,
+        notes: vehicle.notes,
+        created_at: vehicle.created_at,
+        updated_at: vehicle.updated_at
+    }
+}
+
 router.use(requireAuth)
 
 // GET /api/vehicles
@@ -25,7 +64,7 @@ router.get(
             count: vehicles.length
         })
 
-        res.json(vehicles)
+        res.json(vehicles.map(serializeVehicle))
     })
 )
 
@@ -57,7 +96,7 @@ router.get(
             vehicleId
         })
 
-        res.json(vehicle)
+        res.json(serializeVehicle(vehicle))
     })
 )
 
@@ -66,23 +105,43 @@ router.post(
     '/',
     asyncHandler(async (req: Request, res: Response) => {
         const authUser = req.authUser!
-        const { make, model, year, vin, mileage, color, notes } = req.body as {
+        const {
+            make,
+            model,
+            year,
+            trim,
+            plateNumber,
+            vin,
+            engine,
+            transmission,
+            fuelType,
+            purchaseMileage,
+            mileage,
+            color,
+            notes
+        } = req.body as {
             make: string
             model: string
             year: number
+            trim: string
+            plateNumber?: string
             vin?: string
+            engine?: string
+            transmission: string
+            fuelType: string
+            purchaseMileage?: number
             mileage?: number
             color?: string
             notes?: string
         }
 
-        if (!make || !model || !year) {
+        if (!make || !model || !year || !trim || !transmission || !fuelType) {
             vehiclesLogger.warn('vehicles.create_invalid_payload', {
                 requestId: req.requestId,
                 userId: authUser.id,
                 bodyKeys: Object.keys((req.body ?? {}) as Record<string, unknown>)
             })
-            res.status(400).json({ error: 'make, model, and year are required' })
+            res.status(400).json({ error: 'make, model, year, trim, transmission, and fuel type are required' })
             return
         }
 
@@ -92,7 +151,13 @@ router.post(
                 make,
                 model,
                 year: Number(year),
+                trim,
+                plate_number: plateNumber || null,
                 vin: vin || null,
+                engine: engine || null,
+                transmission,
+                fuel_type: fuelType,
+                purchase_mileage: purchaseMileage ?? null,
                 mileage: mileage ?? null,
                 color: color || null,
                 notes: notes || null
@@ -108,7 +173,7 @@ router.post(
             year: created.year
         })
 
-        res.status(201).json(created)
+        res.status(201).json(serializeVehicle(created))
     })
 )
 
@@ -117,24 +182,44 @@ router.put(
     '/:id',
     asyncHandler(async (req: Request, res: Response) => {
         const authUser = req.authUser!
-        const { make, model, year, vin, mileage, color, notes } = req.body as {
+        const {
+            make,
+            model,
+            year,
+            trim,
+            plateNumber,
+            vin,
+            engine,
+            transmission,
+            fuelType,
+            purchaseMileage,
+            mileage,
+            color,
+            notes
+        } = req.body as {
             make: string
             model: string
             year: number
+            trim: string
+            plateNumber?: string
             vin?: string
+            engine?: string
+            transmission: string
+            fuelType: string
+            purchaseMileage?: number
             mileage?: number
             color?: string
             notes?: string
         }
 
-        if (!make || !model || !year) {
+        if (!make || !model || !year || !trim || !transmission || !fuelType) {
             vehiclesLogger.warn('vehicles.update_invalid_payload', {
                 requestId: req.requestId,
                 userId: authUser.id,
                 vehicleId: Number(req.params.id),
                 bodyKeys: Object.keys((req.body ?? {}) as Record<string, unknown>)
             })
-            res.status(400).json({ error: 'make, model, and year are required' })
+            res.status(400).json({ error: 'make, model, year, trim, transmission, and fuel type are required' })
             return
         }
 
@@ -161,7 +246,13 @@ router.put(
                 make,
                 model,
                 year: Number(year),
+                trim,
+                plate_number: plateNumber || null,
                 vin: vin || null,
+                engine: engine || null,
+                transmission,
+                fuel_type: fuelType,
+                purchase_mileage: purchaseMileage ?? null,
                 mileage: mileage ?? null,
                 color: color || null,
                 notes: notes || null
@@ -177,7 +268,7 @@ router.put(
             year: updated.year
         })
 
-        res.json(updated)
+        res.json(serializeVehicle(updated))
     })
 )
 

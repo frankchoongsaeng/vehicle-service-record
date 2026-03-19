@@ -1,63 +1,69 @@
 generator client {
-  provider = "prisma-client-js"
+    provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+    provider = "sqlite"
+    url      = env("DATABASE_URL")
 }
 
 model User {
-  id            String          @id @default(cuid())
-  email         String          @unique
-  password_hash String
-  created_at    DateTime        @default(now())
-  updated_at    DateTime        @updatedAt
+    id            String   @id @default(cuid())
+    email         String   @unique
+    password_hash String
+    created_at    DateTime @default(now())
+    updated_at    DateTime @updatedAt
 
-  vehicles       Vehicle[]
-  service_records ServiceRecord[]
+    vehicles        Vehicle[]
+    service_records ServiceRecord[]
 
-  @@map("users")
+    @@map("users")
 }
 
 model Vehicle {
-  id        Int             @id @default(autoincrement())
-  user_id   String
-  make      String
-  model     String
-  year      Int
-  vin       String?
-  mileage   Int?
-  color     String?
-  notes     String?
-  created_at DateTime       @default(now())
-  updated_at DateTime       @updatedAt
+    id               Int      @id @default(autoincrement())
+    user_id          String
+    make             String
+    model            String
+    year             Int
+    trim             String
+    plate_number     String?
+    vin              String?
+    engine           String?
+    transmission     String
+    fuel_type        String
+    purchase_mileage Int?
+    mileage          Int?
+    color            String?
+    notes            String?
+    created_at       DateTime @default(now())
+    updated_at       DateTime @updatedAt
 
-  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  service_records ServiceRecord[]
+    user            User            @relation(fields: [user_id], references: [id], onDelete: Cascade)
+    service_records ServiceRecord[]
 
-  @@index([user_id])
-  @@map("vehicles")
+    @@index([user_id])
+    @@map("vehicles")
 }
 
 model ServiceRecord {
-  id           Int      @id @default(autoincrement())
-  user_id      String
-  vehicle_id   Int
-  service_type String
-  description  String
-  date         String
-  mileage      Int?
-  cost         Float?
-  notes        String?
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
+    id           Int      @id @default(autoincrement())
+    user_id      String
+    vehicle_id   Int
+    service_type String
+    description  String
+    date         String
+    mileage      Int?
+    cost         Float?
+    notes        String?
+    created_at   DateTime @default(now())
+    updated_at   DateTime @updatedAt
 
-  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  vehicle Vehicle @relation(fields: [vehicle_id], references: [id], onDelete: Cascade)
+    user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+    vehicle Vehicle @relation(fields: [vehicle_id], references: [id], onDelete: Cascade)
 
-  @@index([user_id])
-  @@index([vehicle_id])
-  @@index([user_id, vehicle_id])
-  @@map("service_records")
+    @@index([user_id])
+    @@index([vehicle_id])
+    @@index([user_id, vehicle_id])
+    @@map("service_records")
 }

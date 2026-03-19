@@ -3,7 +3,13 @@ export interface Vehicle {
     make: string
     model: string
     year: number
+    trim: string
+    plateNumber?: string | null
     vin?: string | null
+    engine?: string | null
+    transmission: string
+    fuelType: string
+    purchaseMileage?: number | null
     mileage?: number | null
     color?: string | null
     notes?: string | null
@@ -15,7 +21,13 @@ export interface VehicleInput {
     make: string
     model: string
     year: number
+    trim: string
+    plateNumber?: string
     vin?: string
+    engine?: string
+    transmission: string
+    fuelType: string
+    purchaseMileage?: number
     mileage?: number
     color?: string
     notes?: string

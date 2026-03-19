@@ -45,6 +45,20 @@ function buildSearchParams(view: View): URLSearchParams {
     return params
 }
 
+function mergeViewSearchParams(existingParams: URLSearchParams, view: View): URLSearchParams {
+    const params = new URLSearchParams(existingParams)
+    const viewParams = buildSearchParams(view)
+
+    params.delete('view')
+    params.delete('vehicleId')
+
+    for (const [key, value] of viewParams.entries()) {
+        params.set(key, value)
+    }
+
+    return params
+}
+
 export default function App({ currentUser, onLogout }: AppProps) {
     const navigate = useNavigate()
     const [searchParams, setSearchParams] = useSearchParams()
@@ -62,7 +76,7 @@ export default function App({ currentUser, onLogout }: AppProps) {
 
     const setViewAndSyncUrl = useCallback(
         (nextView: View) => {
-            const nextParams = buildSearchParams(nextView)
+            const nextParams = mergeViewSearchParams(searchParams, nextView)
             if (nextParams.toString() !== searchParams.toString()) {
                 setSearchParams(nextParams)
             }
@@ -90,7 +104,7 @@ export default function App({ currentUser, onLogout }: AppProps) {
             return
         }
 
-        const canonicalParams = buildSearchParams(view)
+        const canonicalParams = mergeViewSearchParams(searchParams, view)
         if (canonicalParams.toString() !== searchParams.toString()) {
             setSearchParams(canonicalParams, { replace: true })
         }

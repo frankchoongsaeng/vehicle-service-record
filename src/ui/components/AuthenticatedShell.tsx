@@ -1,5 +1,5 @@
-import { NavLink, useLocation } from '@remix-run/react'
-import { LayoutDashboard, LogOut, Plus, CarFront } from 'lucide-react'
+import { NavLink, useLocation, useSearchParams } from '@remix-run/react'
+import { LayoutDashboard, LogOut, Menu, Plus, CarFront, X } from 'lucide-react'
 import { useState } from 'react'
 
 import { cn } from '../lib/utils.js'
@@ -32,6 +32,20 @@ const navigationItems = [
 export function AuthenticatedShell({ currentUser, onLogout, children }: AuthenticatedShellProps) {
     const [loggingOut, setLoggingOut] = useState(false)
     const location = useLocation()
+    const [searchParams, setSearchParams] = useSearchParams()
+    const isMenuOpen = searchParams.get('navMenu') === 'open'
+
+    const toggleMenu = () => {
+        const nextParams = new URLSearchParams(searchParams)
+
+        if (isMenuOpen) {
+            nextParams.delete('navMenu')
+        } else {
+            nextParams.set('navMenu', 'open')
+        }
+
+        setSearchParams(nextParams, { replace: true })
+    }
 
     const handleLogout = async () => {
         try {
@@ -46,21 +60,33 @@ export function AuthenticatedShell({ currentUser, onLogout, children }: Authenti
         <div className='min-h-screen bg-background'>
             <div className='border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80'>
                 <div className='mx-auto flex w-full max-w-screen-2xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8'>
-                    <div className='flex flex-wrap items-center justify-between gap-3'>
-                        <NavLink to='/' className='flex items-center gap-3'>
+                    <div className='grid grid-cols-[auto_1fr_auto] items-center gap-3'>
+                        <Button
+                            variant='ghost'
+                            size='icon'
+                            onClick={toggleMenu}
+                            aria-label={isMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+                            aria-expanded={isMenuOpen}
+                            aria-controls='authenticated-shell-navigation'
+                            className='justify-self-start'
+                        >
+                            {isMenuOpen ? <X className='h-5 w-5' /> : <Menu className='h-5 w-5' />}
+                        </Button>
+
+                        <NavLink to='/' className='mx-auto flex items-center gap-3'>
                             <div className='flex h-11 w-11 items-center justify-center'>
                                 <Logo className='h-7 w-7 text-foreground' />
                             </div>
                             <div>
                                 <p className='text-lg font-semibold tracking-tight text-foreground'>Duralog</p>
-                                <p className='text-sm text-muted-foreground'>
+                                <p className='hidden text-sm text-muted-foreground sm:block'>
                                     Vehicle service records with a cleaner workflow.
                                 </p>
                             </div>
                         </NavLink>
 
-                        <div className='flex flex-wrap items-center gap-2 sm:gap-3'>
-                            <Card className='rounded-full px-3 py-2 shadow-none'>
+                        <div className='flex flex-wrap items-center justify-self-end gap-2 sm:gap-3'>
+                            <Card className='hidden rounded-full px-3 py-2 shadow-none md:block'>
                                 <p className='text-sm text-muted-foreground'>
                                     Signed in as{' '}
                                     <span className='font-medium text-foreground'>{currentUser.email}</span>
@@ -73,7 +99,15 @@ export function AuthenticatedShell({ currentUser, onLogout, children }: Authenti
                         </div>
                     </div>
 
-                    <nav className='flex flex-wrap items-center gap-2'>
+                    <nav
+                        id='authenticated-shell-navigation'
+                        className={cn(
+                            'gap-2',
+                            isMenuOpen
+                                ? 'flex flex-col items-stretch sm:flex-row sm:flex-wrap sm:items-center'
+                                : 'hidden'
+                        )}
+                    >
                         {navigationItems.map(item => {
                             const Icon = item.icon
 

@@ -175,3 +175,37 @@ npm run build
 # frontend output: build/
 # backend output: server/dist/
 ```
+
+## Version Scope
+
+### Snapshot (Development)
+
+Use the snapshot scope when working on active development. Both servers run with hot-reload:
+
+```bash
+# Install dependencies
+npm install
+
+# Initialize and seed the database (first time only)
+npm run db:migrate -- --name init
+npm run db:seed
+
+# Start both frontend (port 5173) and backend (port 3001) with hot-reload
+npm run dev
+```
+
+The Vite dev server proxies `/api` requests to `http://localhost:3001`, so all API calls resolve automatically during development.
+
+### Working (Production)
+
+Use the working scope to validate a production-ready build before deploying:
+
+```bash
+# Build both frontend and backend
+npm run build
+
+# Start the production server (serves Remix SSR + API on the same process)
+npm run start
+```
+
+The `start` script runs `node ./build/server/index.js`, which is the Remix server entry compiled by the Vite build. Ensure all required environment variables (especially `DATABASE_URL` and `OPENAUTH_SECRET`) are set before running in production.

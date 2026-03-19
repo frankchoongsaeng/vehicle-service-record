@@ -135,6 +135,12 @@ After modifying `prisma/schema.prisma`, always run `npm run db:generate` and cre
 - **Route or feature-specific custom CSS files are disallowed.** Only `src/ui/root.tsx` may import `./index.css?url` and `src/ui/main.tsx` may import `./index.css`.
 - Add new reusable controls to `src/ui/components/ui/` rather than inlining styles.
 - Use the `cn()` utility from `src/ui/lib/utils.ts` for conditional class merging.
+- **Do not write custom styles.** Use shadcn components and their built-in variants directly. Tailwind utility classes that map to CSS variables are allowed (e.g., `text-primary`, `bg-card`), but avoid arbitrary CSS values (e.g., `text-[#abc123]`), inline `style` objects, or any hardcoded design tokens. All UI must be fully themable.
+
+### Navigation
+- **All navigation state must be reflected in the URL.** This includes top-level route changes as well as sub-page navigations such as active tabs, expanded/collapsed sections, and open/closed panels.
+- Use Remix's `useSearchParams` (for query-parameter-driven state) or nested route segments (for path-driven state) to derive UI state from the URL.
+- Never use component-local state (e.g., `useState`) to track **navigation-related** UI state — which tab is active, which item is expanded, or which panel is open. Users must be able to bookmark, share, or reload the page and land in the same UI state. Ephemeral, non-navigable state (e.g., hover, focus, temporary loading indicators) may remain local.
 
 ### TypeScript
 - The entire project uses ESM (`"type": "module"` in `package.json`).

@@ -71,7 +71,9 @@ export default function RecordDetailRoute() {
                 </div>
 
                 <div className='space-y-4 p-4'>
+                    {record.detail ? <DetailRow label='Description' value={record.detail} /> : null}
                     <DetailRow label='Workshop' value={record.workshop} />
+                    {record.notes ? <DetailRow label='Notes' value={record.notes} /> : null}
                 </div>
             </div>
         </aside>

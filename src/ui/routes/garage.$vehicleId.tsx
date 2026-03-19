@@ -15,7 +15,7 @@ import { MaintenanceTimeline } from '../components/dashboard/MaintenanceTimeline
 import { ServiceRecordTable } from '../components/dashboard/ServiceRecordTable'
 import { StatCard } from '../components/dashboard/StatCard'
 import type {
-    ServiceRecord,
+    ServiceRecord as DashboardServiceRecord,
     SnapshotField,
     SummaryStat,
     TimelineEvent,
@@ -24,6 +24,14 @@ import type {
 import { UpcomingMaintenancePanel } from '../components/dashboard/UpcomingMaintenancePanel'
 import { VehicleSnapshotCard } from '../components/dashboard/VehicleSnapshotCard'
 import { useAuth } from '../auth/useAuth'
+import type { ServiceRecord as ApiServiceRecord, Vehicle } from '../types/index.js'
+import {
+    buildDisplayServiceRecords,
+    buildSummaryStats,
+    buildTimeline,
+    buildUpcomingItems,
+    fetchApiData
+} from '../lib/maintenance.js'
 
 export const meta: MetaFunction = () => {
     return [
@@ -39,145 +47,48 @@ interface DashboardLoaderData {
     vehicleId: string | undefined
     vehicleLabel: string
     summaryStats: SummaryStat[]
-    serviceRecords: ServiceRecord[]
+    serviceRecords: DashboardServiceRecord[]
     upcomingItems: UpcomingItem[]
     snapshot: SnapshotField[]
     timeline: TimelineEvent[]
 }
 
-export async function loader({ params }: LoaderFunctionArgs) {
-    const summaryStats: SummaryStat[] = [
-        {
-            title: 'Current Mileage',
-            value: '125,240 km',
-            hint: 'Up 1,180 km since last month'
-        },
-        {
-            title: 'Total Maintenance Cost',
-            value: '$3,420.50',
-            hint: 'Rolling 12-month total'
-        },
-        {
-            title: 'Overdue Items',
-            value: '2',
-            hint: 'Front brake pads and cabin filter'
-        },
-        {
-            title: 'Last Service',
-            value: '2026-02-28',
-            hint: 'ABS Sensor Replacement'
-        }
-    ]
+export async function loader({ params, request }: LoaderFunctionArgs) {
+    const vehicleId = Number(params.vehicleId)
 
-    const serviceRecords: ServiceRecord[] = [
-        {
-            id: 'record-001',
-            date: '2026-02-28',
-            mileage: '124,060 km',
-            service: 'ABS Sensor Replacement',
-            workshop: 'Northside Auto Care',
-            category: 'Electrical',
-            cost: '$245.00',
-            status: 'Completed'
-        },
-        {
-            id: 'record-002',
-            date: '2026-02-11',
-            mileage: '123,640 km',
-            service: 'Power Steering Fluid Refresh',
-            workshop: 'Precision Garage',
-            category: 'Fluids',
-            cost: '$95.00',
-            status: 'Completed'
-        },
-        {
-            id: 'record-003',
-            date: '2026-03-22',
-            mileage: '125,500 km',
-            service: 'Brake Inspection & Cleaning',
-            workshop: 'Precision Garage',
-            category: 'Brakes',
-            cost: '$80.00',
-            status: 'Upcoming'
-        },
-        {
-            id: 'record-004',
-            date: '2026-04-04',
-            mileage: '126,100 km',
-            service: 'Coolant Cap Replacement',
-            workshop: 'Metro Car Service',
-            category: 'Cooling System',
-            cost: '$36.00',
-            status: 'Planned'
-        },
-        {
-            id: 'record-005',
-            date: '2026-02-01',
-            mileage: '123,100 km',
-            service: 'Front Brake Pads',
-            workshop: 'Northside Auto Care',
-            category: 'Brakes',
-            cost: '$220.00',
-            status: 'Overdue'
-        }
-    ]
+    if (!Number.isInteger(vehicleId) || vehicleId < 1) {
+        throw new Response('Not found', { status: 404 })
+    }
 
-    const upcomingItems: UpcomingItem[] = [
-        {
-            id: 'upcoming-001',
-            title: 'Engine Oil & Filter',
-            due: 'Due in 320 km',
-            status: 'Upcoming'
-        },
-        {
-            id: 'upcoming-002',
-            title: 'Front Brake Pads',
-            due: 'Overdue by 140 km',
-            status: 'Overdue'
-        },
-        {
-            id: 'upcoming-003',
-            title: 'Wheel Alignment',
-            due: 'Planned for next service window',
-            status: 'Planned'
-        }
-    ]
+    const [vehicle, records] = await Promise.all([
+        fetchApiData<Vehicle>(request, `/api/vehicles/${vehicleId}`),
+        fetchApiData<ApiServiceRecord[]>(request, `/api/vehicles/${vehicleId}/records`)
+    ])
+
+    const now = new Date()
+    const vehicleLabel = `${vehicle.year} ${vehicle.make} ${vehicle.model}`
+    const serviceRecords: DashboardServiceRecord[] = buildDisplayServiceRecords(records, now)
+    const upcomingItems = buildUpcomingItems(vehicle, records, now)
+    const summaryStats: SummaryStat[] = buildSummaryStats(vehicle, records, upcomingItems, now)
 
     const snapshot: SnapshotField[] = [
-        { label: 'Plate Number', value: 'ABC-2010' },
-        { label: 'VIN', value: 'KNAFU4A23A5123456' },
-        { label: 'Engine', value: '2.0L DOHC' },
-        { label: 'Transmission', value: '4-speed automatic' },
-        { label: 'Fuel Type', value: 'Gasoline' }
-    ]
-
-    const timeline: TimelineEvent[] = [
+        { label: 'Trim', value: vehicle.trim },
+        { label: 'Plate Number', value: vehicle.plateNumber || 'Not recorded' },
+        { label: 'VIN', value: vehicle.vin || 'Not recorded' },
+        { label: 'Engine', value: vehicle.engine || 'Not recorded' },
+        { label: 'Transmission', value: vehicle.transmission },
+        { label: 'Fuel Type', value: vehicle.fuelType },
         {
-            id: 'event-001',
-            title: 'ABS Sensor Replacement Completed',
-            date: '2026-02-28',
-            detail: 'Fault code cleared and road test passed at Northside Auto Care.',
-            tone: 'success'
-        },
-        {
-            id: 'event-002',
-            title: 'Front Brake Pads Service Overdue',
-            date: '2026-03-08',
-            detail: 'Recommended replacement interval exceeded by 140 km.',
-            tone: 'warning'
-        },
-        {
-            id: 'event-003',
-            title: 'Brake Inspection & Cleaning Scheduled',
-            date: '2026-03-22',
-            detail: 'Booking confirmed with Precision Garage for routine brake check.',
-            tone: 'neutral'
+            label: 'Purchase Mileage',
+            value: vehicle.purchaseMileage != null ? `${vehicle.purchaseMileage.toLocaleString()} mi` : 'Not recorded'
         }
     ]
+
+    const timeline: TimelineEvent[] = buildTimeline(records, upcomingItems, now)
 
     return json<DashboardLoaderData>({
         vehicleId: params.vehicleId,
-        vehicleLabel: '2010 Kia Forte',
+        vehicleLabel,
         summaryStats,
         serviceRecords,
         upcomingItems,

@@ -16,86 +16,28 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
 import { useAuth } from '../auth/useAuth'
 import { cn } from '../lib/utils'
-import type { ServiceRecord, ServiceStatus } from '../components/dashboard/types'
+import type { ServiceStatus } from '../components/dashboard/types'
+import type { ServiceRecord as ApiServiceRecord, Vehicle } from '../types/index.js'
+import { buildDisplayServiceRecords, fetchApiData } from '../lib/maintenance.js'
 
 export const meta: MetaFunction = () => [{ title: 'Service Records — Duralog' }]
 
-const mockRecords: ServiceRecord[] = [
-    {
-        id: 'record-001',
-        date: '2026-02-28',
-        mileage: '124,060 km',
-        service: 'ABS Sensor Replacement',
-        workshop: 'Northside Auto Care',
-        category: 'Electrical',
-        cost: '$245.00',
-        status: 'Completed'
-    },
-    {
-        id: 'record-002',
-        date: '2026-02-11',
-        mileage: '123,640 km',
-        service: 'Power Steering Fluid Refresh',
-        workshop: 'Precision Garage',
-        category: 'Fluids',
-        cost: '$95.00',
-        status: 'Completed'
-    },
-    {
-        id: 'record-003',
-        date: '2026-03-22',
-        mileage: '125,500 km',
-        service: 'Brake Inspection & Cleaning',
-        workshop: 'Precision Garage',
-        category: 'Brakes',
-        cost: '$80.00',
-        status: 'Upcoming'
-    },
-    {
-        id: 'record-004',
-        date: '2026-04-04',
-        mileage: '126,100 km',
-        service: 'Coolant Cap Replacement',
-        workshop: 'Metro Car Service',
-        category: 'Cooling System',
-        cost: '$36.00',
-        status: 'Planned'
-    },
-    {
-        id: 'record-005',
-        date: '2026-02-01',
-        mileage: '123,100 km',
-        service: 'Front Brake Pads',
-        workshop: 'Northside Auto Care',
-        category: 'Brakes',
-        cost: '$220.00',
-        status: 'Overdue'
-    },
-    {
-        id: 'record-006',
-        date: '2026-01-15',
-        mileage: '122,480 km',
-        service: 'Engine Oil & Filter Change',
-        workshop: 'Precision Garage',
-        category: 'Engine',
-        cost: '$75.00',
-        status: 'Completed'
-    },
-    {
-        id: 'record-007',
-        date: '2025-12-03',
-        mileage: '121,900 km',
-        service: 'Tyre Rotation',
-        workshop: 'Metro Car Service',
-        category: 'Tyres',
-        cost: '$40.00',
-        status: 'Completed'
-    }
-]
+export async function loader({ params, request }: LoaderFunctionArgs) {
+    const vehicleId = Number(params.vehicleId)
 
-export async function loader({ params }: LoaderFunctionArgs) {
-    const vehicleId = params.vehicleId
-    return json({ vehicleId, records: mockRecords, vehicleLabel: '2010 Kia Forte' })
+    if (!Number.isInteger(vehicleId) || vehicleId < 1) {
+        throw new Response('Not found', { status: 404 })
+    }
+
+    const [vehicle, rawRecords] = await Promise.all([
+        fetchApiData<Vehicle>(request, `/api/vehicles/${vehicleId}`),
+        fetchApiData<ApiServiceRecord[]>(request, `/api/vehicles/${vehicleId}/records`)
+    ])
+
+    const records = buildDisplayServiceRecords(rawRecords, new Date())
+    const vehicleLabel = `${vehicle.year} ${vehicle.make} ${vehicle.model}`
+
+    return json({ vehicleId: String(vehicleId), records, vehicleLabel })
 }
 
 const statusFilters: Array<ServiceStatus | 'All'> = ['All', 'Completed', 'Upcoming', 'Planned', 'Overdue']

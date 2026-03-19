@@ -15,6 +15,8 @@ export interface ServiceRecord {
     category: string
     cost: string
     status: ServiceStatus
+    detail?: string
+    notes?: string
 }
 
 export interface UpcomingItem {

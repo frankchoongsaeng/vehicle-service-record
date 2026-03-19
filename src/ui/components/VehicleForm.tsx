@@ -11,6 +11,21 @@ import type { Vehicle, VehicleInput } from '../types/index.js'
 const vinHelperText = 'Add the VIN to help us auto-fill the rest of the vehicle details for you.'
 const transmissionOptions = ['Automatic', 'Manual', 'CVT', 'Dual-clutch', 'Semi-automatic'] as const
 const fuelTypeOptions = ['Gasoline', 'Diesel', 'Hybrid', 'Plug-in Hybrid', 'Electric', 'Flex Fuel'] as const
+const vehicleTypeOptions = [
+    'Car',
+    'SUV',
+    'Truck',
+    'Van',
+    'Minivan',
+    'Motorcycle',
+    'Scooter',
+    'ATV',
+    'UTV',
+    'RV',
+    'Trailer',
+    'Boat',
+    'Other'
+] as const
 
 function normalizeOptionalNumber(value: number | string | undefined) {
     if (value === '' || value === undefined) {
@@ -49,6 +64,9 @@ export default function VehicleForm({ initial, onSubmit, onCancel, layout = 'def
     const [error, setError] = useState('')
     const isFeatureLayout = layout === 'feature'
     const computedVehicleName = `${form.year} ${form.make} ${form.model}`.trim()
+    const hasLegacyVehicleType = Boolean(
+        form.vehicleType && !vehicleTypeOptions.includes(form.vehicleType as (typeof vehicleTypeOptions)[number])
+    )
 
     const set = (field: keyof VehicleInput, value: string | number) => setForm(prev => ({ ...prev, [field]: value }))
 
@@ -159,12 +177,24 @@ export default function VehicleForm({ initial, onSubmit, onCancel, layout = 'def
                         </div>
                         <div className='space-y-2'>
                             <label className='text-sm font-medium text-foreground'>Vehicle Type</label>
-                            <Input
-                                type='text'
-                                value={form.vehicleType ?? ''}
-                                onChange={e => set('vehicleType', e.target.value)}
-                                placeholder='e.g. SUV, Sedan, Truck'
-                            />
+                            <Select
+                                value={form.vehicleType || undefined}
+                                onValueChange={value => set('vehicleType', value)}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder='Select vehicle type' />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {hasLegacyVehicleType && form.vehicleType ? (
+                                        <SelectItem value={form.vehicleType}>{form.vehicleType}</SelectItem>
+                                    ) : null}
+                                    {vehicleTypeOptions.map(option => (
+                                        <SelectItem key={option} value={option}>
+                                            {option}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                         <div className='space-y-2'>
                             <label className='text-sm font-medium text-foreground'>Plate Number</label>
@@ -362,12 +392,24 @@ export default function VehicleForm({ initial, onSubmit, onCancel, layout = 'def
                         </div>
                         <div className='space-y-2'>
                             <label className='text-sm font-medium text-foreground'>Vehicle Type</label>
-                            <Input
-                                type='text'
-                                value={form.vehicleType ?? ''}
-                                onChange={e => set('vehicleType', e.target.value)}
-                                placeholder='e.g. SUV, Sedan, Truck'
-                            />
+                            <Select
+                                value={form.vehicleType || undefined}
+                                onValueChange={value => set('vehicleType', value)}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder='Select vehicle type' />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {hasLegacyVehicleType && form.vehicleType ? (
+                                        <SelectItem value={form.vehicleType}>{form.vehicleType}</SelectItem>
+                                    ) : null}
+                                    {vehicleTypeOptions.map(option => (
+                                        <SelectItem key={option} value={option}>
+                                            {option}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
 

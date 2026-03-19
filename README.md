@@ -4,7 +4,7 @@ Duralog is a web app to track maintenance and service history for your vehicles 
 
 ## Features
 
-- **Manage detailed vehicle profiles** — track name, make, model, year, trim, plate, VIN, engine, transmission, fuel type, mileage, color, and notes
+- **Manage detailed vehicle profiles** — track name, make, model, year, trim, vehicle type, plate, VIN, engine, transmission, fuel type, mileage, color, and notes
 - **Track service records** — oil changes, tire rotations, brake service, battery replacements, and more
 - **Rich record details** — service type, date, mileage at service, cost, and notes
 - **Cross-device access** — data is stored on the backend server, accessible from any device

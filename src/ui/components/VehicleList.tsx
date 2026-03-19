@@ -44,6 +44,7 @@ export default function VehicleList({ vehicles, onSelect, onEdit, onDelete }: Pr
                                 </div>
 
                                 <div className='flex flex-wrap gap-2'>
+                                    {v.vehicleType && <Badge variant='secondary'>{v.vehicleType}</Badge>}
                                     {v.color && <Badge variant='secondary'>Color: {v.color}</Badge>}
                                     {v.mileage != null && (
                                         <Badge variant='secondary'>{v.mileage.toLocaleString()} mi</Badge>

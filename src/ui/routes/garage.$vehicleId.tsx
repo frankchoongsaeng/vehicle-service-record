@@ -72,6 +72,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
     const summaryStats: SummaryStat[] = buildSummaryStats(vehicle, records, upcomingItems, now)
 
     const snapshot: SnapshotField[] = [
+        { label: 'Vehicle Type', value: vehicle.vehicleType || 'Not recorded' },
         { label: 'Trim', value: vehicle.trim },
         { label: 'Plate Number', value: vehicle.plateNumber || 'Not recorded' },
         { label: 'VIN', value: vehicle.vin || 'Not recorded' },

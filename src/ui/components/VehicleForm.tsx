@@ -34,6 +34,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel, layout = 'def
         model: initial?.model ?? '',
         year: initial?.year ?? new Date().getFullYear(),
         trim: initial?.trim ?? '',
+        vehicleType: initial?.vehicleType ?? '',
         plateNumber: initial?.plateNumber ?? '',
         vin: initial?.vin ?? '',
         engine: initial?.engine ?? '',
@@ -61,6 +62,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel, layout = 'def
                 year: Number(form.year),
                 purchaseMileage: normalizeOptionalNumber(form.purchaseMileage),
                 mileage: normalizeOptionalNumber(form.mileage),
+                vehicleType: form.vehicleType || undefined,
                 plateNumber: form.plateNumber || undefined,
                 vin: form.vin || undefined,
                 engine: form.engine || undefined,
@@ -153,6 +155,15 @@ export default function VehicleForm({ initial, onSubmit, onCancel, layout = 'def
                                 onChange={e => set('trim', e.target.value)}
                                 placeholder='e.g. XLE'
                                 required
+                            />
+                        </div>
+                        <div className='space-y-2'>
+                            <label className='text-sm font-medium text-foreground'>Vehicle Type</label>
+                            <Input
+                                type='text'
+                                value={form.vehicleType ?? ''}
+                                onChange={e => set('vehicleType', e.target.value)}
+                                placeholder='e.g. SUV, Sedan, Truck'
                             />
                         </div>
                         <div className='space-y-2'>
@@ -347,6 +358,15 @@ export default function VehicleForm({ initial, onSubmit, onCancel, layout = 'def
                                 onChange={e => set('trim', e.target.value)}
                                 placeholder='e.g. XLE'
                                 required
+                            />
+                        </div>
+                        <div className='space-y-2'>
+                            <label className='text-sm font-medium text-foreground'>Vehicle Type</label>
+                            <Input
+                                type='text'
+                                value={form.vehicleType ?? ''}
+                                onChange={e => set('vehicleType', e.target.value)}
+                                placeholder='e.g. SUV, Sedan, Truck'
                             />
                         </div>
                     </div>

@@ -4,6 +4,7 @@ export interface Vehicle {
     model: string
     year: number
     trim: string
+    vehicleType?: string | null
     plateNumber?: string | null
     vin?: string | null
     engine?: string | null
@@ -22,6 +23,7 @@ export interface VehicleInput {
     model: string
     year: number
     trim: string
+    vehicleType?: string
     plateNumber?: string
     vin?: string
     engine?: string

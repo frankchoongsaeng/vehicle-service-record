@@ -27,6 +27,7 @@ model Vehicle {
     model            String
     year             Int
     trim             String
+    vehicle_type     String?
     plate_number     String?
     vin              String?
     engine           String?

@@ -14,6 +14,7 @@ function serializeVehicle(vehicle: {
     model: string
     year: number
     trim: string
+    vehicle_type: string | null
     plate_number: string | null
     vin: string | null
     engine: string | null
@@ -32,6 +33,7 @@ function serializeVehicle(vehicle: {
         model: vehicle.model,
         year: vehicle.year,
         trim: vehicle.trim,
+        vehicleType: vehicle.vehicle_type,
         plateNumber: vehicle.plate_number,
         vin: vehicle.vin,
         engine: vehicle.engine,
@@ -110,6 +112,7 @@ router.post(
             model,
             year,
             trim,
+            vehicleType,
             plateNumber,
             vin,
             engine,
@@ -124,6 +127,7 @@ router.post(
             model: string
             year: number
             trim: string
+            vehicleType?: string
             plateNumber?: string
             vin?: string
             engine?: string
@@ -152,6 +156,7 @@ router.post(
                 model,
                 year: Number(year),
                 trim,
+                vehicle_type: vehicleType || null,
                 plate_number: plateNumber || null,
                 vin: vin || null,
                 engine: engine || null,
@@ -187,6 +192,7 @@ router.put(
             model,
             year,
             trim,
+            vehicleType,
             plateNumber,
             vin,
             engine,
@@ -201,6 +207,7 @@ router.put(
             model: string
             year: number
             trim: string
+            vehicleType?: string
             plateNumber?: string
             vin?: string
             engine?: string
@@ -247,6 +254,7 @@ router.put(
                 model,
                 year: Number(year),
                 trim,
+                vehicle_type: vehicleType || null,
                 plate_number: plateNumber || null,
                 vin: vin || null,
                 engine: engine || null,

@@ -3,6 +3,7 @@ import type {
     LoginInput,
     SignupInput,
     Vehicle,
+    VinLookupResult,
     VehicleInput,
     ServiceRecord,
     ServiceRecordInput
@@ -134,6 +135,9 @@ export const logout = (): Promise<void> => request('/auth/logout', { method: 'PO
 export const getVehicles = (): Promise<Vehicle[]> => request('/vehicles')
 
 export const getVehicle = (id: number): Promise<Vehicle> => request(`/vehicles/${id}`)
+
+export const lookupVin = (vin: string): Promise<VinLookupResult> =>
+    request(`/vehicles/vin-search/${encodeURIComponent(vin)}`)
 
 export const createVehicle = (input: VehicleInput): Promise<Vehicle> =>
     request('/vehicles', { method: 'POST', body: JSON.stringify(input) })

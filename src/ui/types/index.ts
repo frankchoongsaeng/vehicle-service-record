@@ -35,6 +35,36 @@ export interface VehicleInput {
     notes?: string
 }
 
+export interface VinLookupResult {
+    vin: string
+    make: string
+    model: string
+    year: number
+    trim?: string
+    vehicleType?: string
+    engine?: string
+    transmission?: string
+    fuelType?: string
+    details: {
+        manufacturer?: string
+        bodyClass?: string
+        vehicleType?: string
+        driveType?: string
+        doors?: number
+        series?: string
+        series2?: string
+        trim2?: string
+        engineModel?: string
+        engineCylinders?: number
+        engineHorsepower?: number
+        transmissionSpeeds?: string
+        electrificationLevel?: string
+        plantCity?: string
+        plantState?: string
+        plantCountry?: string
+    }
+}
+
 export const SERVICE_TYPES = [
     { value: 'oil_change', label: 'Oil Change' },
     { value: 'tire_rotation', label: 'Tire Rotation' },

@@ -3,6 +3,7 @@ import { prisma } from '../db.js'
 import { createLogger } from '../logging/logger.js'
 import { asyncHandler } from '../middleware/asyncHandler.js'
 import { requireAuth } from '../middleware/auth.js'
+import { lookupVin, VinLookupError } from '../vehicles/vinLookup.js'
 
 const router = Router()
 const vehiclesLogger = createLogger({ component: 'vehicle-routes' })
@@ -49,6 +50,45 @@ function serializeVehicle(vehicle: {
 }
 
 router.use(requireAuth)
+
+// GET /api/vehicles/vin-search/:vin
+router.get(
+    '/vin-search/:vin',
+    asyncHandler(async (req: Request, res: Response) => {
+        const authUser = req.authUser!
+        const vin = String(req.params.vin ?? '')
+
+        try {
+            const result = await lookupVin(vin)
+
+            vehiclesLogger.info('vehicles.vin_lookup_succeeded', {
+                requestId: req.requestId,
+                userId: authUser.id,
+                vin: result.vin,
+                make: result.make,
+                model: result.model,
+                year: result.year
+            })
+
+            res.json(result)
+        } catch (error) {
+            if (error instanceof VinLookupError) {
+                vehiclesLogger.warn('vehicles.vin_lookup_failed', {
+                    requestId: req.requestId,
+                    userId: authUser.id,
+                    vin,
+                    statusCode: error.status,
+                    error: error.message
+                })
+
+                res.status(error.status).json({ error: error.message })
+                return
+            }
+
+            throw error
+        }
+    })
+)
 
 // GET /api/vehicles
 router.get(

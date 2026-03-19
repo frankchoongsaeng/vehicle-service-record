@@ -1,12 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Info } from 'lucide-react'
 
+import * as api from '../api/client.js'
+import { cn } from '../lib/utils.js'
+import type { VinLookupResult, Vehicle, VehicleInput } from '../types/index.js'
 import { Button } from './ui/button.js'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card.js'
 import { Input } from './ui/input.js'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select.js'
 import { Textarea } from './ui/textarea.js'
-import type { Vehicle, VehicleInput } from '../types/index.js'
 
 const vinHelperText = 'Add the VIN to help us auto-fill the rest of the vehicle details for you.'
 const transmissionOptions = ['Automatic', 'Manual', 'CVT', 'Dual-clutch', 'Semi-automatic'] as const
@@ -26,6 +28,167 @@ const vehicleTypeOptions = [
     'Boat',
     'Other'
 ] as const
+const VIN_LENGTH = 17
+const VIN_POSITION_WEIGHTS = [8, 7, 6, 5, 4, 3, 2, 10, 0, 9, 8, 7, 6, 5, 4, 3, 2] as const
+const VIN_TRANSLITERATION: Record<string, number> = {
+    A: 1,
+    B: 2,
+    C: 3,
+    D: 4,
+    E: 5,
+    F: 6,
+    G: 7,
+    H: 8,
+    J: 1,
+    K: 2,
+    L: 3,
+    M: 4,
+    N: 5,
+    P: 7,
+    R: 9,
+    S: 2,
+    T: 3,
+    U: 4,
+    V: 5,
+    W: 6,
+    X: 7,
+    Y: 8,
+    Z: 9,
+    '0': 0,
+    '1': 1,
+    '2': 2,
+    '3': 3,
+    '4': 4,
+    '5': 5,
+    '6': 6,
+    '7': 7,
+    '8': 8,
+    '9': 9
+}
+
+type VinLookupStatus = 'idle' | 'loading' | 'success' | 'error'
+type AutoFilledVehicleFields = Partial<
+    Pick<VehicleInput, 'make' | 'model' | 'year' | 'trim' | 'vehicleType' | 'engine' | 'transmission' | 'fuelType'>
+>
+
+function normalizeVin(rawVin: string): string {
+    return rawVin
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-HJ-NPR-Z0-9]/g, '')
+        .slice(0, VIN_LENGTH)
+}
+
+function decodeVinCheckDigit(vin: string): string {
+    const total = vin.split('').reduce((sum, character, index) => {
+        const value = VIN_TRANSLITERATION[character]
+        return sum + value * VIN_POSITION_WEIGHTS[index]
+    }, 0)
+
+    const remainder = total % 11
+    return remainder === 10 ? 'X' : String(remainder)
+}
+
+function isValidVin(vin: string): boolean {
+    return vin.length === VIN_LENGTH && vin[8] === decodeVinCheckDigit(vin)
+}
+
+function hasMeaningfulValue(value: string | number | undefined): boolean {
+    if (value === undefined) {
+        return false
+    }
+
+    if (typeof value === 'number') {
+        return Number.isFinite(value)
+    }
+
+    return value.trim().length > 0
+}
+
+function shouldApplyLookupValue(
+    currentValue: string | number | undefined,
+    lookupValue: string | number | undefined,
+    previousAutoFilledValue: string | number | undefined,
+    fallbackValue?: string | number
+): boolean {
+    if (!hasMeaningfulValue(lookupValue)) {
+        return false
+    }
+
+    if (!hasMeaningfulValue(currentValue)) {
+        return true
+    }
+
+    if (currentValue === previousAutoFilledValue) {
+        return true
+    }
+
+    if (fallbackValue !== undefined && currentValue === fallbackValue) {
+        return true
+    }
+
+    return false
+}
+
+function buildLookupMessage(result: VinLookupResult): string {
+    const name = [result.year, result.make, result.model, result.trim].filter(Boolean).join(' ')
+    return name ? `${name} decoded from VIN.` : 'Vehicle details decoded from VIN.'
+}
+
+function applyLookupToForm(
+    currentForm: VehicleInput,
+    result: VinLookupResult,
+    previousAutoFilled: AutoFilledVehicleFields,
+    yearFallback: number
+): { nextForm: VehicleInput; autoFilled: AutoFilledVehicleFields } {
+    const lookupValues: AutoFilledVehicleFields = {
+        make: result.make,
+        model: result.model,
+        year: result.year,
+        trim: result.trim,
+        vehicleType: result.vehicleType,
+        engine: result.engine,
+        transmission: result.transmission,
+        fuelType: result.fuelType
+    }
+    const nextForm = { ...currentForm }
+    const autoFilled: AutoFilledVehicleFields = {}
+
+    if (shouldApplyLookupValue(currentForm.make, lookupValues.make, previousAutoFilled.make)) {
+        nextForm.make = lookupValues.make ?? currentForm.make
+        autoFilled.make = lookupValues.make
+    }
+    if (shouldApplyLookupValue(currentForm.model, lookupValues.model, previousAutoFilled.model)) {
+        nextForm.model = lookupValues.model ?? currentForm.model
+        autoFilled.model = lookupValues.model
+    }
+    if (shouldApplyLookupValue(currentForm.year, lookupValues.year, previousAutoFilled.year, yearFallback)) {
+        nextForm.year = lookupValues.year ?? currentForm.year
+        autoFilled.year = lookupValues.year
+    }
+    if (shouldApplyLookupValue(currentForm.trim, lookupValues.trim, previousAutoFilled.trim)) {
+        nextForm.trim = lookupValues.trim ?? currentForm.trim
+        autoFilled.trim = lookupValues.trim
+    }
+    if (shouldApplyLookupValue(currentForm.vehicleType, lookupValues.vehicleType, previousAutoFilled.vehicleType)) {
+        nextForm.vehicleType = lookupValues.vehicleType ?? currentForm.vehicleType
+        autoFilled.vehicleType = lookupValues.vehicleType
+    }
+    if (shouldApplyLookupValue(currentForm.engine, lookupValues.engine, previousAutoFilled.engine)) {
+        nextForm.engine = lookupValues.engine ?? currentForm.engine
+        autoFilled.engine = lookupValues.engine
+    }
+    if (shouldApplyLookupValue(currentForm.transmission, lookupValues.transmission, previousAutoFilled.transmission)) {
+        nextForm.transmission = lookupValues.transmission ?? currentForm.transmission
+        autoFilled.transmission = lookupValues.transmission
+    }
+    if (shouldApplyLookupValue(currentForm.fuelType, lookupValues.fuelType, previousAutoFilled.fuelType)) {
+        nextForm.fuelType = lookupValues.fuelType ?? currentForm.fuelType
+        autoFilled.fuelType = lookupValues.fuelType
+    }
+
+    return { nextForm, autoFilled }
+}
 
 function normalizeOptionalNumber(value: number | string | undefined) {
     if (value === '' || value === undefined) {
@@ -44,10 +207,11 @@ interface Props {
 }
 
 export default function VehicleForm({ initial, onSubmit, onCancel, layout = 'default' }: Props) {
+    const initialYear = initial?.year ?? new Date().getFullYear()
     const [form, setForm] = useState<VehicleInput>({
         make: initial?.make ?? '',
         model: initial?.model ?? '',
-        year: initial?.year ?? new Date().getFullYear(),
+        year: initialYear,
         trim: initial?.trim ?? '',
         vehicleType: initial?.vehicleType ?? '',
         plateNumber: initial?.plateNumber ?? '',
@@ -62,13 +226,103 @@ export default function VehicleForm({ initial, onSubmit, onCancel, layout = 'def
     })
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
+    const [vinLookupStatus, setVinLookupStatus] = useState<VinLookupStatus>('idle')
+    const [vinLookupMessage, setVinLookupMessage] = useState(vinHelperText)
     const isFeatureLayout = layout === 'feature'
-    const computedVehicleName = `${form.year} ${form.make} ${form.model}`.trim()
+    const canAutoLookupVin = !initial
+    const trimmedMake = form.make.trim()
+    const trimmedModel = form.model.trim()
+    const computedVehicleName = [trimmedMake, trimmedModel].some(Boolean)
+        ? [String(form.year).trim(), trimmedMake, trimmedModel].filter(Boolean).join(' ')
+        : ''
+    const title = initial ? 'Edit Vehicle' : computedVehicleName || 'Add Vehicle'
     const hasLegacyVehicleType = Boolean(
         form.vehicleType && !vehicleTypeOptions.includes(form.vehicleType as (typeof vehicleTypeOptions)[number])
     )
+    const lastLookedUpVinRef = useRef('')
+    const autoFilledFieldsRef = useRef<AutoFilledVehicleFields>({})
 
     const set = (field: keyof VehicleInput, value: string | number) => setForm(prev => ({ ...prev, [field]: value }))
+
+    useEffect(() => {
+        if (!canAutoLookupVin) {
+            return
+        }
+
+        const normalizedVin = normalizeVin(form.vin ?? '')
+        if (normalizedVin !== (form.vin ?? '')) {
+            setForm(prev => ({ ...prev, vin: normalizedVin }))
+            return
+        }
+
+        if (!normalizedVin) {
+            lastLookedUpVinRef.current = ''
+            autoFilledFieldsRef.current = {}
+            setVinLookupStatus('idle')
+            setVinLookupMessage(vinHelperText)
+            return
+        }
+
+        if (normalizedVin.length < VIN_LENGTH) {
+            setVinLookupStatus('idle')
+            setVinLookupMessage('Enter all 17 VIN characters to decode the vehicle details.')
+            return
+        }
+
+        if (!isValidVin(normalizedVin)) {
+            setVinLookupStatus('error')
+            setVinLookupMessage('This VIN does not pass validation. Check the characters and try again.')
+            return
+        }
+
+        if (lastLookedUpVinRef.current === normalizedVin) {
+            return
+        }
+
+        let active = true
+        const timeout = window.setTimeout(async () => {
+            setVinLookupStatus('loading')
+            setVinLookupMessage('Looking up VIN details…')
+
+            try {
+                const result = await api.lookupVin(normalizedVin)
+                if (!active) {
+                    return
+                }
+
+                setForm(currentForm => {
+                    const applied = applyLookupToForm(currentForm, result, autoFilledFieldsRef.current, initialYear)
+                    autoFilledFieldsRef.current = applied.autoFilled
+                    return applied.nextForm
+                })
+                lastLookedUpVinRef.current = normalizedVin
+                setVinLookupStatus('success')
+                setVinLookupMessage(buildLookupMessage(result))
+            } catch (lookupError) {
+                if (!active) {
+                    return
+                }
+
+                lastLookedUpVinRef.current = ''
+                setVinLookupStatus('error')
+                setVinLookupMessage(
+                    lookupError instanceof Error
+                        ? lookupError.message
+                        : 'Unable to decode this VIN right now. You can continue filling out the form manually.'
+                )
+            }
+        }, 350)
+
+        return () => {
+            active = false
+            window.clearTimeout(timeout)
+        }
+    }, [canAutoLookupVin, form.vin, initialYear])
+
+    const vinMessageClassName = cn('text-xs leading-5 text-muted-foreground', {
+        'text-foreground': vinLookupStatus === 'success',
+        'text-destructive': vinLookupStatus === 'error'
+    })
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -98,7 +352,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel, layout = 'def
         return (
             <section className='mx-auto max-w-5xl'>
                 <div className='space-y-2 border-b border-border/70 pb-6 text-center'>
-                    <h1 className='text-xl font-semibold uppercase text-foreground'>Add Vehicle</h1>
+                    <h1 className='text-xl font-semibold uppercase text-foreground'>{title}</h1>
                     <p className='mx-auto max-w-2xl text-sm leading-6 text-muted-foreground'>
                         Capture the core details first. You can always refine notes and identifiers later.
                     </p>
@@ -113,10 +367,6 @@ export default function VehicleForm({ initial, onSubmit, onCancel, layout = 'def
 
                     <div className='grid gap-5 md:grid-cols-2'>
                         <div className='space-y-2 md:col-span-2'>
-                            <label className='text-sm font-medium text-foreground'>Name</label>
-                            <Input type='text' value={computedVehicleName} disabled placeholder='Vehicle name' />
-                        </div>
-                        <div className='space-y-2 md:col-span-2'>
                             <label className='flex items-center gap-2 text-sm font-medium text-foreground'>
                                 <span>VIN</span>
                                 <span className='group relative inline-flex items-center'>
@@ -129,10 +379,11 @@ export default function VehicleForm({ initial, onSubmit, onCancel, layout = 'def
                             <Input
                                 type='text'
                                 value={form.vin ?? ''}
-                                onChange={e => set('vin', e.target.value)}
+                                onChange={e => set('vin', normalizeVin(e.target.value))}
                                 placeholder='Vehicle Identification Number'
                                 maxLength={17}
                             />
+                            <p className={vinMessageClassName}>{vinLookupMessage}</p>
                         </div>
                         <div className='space-y-2'>
                             <label className='text-sm font-medium text-foreground'>Make *</label>
@@ -177,10 +428,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel, layout = 'def
                         </div>
                         <div className='space-y-2'>
                             <label className='text-sm font-medium text-foreground'>Vehicle Type</label>
-                            <Select
-                                value={form.vehicleType || undefined}
-                                onValueChange={value => set('vehicleType', value)}
-                            >
+                            <Select value={form.vehicleType} onValueChange={value => set('vehicleType', value)}>
                                 <SelectTrigger>
                                     <SelectValue placeholder='Select vehicle type' />
                                 </SelectTrigger>
@@ -216,10 +464,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel, layout = 'def
                         </div>
                         <div className='space-y-2'>
                             <label className='text-sm font-medium text-foreground'>Transmission *</label>
-                            <Select
-                                value={form.transmission || undefined}
-                                onValueChange={value => set('transmission', value)}
-                            >
+                            <Select value={form.transmission} onValueChange={value => set('transmission', value)}>
                                 <SelectTrigger>
                                     <SelectValue placeholder='Select transmission' />
                                 </SelectTrigger>
@@ -234,7 +479,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel, layout = 'def
                         </div>
                         <div className='space-y-2'>
                             <label className='text-sm font-medium text-foreground'>Fuel Type *</label>
-                            <Select value={form.fuelType || undefined} onValueChange={value => set('fuelType', value)}>
+                            <Select value={form.fuelType} onValueChange={value => set('fuelType', value)}>
                                 <SelectTrigger>
                                     <SelectValue placeholder='Select fuel type' />
                                 </SelectTrigger>
@@ -310,7 +555,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel, layout = 'def
     return (
         <Card className='mx-auto max-w-3xl'>
             <CardHeader className='space-y-2'>
-                <CardTitle>{initial ? 'Edit Vehicle' : 'Add Vehicle'}</CardTitle>
+                <CardTitle>{title}</CardTitle>
                 <CardDescription>
                     Capture the core details first. You can always refine notes and identifiers later.
                 </CardDescription>
@@ -325,10 +570,6 @@ export default function VehicleForm({ initial, onSubmit, onCancel, layout = 'def
 
                     <div className='grid gap-4 md:grid-cols-2'>
                         <div className='space-y-2 md:col-span-2'>
-                            <label className='text-sm font-medium text-foreground'>Name</label>
-                            <Input type='text' value={computedVehicleName} disabled placeholder='Vehicle name' />
-                        </div>
-                        <div className='space-y-2 md:col-span-2'>
                             <label className='flex items-center gap-2 text-sm font-medium text-foreground'>
                                 <span>VIN</span>
                                 <span className='group relative inline-flex items-center'>
@@ -341,10 +582,11 @@ export default function VehicleForm({ initial, onSubmit, onCancel, layout = 'def
                             <Input
                                 type='text'
                                 value={form.vin ?? ''}
-                                onChange={e => set('vin', e.target.value)}
+                                onChange={e => set('vin', normalizeVin(e.target.value))}
                                 placeholder='Vehicle Identification Number'
                                 maxLength={17}
                             />
+                            <p className={vinMessageClassName}>{vinLookupMessage}</p>
                         </div>
                         <div className='space-y-2'>
                             <label className='text-sm font-medium text-foreground'>Make *</label>
@@ -392,10 +634,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel, layout = 'def
                         </div>
                         <div className='space-y-2'>
                             <label className='text-sm font-medium text-foreground'>Vehicle Type</label>
-                            <Select
-                                value={form.vehicleType || undefined}
-                                onValueChange={value => set('vehicleType', value)}
-                            >
+                            <Select value={form.vehicleType} onValueChange={value => set('vehicleType', value)}>
                                 <SelectTrigger>
                                     <SelectValue placeholder='Select vehicle type' />
                                 </SelectTrigger>
@@ -437,10 +676,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel, layout = 'def
                     <div className='grid gap-4 md:grid-cols-2'>
                         <div className='space-y-2'>
                             <label className='text-sm font-medium text-foreground'>Transmission *</label>
-                            <Select
-                                value={form.transmission || undefined}
-                                onValueChange={value => set('transmission', value)}
-                            >
+                            <Select value={form.transmission} onValueChange={value => set('transmission', value)}>
                                 <SelectTrigger>
                                     <SelectValue placeholder='Select transmission' />
                                 </SelectTrigger>
@@ -455,7 +691,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel, layout = 'def
                         </div>
                         <div className='space-y-2'>
                             <label className='text-sm font-medium text-foreground'>Fuel Type *</label>
-                            <Select value={form.fuelType || undefined} onValueChange={value => set('fuelType', value)}>
+                            <Select value={form.fuelType} onValueChange={value => set('fuelType', value)}>
                                 <SelectTrigger>
                                     <SelectValue placeholder='Select fuel type' />
                                 </SelectTrigger>

@@ -48,7 +48,7 @@ export default function AddNewVehicleRoute() {
             <div className='space-y-6'>
                 <div className='relative h-56 overflow-hidden sm:h-72 lg:h-88'>
                     <img
-                        src='/images/add-car-bg.png'
+                        src='/images/add-car.png'
                         alt=''
                         aria-hidden='true'
                         className='h-full w-full object-contain object-center'

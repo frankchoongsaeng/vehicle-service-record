@@ -67,9 +67,12 @@ const VIN_TRANSLITERATION: Record<string, number> = {
 }
 
 type VinLookupStatus = 'idle' | 'loading' | 'success' | 'error'
+type RequiredVehicleField = 'make' | 'model' | 'year' | 'trim' | 'transmission' | 'fuelType'
 type AutoFilledVehicleFields = Partial<
     Pick<VehicleInput, 'make' | 'model' | 'year' | 'trim' | 'vehicleType' | 'engine' | 'transmission' | 'fuelType'>
 >
+
+const requiredVehicleFields: RequiredVehicleField[] = ['make', 'model', 'year', 'trim', 'transmission', 'fuelType']
 
 function normalizeVin(rawVin: string): string {
     return rawVin
@@ -199,6 +202,26 @@ function normalizeOptionalNumber(value: number | string | undefined) {
     return Number.isFinite(parsed) ? parsed : undefined
 }
 
+function hasFieldValue(value: string | number | undefined) {
+    if (value === undefined) {
+        return false
+    }
+
+    if (typeof value === 'number') {
+        return Number.isFinite(value)
+    }
+
+    return value.trim().length > 0
+}
+
+function getMissingRequiredFields(form: VehicleInput): RequiredVehicleField[] {
+    return requiredVehicleFields.filter(field => !hasFieldValue(form[field]))
+}
+
+function isRequiredField(field: keyof VehicleInput): field is RequiredVehicleField {
+    return requiredVehicleFields.includes(field as RequiredVehicleField)
+}
+
 interface Props {
     initial?: Vehicle
     onSubmit: (data: VehicleInput) => Promise<void>
@@ -227,6 +250,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
     })
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
+    const [invalidFields, setInvalidFields] = useState<Partial<Record<RequiredVehicleField, true>>>({})
     const [vinLookupStatus, setVinLookupStatus] = useState<VinLookupStatus>('idle')
     const [vinLookupMessage, setVinLookupMessage] = useState(vinHelperText)
     const isFeatureLayout = layout === 'feature'
@@ -243,7 +267,21 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
     const lastLookedUpVinRef = useRef('')
     const autoFilledFieldsRef = useRef<AutoFilledVehicleFields>({})
 
-    const set = (field: keyof VehicleInput, value: string | number) => setForm(prev => ({ ...prev, [field]: value }))
+    const set = (field: keyof VehicleInput, value: string | number) => {
+        setForm(prev => ({ ...prev, [field]: value }))
+
+        if (isRequiredField(field) && hasFieldValue(value)) {
+            setInvalidFields(prev => {
+                if (!prev[field]) {
+                    return prev
+                }
+
+                const next = { ...prev }
+                delete next[field]
+                return next
+            })
+        }
+    }
 
     useEffect(() => {
         if (!canAutoLookupVin) {
@@ -328,10 +366,29 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
         'text-foreground': vinLookupStatus === 'success',
         'text-destructive': vinLookupStatus === 'error'
     })
+    const getFieldLabelClassName = (field: RequiredVehicleField) =>
+        cn('text-sm font-medium text-foreground', { 'text-destructive': invalidFields[field] })
+    const getInputClassName = (field: RequiredVehicleField) =>
+        cn({
+            'border-destructive focus-visible:ring-destructive/30': invalidFields[field]
+        })
+    const getSelectTriggerClassName = (field: RequiredVehicleField) =>
+        cn({
+            'border-destructive focus:ring-destructive/30': invalidFields[field]
+        })
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setError('')
+
+        const missingRequiredFields = getMissingRequiredFields(form)
+        if (missingRequiredFields.length > 0) {
+            setInvalidFields(Object.fromEntries(missingRequiredFields.map(field => [field, true])) as Partial<Record<RequiredVehicleField, true>>)
+            setError('Fill in the required fields highlighted in red.')
+            return
+        }
+
+        setInvalidFields({})
         setLoading(true)
         try {
             await onSubmit({
@@ -363,7 +420,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
                     </p>
                 </div>
 
-                <form className='space-y-6 pt-6' onSubmit={handleSubmit}>
+                <form className='space-y-6 pt-6' onSubmit={handleSubmit} noValidate>
                     {error && (
                         <p className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'>
                             {error}
@@ -391,43 +448,51 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
                             <p className={vinMessageClassName}>{vinLookupMessage}</p>
                         </div>
                         <div className='space-y-2'>
-                            <label className='text-sm font-medium text-foreground'>Make *</label>
+                            <label className={getFieldLabelClassName('make')}>Make *</label>
                             <Input
                                 type='text'
                                 value={form.make}
                                 onChange={e => set('make', e.target.value)}
                                 placeholder='e.g. Toyota'
+                                className={getInputClassName('make')}
+                                aria-invalid={invalidFields.make ? true : undefined}
                                 required
                             />
                         </div>
                         <div className='space-y-2'>
-                            <label className='text-sm font-medium text-foreground'>Model *</label>
+                            <label className={getFieldLabelClassName('model')}>Model *</label>
                             <Input
                                 type='text'
                                 value={form.model}
                                 onChange={e => set('model', e.target.value)}
                                 placeholder='e.g. Camry'
+                                className={getInputClassName('model')}
+                                aria-invalid={invalidFields.model ? true : undefined}
                                 required
                             />
                         </div>
                         <div className='space-y-2'>
-                            <label className='text-sm font-medium text-foreground'>Year *</label>
+                            <label className={getFieldLabelClassName('year')}>Year *</label>
                             <Input
                                 type='number'
                                 value={form.year}
                                 onChange={e => set('year', e.target.value)}
                                 min='1900'
                                 max={new Date().getFullYear() + 1}
+                                className={getInputClassName('year')}
+                                aria-invalid={invalidFields.year ? true : undefined}
                                 required
                             />
                         </div>
                         <div className='space-y-2'>
-                            <label className='text-sm font-medium text-foreground'>Trim *</label>
+                            <label className={getFieldLabelClassName('trim')}>Trim *</label>
                             <Input
                                 type='text'
                                 value={form.trim}
                                 onChange={e => set('trim', e.target.value)}
                                 placeholder='e.g. XLE'
+                                className={getInputClassName('trim')}
+                                aria-invalid={invalidFields.trim ? true : undefined}
                                 required
                             />
                         </div>
@@ -468,9 +533,12 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
                             />
                         </div>
                         <div className='space-y-2'>
-                            <label className='text-sm font-medium text-foreground'>Transmission *</label>
+                            <label className={getFieldLabelClassName('transmission')}>Transmission *</label>
                             <Select value={form.transmission} onValueChange={value => set('transmission', value)}>
-                                <SelectTrigger>
+                                <SelectTrigger
+                                    className={getSelectTriggerClassName('transmission')}
+                                    aria-invalid={invalidFields.transmission ? true : undefined}
+                                >
                                     <SelectValue placeholder='Select transmission' />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -483,9 +551,12 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
                             </Select>
                         </div>
                         <div className='space-y-2'>
-                            <label className='text-sm font-medium text-foreground'>Fuel Type *</label>
+                            <label className={getFieldLabelClassName('fuelType')}>Fuel Type *</label>
                             <Select value={form.fuelType} onValueChange={value => set('fuelType', value)}>
-                                <SelectTrigger>
+                                <SelectTrigger
+                                    className={getSelectTriggerClassName('fuelType')}
+                                    aria-invalid={invalidFields.fuelType ? true : undefined}
+                                >
                                     <SelectValue placeholder='Select fuel type' />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -566,7 +637,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <form className='space-y-4' onSubmit={handleSubmit}>
+                <form className='space-y-4' onSubmit={handleSubmit} noValidate>
                     {error && (
                         <p className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'>
                             {error}
@@ -594,22 +665,26 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
                             <p className={vinMessageClassName}>{vinLookupMessage}</p>
                         </div>
                         <div className='space-y-2'>
-                            <label className='text-sm font-medium text-foreground'>Make *</label>
+                            <label className={getFieldLabelClassName('make')}>Make *</label>
                             <Input
                                 type='text'
                                 value={form.make}
                                 onChange={e => set('make', e.target.value)}
                                 placeholder='e.g. Toyota'
+                                className={getInputClassName('make')}
+                                aria-invalid={invalidFields.make ? true : undefined}
                                 required
                             />
                         </div>
                         <div className='space-y-2'>
-                            <label className='text-sm font-medium text-foreground'>Model *</label>
+                            <label className={getFieldLabelClassName('model')}>Model *</label>
                             <Input
                                 type='text'
                                 value={form.model}
                                 onChange={e => set('model', e.target.value)}
                                 placeholder='e.g. Camry'
+                                className={getInputClassName('model')}
+                                aria-invalid={invalidFields.model ? true : undefined}
                                 required
                             />
                         </div>
@@ -617,23 +692,27 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
 
                     <div className='grid gap-4 md:grid-cols-2'>
                         <div className='space-y-2'>
-                            <label className='text-sm font-medium text-foreground'>Year *</label>
+                            <label className={getFieldLabelClassName('year')}>Year *</label>
                             <Input
                                 type='number'
                                 value={form.year}
                                 onChange={e => set('year', e.target.value)}
                                 min='1900'
                                 max={new Date().getFullYear() + 1}
+                                className={getInputClassName('year')}
+                                aria-invalid={invalidFields.year ? true : undefined}
                                 required
                             />
                         </div>
                         <div className='space-y-2'>
-                            <label className='text-sm font-medium text-foreground'>Trim *</label>
+                            <label className={getFieldLabelClassName('trim')}>Trim *</label>
                             <Input
                                 type='text'
                                 value={form.trim}
                                 onChange={e => set('trim', e.target.value)}
                                 placeholder='e.g. XLE'
+                                className={getInputClassName('trim')}
+                                aria-invalid={invalidFields.trim ? true : undefined}
                                 required
                             />
                         </div>
@@ -680,9 +759,12 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
 
                     <div className='grid gap-4 md:grid-cols-2'>
                         <div className='space-y-2'>
-                            <label className='text-sm font-medium text-foreground'>Transmission *</label>
+                            <label className={getFieldLabelClassName('transmission')}>Transmission *</label>
                             <Select value={form.transmission} onValueChange={value => set('transmission', value)}>
-                                <SelectTrigger>
+                                <SelectTrigger
+                                    className={getSelectTriggerClassName('transmission')}
+                                    aria-invalid={invalidFields.transmission ? true : undefined}
+                                >
                                     <SelectValue placeholder='Select transmission' />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -695,9 +777,12 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
                             </Select>
                         </div>
                         <div className='space-y-2'>
-                            <label className='text-sm font-medium text-foreground'>Fuel Type *</label>
+                            <label className={getFieldLabelClassName('fuelType')}>Fuel Type *</label>
                             <Select value={form.fuelType} onValueChange={value => set('fuelType', value)}>
-                                <SelectTrigger>
+                                <SelectTrigger
+                                    className={getSelectTriggerClassName('fuelType')}
+                                    aria-invalid={invalidFields.fuelType ? true : undefined}
+                                >
                                     <SelectValue placeholder='Select fuel type' />
                                 </SelectTrigger>
                                 <SelectContent>

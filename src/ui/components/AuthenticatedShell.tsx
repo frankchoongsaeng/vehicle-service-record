@@ -68,7 +68,7 @@ export function AuthenticatedShell({ currentUser, onLogout, children }: Authenti
                             </Button>
 
                             <Button asChild variant='outline' className='hidden sm:inline-flex'>
-                                <NavLink to='/garage?view=vehicle-form'>
+                                <NavLink to='/garage/add-new'>
                                     <Plus className='h-4 w-4' />
                                     Add Vehicle
                                 </NavLink>

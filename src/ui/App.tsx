@@ -94,8 +94,8 @@ export default function App({ currentUser, onLogout }: AppProps) {
         const vehicleId = parsePositiveInt(searchParams.get('vehicleId'))
         const selectedVehicle = vehicleId ? vehicles.find(vehicle => vehicle.id === vehicleId) : undefined
 
-        if (viewType === 'vehicle-form') {
-            return selectedVehicle ? { type: 'vehicle-form', vehicle: selectedVehicle } : { type: 'vehicle-form' }
+        if (viewType === 'vehicle-form' && selectedVehicle) {
+            return { type: 'vehicle-form', vehicle: selectedVehicle }
         }
 
         return { type: 'vehicles' }
@@ -131,14 +131,10 @@ export default function App({ currentUser, onLogout }: AppProps) {
     }
 
     const handleSubmitVehicle = async (data: VehicleInput) => {
-        if (view.type !== 'vehicle-form') return
-        if (view.vehicle) {
-            const updated = await api.updateVehicle(view.vehicle.id, data)
-            setVehicles(prev => prev.map(v => (v.id === updated.id ? updated : v)))
-        } else {
-            const created = await api.createVehicle(data)
-            setVehicles(prev => [...prev, created])
-        }
+        if (view.type !== 'vehicle-form' || !view.vehicle) return
+
+        const updated = await api.updateVehicle(view.vehicle.id, data)
+        setVehicles(prev => prev.map(v => (v.id === updated.id ? updated : v)))
         setViewAndSyncUrl({ type: 'vehicles' })
     }
 

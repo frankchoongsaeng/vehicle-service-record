@@ -1,5 +1,5 @@
 import { NavLink, useLocation, useSearchParams } from '@remix-run/react'
-import { LayoutDashboard, LogOut, Menu, Plus, CarFront, X } from 'lucide-react'
+import { LogOut, Menu, Plus, CarFront, X } from 'lucide-react'
 import { useState } from 'react'
 
 import { cn } from '../lib/utils.js'
@@ -20,12 +20,6 @@ const navigationItems = [
         to: '/garage',
         icon: CarFront,
         matches: (pathname: string) => pathname === '/garage' || pathname.startsWith('/garage/')
-    },
-    {
-        label: 'Dashboard',
-        to: '/dashboard',
-        icon: LayoutDashboard,
-        matches: (pathname: string) => pathname === '/dashboard'
     }
 ] as const
 
@@ -61,17 +55,25 @@ export function AuthenticatedShell({ currentUser, onLogout, children }: Authenti
             <div className='border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80'>
                 <div className='mx-auto flex w-full max-w-screen-2xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8'>
                     <div className='grid grid-cols-[auto_1fr_auto] items-center gap-3'>
-                        <Button
-                            variant='ghost'
-                            size='icon'
-                            onClick={toggleMenu}
-                            aria-label={isMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
-                            aria-expanded={isMenuOpen}
-                            aria-controls='authenticated-shell-navigation'
-                            className='justify-self-start'
-                        >
-                            {isMenuOpen ? <X className='h-5 w-5' /> : <Menu className='h-5 w-5' />}
-                        </Button>
+                        <div className='flex items-center gap-2 justify-self-start'>
+                            <Button
+                                variant='ghost'
+                                size='icon'
+                                onClick={toggleMenu}
+                                aria-label={isMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+                                aria-expanded={isMenuOpen}
+                                aria-controls='authenticated-shell-navigation'
+                            >
+                                {isMenuOpen ? <X className='h-5 w-5' /> : <Menu className='h-5 w-5' />}
+                            </Button>
+
+                            <Button asChild variant='outline' className='hidden sm:inline-flex'>
+                                <NavLink to='/garage?view=vehicle-form'>
+                                    <Plus className='h-4 w-4' />
+                                    Add Vehicle
+                                </NavLink>
+                            </Button>
+                        </div>
 
                         <NavLink to='/garage' className='mx-auto flex items-center gap-3'>
                             <div className='flex h-11 w-11 items-center justify-center'>
@@ -133,13 +135,6 @@ export function AuthenticatedShell({ currentUser, onLogout, children }: Authenti
                                 </NavLink>
                             )
                         })}
-
-                        <NavLink to='/garage?view=vehicle-form'>
-                            <span className='inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground'>
-                                <Plus className='h-4 w-4' />
-                                Add Vehicle
-                            </span>
-                        </NavLink>
                     </nav>
                 </div>
             </div>

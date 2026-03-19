@@ -10,10 +10,9 @@ interface Props {
     onSelect: (vehicle: Vehicle) => void
     onEdit: (vehicle: Vehicle) => void
     onDelete: (vehicle: Vehicle) => void
-    onAdd: () => void
 }
 
-export default function VehicleList({ vehicles, onSelect, onEdit, onDelete, onAdd }: Props) {
+export default function VehicleList({ vehicles, onSelect, onEdit, onDelete }: Props) {
     return (
         <div className='space-y-5'>
             <header className='flex flex-wrap items-start justify-between gap-3'>
@@ -23,10 +22,6 @@ export default function VehicleList({ vehicles, onSelect, onEdit, onDelete, onAd
                         Select a vehicle to review service history or update profile details.
                     </p>
                 </div>
-                <Button onClick={onAdd}>
-                    <Plus className='h-4 w-4' />
-                    Add Vehicle
-                </Button>
             </header>
 
             {vehicles.length === 0 ? (
@@ -36,10 +31,6 @@ export default function VehicleList({ vehicles, onSelect, onEdit, onDelete, onAd
                         <p className='max-w-md text-sm text-muted-foreground'>
                             Add your first vehicle to start building a cleaner maintenance history.
                         </p>
-                        <Button onClick={onAdd}>
-                            <Plus className='h-4 w-4' />
-                            Add Vehicle
-                        </Button>
                     </CardContent>
                 </Card>
             ) : (

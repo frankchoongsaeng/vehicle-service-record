@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useSearchParams } from '@remix-run/react'
-import { Plus } from 'lucide-react'
 import type { AuthUser, Vehicle, VehicleInput } from './types/index.js'
 import * as api from './api/client.js'
 import { Button } from './components/ui/button.js'
@@ -119,8 +118,6 @@ export default function App({ currentUser, onLogout }: AppProps) {
         navigate(`/garage/${v.id}/records`)
     }
 
-    const handleAddVehicle = () => setViewAndSyncUrl({ type: 'vehicle-form' })
-
     const handleEditVehicle = (v: Vehicle) => setViewAndSyncUrl({ type: 'vehicle-form', vehicle: v })
 
     const handleDeleteVehicle = async (v: Vehicle) => {
@@ -165,12 +162,6 @@ export default function App({ currentUser, onLogout }: AppProps) {
                     eyebrow='Garage'
                     title='Your vehicles'
                     description='Select a vehicle to review records or update its profile.'
-                    actions={
-                        <Button onClick={handleAddVehicle}>
-                            <Plus className='h-4 w-4' />
-                            Add Vehicle
-                        </Button>
-                    }
                 />
 
                 <main>
@@ -187,7 +178,6 @@ export default function App({ currentUser, onLogout }: AppProps) {
                                 onSelect={handleSelectVehicle}
                                 onEdit={handleEditVehicle}
                                 onDelete={handleDeleteVehicle}
-                                onAdd={handleAddVehicle}
                             />
                         ))}
 

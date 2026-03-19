@@ -120,9 +120,11 @@ export default function RecordsRoute() {
                                     Back to Garage
                                 </Link>
                             </Button>
-                            <Button>
-                                <Plus className='h-4 w-4' />
-                                Add Record
+                            <Button asChild>
+                                <Link to={`/garage/${vehicleId}/records/new`}>
+                                    <Plus className='h-4 w-4' />
+                                    Add Record
+                                </Link>
                             </Button>
                         </>
                     }

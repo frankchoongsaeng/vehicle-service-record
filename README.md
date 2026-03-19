@@ -4,22 +4,24 @@ Duralog is a web app to track maintenance and service history for your vehicles 
 
 ## Features
 
-- **Manage multiple vehicles** — add make, model, year, color, mileage, and VIN
+- **Manage detailed vehicle profiles** — track name, make, model, year, trim, plate, VIN, engine, transmission, fuel type, mileage, color, and notes
 - **Track service records** — oil changes, tire rotations, brake service, battery replacements, and more
 - **Rich record details** — service type, date, mileage at service, cost, and notes
 - **Cross-device access** — data is stored on the backend server, accessible from any device
+- **Comprehensive seed data** — demo vehicles and service records cover dashboards, filters, empty states, and auth isolation checks
 
 ## Tech Stack
 
-| Layer    | Technology                      |
-|----------|---------------------------------|
-| Frontend | Remix + React 19 + TypeScript   |
-| Backend  | Node.js + Express 5             |
-| Database | Prisma ORM + SQLite             |
+| Layer    | Technology                          |
+|----------|-------------------------------------|
+| Frontend | Remix 2 + React 18 + TypeScript     |
+| Backend  | Node.js + Express 4 + TypeScript    |
+| Database | Prisma ORM + SQLite                 |
+| Build    | Vite 6 + Remix Vite plugin          |
 
 ## UI Styling Standard
 
-- Product UI must use shadcn-style shared primitives from `src/components/ui` and Tailwind utility classes.
+- Product UI must use shadcn-style shared primitives from `src/ui/components/ui` and Tailwind utility classes.
 - Route or feature-specific custom CSS files are disallowed for product pages.
 - Keep all reusable controls (buttons, cards, inputs, tables, badges, select, textarea) in shared UI primitives and compose from those.
 
@@ -38,13 +40,13 @@ Approved primitives currently include:
 Use ripgrep to verify no custom CSS imports were reintroduced in Remix/source modules:
 
 ```bash
-rg -n "\\.css(\\?url)?['\"]" app src
+rg -n "\\.css(\\?url)?['\"]" src/ui
 ```
 
 Expected result:
 
-- `app/root.tsx` may import `src/index.css?url`
-- `src/main.tsx` may import `./index.css` for standalone local mounting
+- `src/ui/root.tsx` may import `./index.css?url`
+- `src/ui/main.tsx` may import `./index.css`
 - No other custom CSS imports should appear
 
 For CI or pre-merge checks, run the same command and fail builds if unexpected matches are found.
@@ -53,21 +55,21 @@ For CI or pre-merge checks, run the same command and fail builds if unexpected m
 
 ```text
 vehicle-service-record/
-├── app/               # Remix app routes and document shell
-├── src/               # Shared React UI modules used by routes
-│   ├── api/           # API client (fetch wrapper)
-│   ├── components/    # UI components
-│   ├── types/         # Shared TypeScript types
-│   └── App.tsx        # Main app with view routing
-├── prisma/            # Prisma schema
-├── server/            # Express backend
-│   └── src/
-│       ├── db.ts      # Prisma client singleton
-│       ├── index.ts   # Server entry point
-│       └── routes/
-│           ├── vehicles.ts  # Vehicle CRUD
-│           └── records.ts   # Service record CRUD
-└── vite.config.ts     # Remix Vite config (with /api proxy)
+├── src/
+│   ├── index.ts                 # Express server entry point
+│   ├── routes/                  # API route handlers
+│   └── ui/                      # Remix frontend
+│       ├── routes/              # Route modules
+│       ├── components/          # Shared and feature UI components
+│       ├── api/                 # API client
+│       ├── lib/                 # UI helpers and derived maintenance logic
+│       └── types/               # Frontend types
+├── prisma/
+│   ├── schema.prisma            # Prisma schema
+│   └── seed.ts                  # Development seed script
+├── public/                      # Static assets
+├── vite.config.ts               # Remix Vite config
+└── package.json                 # Root scripts and dependencies
 ```
 
 ## Getting Started
@@ -92,6 +94,13 @@ The seed step creates a development login by default:
 - Email: `demo@example.com`
 - Password: `change-me123`
 
+The seed also creates:
+
+- 4 demo vehicles with varied profile completeness
+- 14 service records spanning all supported service types
+- one vehicle with no service history for empty-state testing
+- a second user, `hidden@example.com`, for auth-scoping checks
+
 Override those values with `DEV_USER_EMAIL` and `DEV_USER_PASSWORD` in your environment if needed.
 
 ### 3. Start both frontend and backend
@@ -100,10 +109,9 @@ Override those values with `DEV_USER_EMAIL` and `DEV_USER_PASSWORD` in your envi
 npm run dev
 ```
 
-- Frontend (Remix dev): <http://localhost:5173>
-- Backend API (Express): <http://localhost:3001>
+- App and API: <http://localhost:3001>
 
-Open [http://localhost:5173](http://localhost:5173) in your browser.
+Open [http://localhost:3001](http://localhost:3001) in your browser.
 
 ## Environment
 
@@ -146,10 +154,13 @@ After running migrations, seed data, and the dev servers, validate the change wi
 
 1. Open `/` and confirm the app redirects to `/login`
 2. Try an invalid password and confirm the login page shows an error
-3. Sign in with the seeded account and confirm the main application loads
-4. Refresh the page and confirm the session persists
-5. Sign out and confirm the session clears and the app returns to `/login`
-6. Request `/api/vehicles` without a session and confirm the API returns `401`
+3. Sign in with `demo@example.com / change-me123` and confirm the garage loads with multiple vehicles
+4. Open at least one seeded vehicle dashboard and confirm summary stats, timeline, upcoming maintenance, and snapshot data render from the database
+5. Open the service records route and confirm filtering, detail panel navigation, and the add-record route work
+6. Open the seeded vehicle with no service history and confirm empty-state behavior is correct
+7. Refresh the page and confirm the session persists
+8. Sign out and confirm the session clears and the app returns to `/login`
+9. Request `/api/vehicles` without a session and confirm the API returns `401`
 
 ## API Endpoints
 
@@ -172,8 +183,8 @@ After running migrations, seed data, and the dev servers, validate the change wi
 
 ```bash
 npm run build
-# frontend output: build/
-# backend output: server/dist/
+# frontend output: dist/ui/
+# backend output: dist/
 ```
 
 ## Version Scope
@@ -190,11 +201,11 @@ npm install
 npm run db:migrate -- --name init
 npm run db:seed
 
-# Start both frontend (port 5173) and backend (port 3001) with hot-reload
+# Start the development server (serves both Remix UI and API)
 npm run dev
 ```
 
-The Vite dev server proxies `/api` requests to `http://localhost:3001`, so all API calls resolve automatically during development.
+The Express development server runs on port `3001` and serves both the Remix UI and `/api` routes from the same process.
 
 ### Working (Production)
 
@@ -204,8 +215,8 @@ Use the working scope to validate a production-ready build before deploying:
 # Build both frontend and backend
 npm run build
 
-# Start the production server (serves Remix SSR + API on the same process)
+# Start the production server
 npm run start
 ```
 
-The `start` script runs `node ./build/server/index.js`, which is the Remix server entry compiled by the Vite build. Ensure all required environment variables (especially `DATABASE_URL` and `OPENAUTH_SECRET`) are set before running in production.
+The `start` script runs `node ./dist/index.js`. Ensure all required environment variables, especially `DATABASE_URL` and `OPENAUTH_SECRET`, are set before running in production.

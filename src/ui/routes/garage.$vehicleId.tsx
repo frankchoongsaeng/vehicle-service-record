@@ -148,9 +148,11 @@ export default function VehicleDashboardRoute() {
                                     Review Records
                                 </Link>
                             </Button>
-                            <Button>
-                                <Plus className='h-4 w-4' />
-                                Add Service Record
+                            <Button asChild>
+                                <Link to={`/garage/${vehicleId}/records/new`}>
+                                    <Plus className='h-4 w-4' />
+                                    Add Service Record
+                                </Link>
                             </Button>
                         </>
                     }

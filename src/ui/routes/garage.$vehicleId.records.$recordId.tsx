@@ -1,6 +1,8 @@
-import { Link, useOutletContext, useParams } from '@remix-run/react'
+import { Link, useNavigate, useOutletContext, useParams } from '@remix-run/react'
 import { X } from 'lucide-react'
 
+import * as api from '../api/client.js'
+import ServiceRecordForm from '../components/ServiceRecordForm.js'
 import { StatusBadge } from '../components/dashboard/StatusBadge'
 import type { ServiceRecord } from '../components/dashboard/types'
 
@@ -20,8 +22,23 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 
 export default function RecordDetailRoute() {
     const { vehicleId, recordId } = useParams()
+    const navigate = useNavigate()
     const { records } = useOutletContext<OutletContext>()
     const record = records.find(r => r.id === recordId)
+
+    if (recordId === 'new' && vehicleId) {
+        return (
+            <aside className='sticky top-6 max-h-[calc(100vh-6rem)] overflow-y-auto rounded-xl'>
+                <ServiceRecordForm
+                    onSubmit={async data => {
+                        const createdRecord = await api.createRecord(Number(vehicleId), data)
+                        navigate(`/garage/${vehicleId}/records/${createdRecord.id}`, { replace: true })
+                    }}
+                    onCancel={() => navigate(`/garage/${vehicleId}/records`)}
+                />
+            </aside>
+        )
+    }
 
     if (!record) {
         return (

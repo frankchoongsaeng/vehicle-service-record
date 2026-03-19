@@ -1,4 +1,4 @@
-import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { Pencil, Trash2 } from 'lucide-react'
 
 import { Badge } from './ui/badge.js'
 import { Button } from './ui/button.js'
@@ -15,24 +15,13 @@ interface Props {
 export default function VehicleList({ vehicles, onSelect, onEdit, onDelete }: Props) {
     return (
         <div className='space-y-5'>
-            <header className='flex flex-wrap items-start justify-between gap-3'>
-                <div>
-                    <h2 className='text-2xl font-semibold tracking-tight text-foreground'>Garage</h2>
-                    <p className='mt-1 text-sm text-muted-foreground'>
-                        Select a vehicle to review service history or update profile details.
+            {vehicles.length === 0 ? (
+                <div className='flex flex-col items-center gap-3 py-12 text-center'>
+                    <p className='text-lg font-semibold text-foreground'>No vehicles yet</p>
+                    <p className='max-w-md text-sm text-muted-foreground'>
+                        Add your first vehicle to start building a cleaner maintenance history.
                     </p>
                 </div>
-            </header>
-
-            {vehicles.length === 0 ? (
-                <Card>
-                    <CardContent className='flex flex-col items-center gap-3 py-12 text-center'>
-                        <p className='text-lg font-semibold text-foreground'>No vehicles yet</p>
-                        <p className='max-w-md text-sm text-muted-foreground'>
-                            Add your first vehicle to start building a cleaner maintenance history.
-                        </p>
-                    </CardContent>
-                </Card>
             ) : (
                 <div className='grid gap-4 sm:grid-cols-2 xl:grid-cols-3'>
                     {vehicles.map(v => (

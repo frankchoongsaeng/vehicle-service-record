@@ -76,7 +76,7 @@ export default function VehicleList({ vehicles, onSelect, onEdit, onDelete }: Pr
                                                     variant='ghost'
                                                     size='icon'
                                                     aria-label={`Open actions for ${v.year} ${v.make} ${v.model}`}
-                                                    className='text-muted-foreground shadow-none hover:bg-transparent hover:text-foreground focus-visible:ring-0'
+                                                    className='text-muted-foreground shadow-none focus-visible:ring-0'
                                                 >
                                                     <EllipsisVertical />
                                                 </Button>

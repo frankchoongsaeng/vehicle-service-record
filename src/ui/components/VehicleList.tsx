@@ -63,7 +63,6 @@ export default function VehicleList({ vehicles, onSelect, onEdit, onDelete }: Pr
                                     <p className='truncate text-xs text-muted-foreground' title={v.vin ?? 'N/A'}>
                                         VIN: {v.vin ?? 'N/A'}
                                     </p>
-
                                 </div>
 
                                 <div
@@ -101,30 +100,30 @@ export default function VehicleList({ vehicles, onSelect, onEdit, onDelete }: Pr
                                     </div>
 
                                     <div className='flex flex-1 items-center justify-center'>
-                                    <img
-                                        src={v.imageUrl ?? getVehicleTypeImage(v.vehicleType)}
-                                        alt={`${v.year} ${v.make} ${v.model}`}
-                                        data-fallback-src={getVehicleTypeImage(v.vehicleType)}
-                                        className='block h-full min-h-28 w-full object-contain'
-                                        loading='lazy'
-                                        onError={event => {
-                                            const fallbackSrc = event.currentTarget.dataset.fallbackSrc
+                                        <img
+                                            src={v.imageUrl ?? getVehicleTypeImage(v.vehicleType)}
+                                            alt={`${v.year} ${v.make} ${v.model}`}
+                                            data-fallback-src={getVehicleTypeImage(v.vehicleType)}
+                                            className='block h-full min-h-28 w-full object-contain'
+                                            loading='lazy'
+                                            onError={event => {
+                                                const fallbackSrc = event.currentTarget.dataset.fallbackSrc
 
-                                            if (!fallbackSrc) {
-                                                return
-                                            }
-
-                                            if (event.currentTarget.src.endsWith(fallbackSrc)) {
-                                                if (fallbackSrc !== fallbackVehicleTypeImage) {
-                                                    event.currentTarget.src = fallbackVehicleTypeImage
+                                                if (!fallbackSrc) {
+                                                    return
                                                 }
 
-                                                return
-                                            }
+                                                if (event.currentTarget.src.endsWith(fallbackSrc)) {
+                                                    if (fallbackSrc !== fallbackVehicleTypeImage) {
+                                                        event.currentTarget.src = fallbackVehicleTypeImage
+                                                    }
 
-                                            event.currentTarget.src = fallbackSrc
-                                        }}
-                                    />
+                                                    return
+                                                }
+
+                                                event.currentTarget.src = fallbackSrc
+                                            }}
+                                        />
                                     </div>
                                 </div>
                             </CardContent>

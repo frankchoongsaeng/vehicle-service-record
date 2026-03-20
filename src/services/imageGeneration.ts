@@ -9,14 +9,21 @@ const imageGenerationLogger = createLogger({ component: 'image-generation-servic
 const DEFAULT_IMAGE_MODEL = 'gpt-image-1'
 const DEFAULT_IMAGE_SIZE = '1024x1024'
 
-export interface VehicleImageGenerationInput {
-    classificationKey: string
+export interface VehicleImageSourceInput {
     make: string
     model: string
     year: number
     trim: string
     vehicleType?: string | null
     color?: string | null
+}
+
+export interface VehicleImageGenerationInput extends VehicleImageSourceInput {
+    classificationKey: string
+    yearStart: number
+    yearEnd: number
+    bodyStyle?: string | null
+    view?: string | null
 }
 
 function getProjectRootDirectory(): string {
@@ -39,12 +46,17 @@ function sanitizeFileSegment(value: string): string {
 function buildPrompt(input: VehicleImageGenerationInput): string {
     const color = input.color?.trim() || 'neutral'
     const vehicleType = input.vehicleType?.trim() || 'vehicle'
+    const bodyStyle = input.bodyStyle?.trim() || 'unspecified body style'
+    const view = input.view?.trim() || 'default'
 
     return [
         'Create a clean, realistic catalog-style vehicle image.',
         `Subject: ${color} ${input.year} ${input.make} ${input.model} ${input.trim}.`,
+        `Reusable generation range: ${input.yearStart} to ${input.yearEnd}.`,
         `Vehicle type: ${vehicleType}.`,
-        'Composition: centered vehicle, front three-quarter view, full vehicle visible.',
+        `Body style: ${bodyStyle}.`,
+        `View: ${view}.`,
+        'Composition: centered vehicle, front three-quarter view, full vehicle visible unless the requested view says otherwise.',
         'Background: simple studio backdrop with soft shadow.',
         'Do not include people, text, logos, license plate text, watermarks, or extra vehicles.'
     ].join(' ')

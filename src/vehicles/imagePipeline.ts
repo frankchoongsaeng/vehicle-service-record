@@ -1,14 +1,13 @@
 import { prisma } from '../db.js'
 import { classifyVehicleImage } from '../services/imageClassifier.js'
 import { createLogger } from '../logging/logger.js'
-import { generateVehicleImage, type VehicleImageGenerationInput } from '../services/imageGeneration.js'
+import { generateVehicleImage, type VehicleImageSourceInput } from '../services/imageGeneration.js'
 import { uploadGeneratedImage } from '../services/imageUpload.js'
+import { ensureClassifiedVehicleImage } from './imageWorkflow.js'
 
 const imagePipelineLogger = createLogger({ component: 'vehicle-image-pipeline' })
 
-interface ScheduleVehicleImagePipelineInput extends VehicleImageGenerationInput {
-    imageId: number
-    storageKey: string
+interface ScheduleVehicleImagePipelineInput extends VehicleImageSourceInput {
     requestId?: string
     userId: string
     vehicleId: number
@@ -29,83 +28,103 @@ export function scheduleVehicleImagePipeline(input: ScheduleVehicleImagePipeline
 }
 
 async function runVehicleImagePipeline(input: ScheduleVehicleImagePipelineInput): Promise<void> {
-    const currentImage = await prisma.vehicleImage.findUnique({
-        where: { id: input.imageId },
-        select: {
-            id: true,
-            classifier_status: true,
-            generation_status: true,
-            upload_status: true
-        }
-    })
-
-    if (!currentImage) {
-        imagePipelineLogger.warn('vehicle_image.pipeline_missing_record', {
+    if (!input.color?.trim()) {
+        imagePipelineLogger.debug('vehicle_image.pipeline_skipped_missing_color', {
             requestId: input.requestId,
             userId: input.userId,
-            vehicleId: input.vehicleId,
-            imageId: input.imageId
+            vehicleId: input.vehicleId
         })
         return
     }
-
-    if (
-        currentImage.classifier_status === 'processing' ||
-        currentImage.generation_status === 'processing' ||
-        currentImage.upload_status === 'processing'
-    ) {
-        imagePipelineLogger.debug('vehicle_image.pipeline_skipped_processing', {
-            requestId: input.requestId,
-            userId: input.userId,
-            vehicleId: input.vehicleId,
-            imageId: input.imageId
-        })
-        return
-    }
-
-    if (
-        currentImage.classifier_status === 'completed' &&
-        currentImage.generation_status === 'completed' &&
-        currentImage.upload_status === 'completed'
-    ) {
-        imagePipelineLogger.debug('vehicle_image.pipeline_skipped_completed', {
-            requestId: input.requestId,
-            userId: input.userId,
-            vehicleId: input.vehicleId,
-            imageId: input.imageId
-        })
-        return
-    }
-
-    await prisma.vehicleImage.update({
-        where: { id: input.imageId },
-        data: {
-            classifier_status: 'processing',
-            classifier_error: null,
-            generation_status: 'processing',
-            generation_error: null,
-            upload_status: 'pending',
-            upload_error: null
-        }
-    })
 
     try {
-        const [filename, classification] = await Promise.all([generateVehicleImage(input), classifyVehicleImage(input)])
+        const classification = await classifyVehicleImage(input)
+
+        const ensuredImage = await ensureClassifiedVehicleImage(prisma, {
+            ...input,
+            yearStart: classification.yearStart,
+            yearEnd: classification.yearEnd,
+            bodyStyle: classification.bodyStyle,
+            vehicleType: classification.vehicleType,
+            view: classification.view
+        })
+
+        if (!ensuredImage) {
+            imagePipelineLogger.debug('vehicle_image.pipeline_skipped_unclassifiable', {
+                requestId: input.requestId,
+                userId: input.userId,
+                vehicleId: input.vehicleId
+            })
+            return
+        }
+
+        await prisma.vehicle.update({
+            where: { id: input.vehicleId },
+            data: { image_id: ensuredImage.imageId }
+        })
+
+        if (ensuredImage.generationStatus === 'processing' || ensuredImage.uploadStatus === 'processing') {
+            imagePipelineLogger.debug('vehicle_image.pipeline_skipped_processing', {
+                requestId: input.requestId,
+                userId: input.userId,
+                vehicleId: input.vehicleId,
+                imageId: ensuredImage.imageId,
+                classificationKey: ensuredImage.classificationKey
+            })
+            return
+        }
+
+        if (
+            ensuredImage.reused &&
+            ensuredImage.generationStatus === 'completed' &&
+            ensuredImage.uploadStatus === 'completed'
+        ) {
+            imagePipelineLogger.info('vehicle_image.pipeline_reused_existing', {
+                requestId: input.requestId,
+                userId: input.userId,
+                vehicleId: input.vehicleId,
+                imageId: ensuredImage.imageId,
+                classificationKey: ensuredImage.classificationKey
+            })
+            return
+        }
+
+        let filename = ensuredImage.localTmpFilename
+
+        if (!filename || ensuredImage.generationStatus !== 'completed') {
+            await prisma.vehicleImage.update({
+                where: { id: ensuredImage.imageId },
+                data: {
+                    generation_status: 'processing',
+                    generation_error: null,
+                    upload_status: 'pending',
+                    upload_error: null
+                }
+            })
+
+            filename = await generateVehicleImage({
+                ...input,
+                classificationKey: ensuredImage.classificationKey,
+                yearStart: classification.yearStart,
+                yearEnd: classification.yearEnd,
+                bodyStyle: classification.bodyStyle,
+                vehicleType: classification.vehicleType,
+                view: classification.view
+            })
+
+            await prisma.vehicleImage.update({
+                where: { id: ensuredImage.imageId },
+                data: {
+                    local_tmp_filename: filename,
+                    generation_status: 'completed',
+                    generation_error: null
+                }
+            })
+        }
 
         await prisma.vehicleImage.update({
-            where: { id: input.imageId },
+            where: { id: ensuredImage.imageId },
             data: {
-                local_tmp_filename: filename,
-                year_start: classification.yearStart,
-                year_end: classification.yearEnd,
-                body_style: classification.bodyStyle,
-                vehicle_type: classification.vehicleType,
-                view: classification.view,
-                classifier_status: 'completed',
-                classifier_error: null,
-                classified_at: new Date(),
-                generation_status: 'completed',
-                generation_error: null,
                 upload_status: 'processing',
                 upload_error: null
             }
@@ -114,11 +133,11 @@ async function runVehicleImagePipeline(input: ScheduleVehicleImagePipelineInput)
         try {
             await uploadGeneratedImage({
                 filename,
-                storageKey: input.storageKey
+                storageKey: ensuredImage.storageKey
             })
 
             await prisma.vehicleImage.update({
-                where: { id: input.imageId },
+                where: { id: ensuredImage.imageId },
                 data: {
                     upload_status: 'completed',
                     upload_error: null,
@@ -130,18 +149,19 @@ async function runVehicleImagePipeline(input: ScheduleVehicleImagePipelineInput)
                 requestId: input.requestId,
                 userId: input.userId,
                 vehicleId: input.vehicleId,
-                imageId: input.imageId,
-                storageKey: input.storageKey,
+                imageId: ensuredImage.imageId,
+                storageKey: ensuredImage.storageKey,
                 yearStart: classification.yearStart,
                 yearEnd: classification.yearEnd,
                 bodyStyle: classification.bodyStyle ?? undefined,
-                vehicleType: classification.vehicleType ?? undefined
+                vehicleType: classification.vehicleType ?? undefined,
+                reused: ensuredImage.reused
             })
         } catch (error) {
             const errorMessage = getErrorMessage(error)
 
             await prisma.vehicleImage.update({
-                where: { id: input.imageId },
+                where: { id: ensuredImage.imageId },
                 data: {
                     upload_status: 'failed',
                     upload_error: errorMessage
@@ -152,31 +172,16 @@ async function runVehicleImagePipeline(input: ScheduleVehicleImagePipelineInput)
                 requestId: input.requestId,
                 userId: input.userId,
                 vehicleId: input.vehicleId,
-                imageId: input.imageId,
-                storageKey: input.storageKey,
+                imageId: ensuredImage.imageId,
+                storageKey: ensuredImage.storageKey,
                 error
             })
         }
     } catch (error) {
-        const errorMessage = getErrorMessage(error)
-
-        await prisma.vehicleImage.update({
-            where: { id: input.imageId },
-            data: {
-                classifier_status: 'failed',
-                classifier_error: errorMessage,
-                generation_status: 'failed',
-                generation_error: errorMessage,
-                upload_status: 'failed',
-                upload_error: errorMessage
-            }
-        })
-
-        imagePipelineLogger.error('vehicle_image.generation_failed', {
+        imagePipelineLogger.error('vehicle_image.pipeline_failed', {
             requestId: input.requestId,
             userId: input.userId,
             vehicleId: input.vehicleId,
-            imageId: input.imageId,
             error
         })
     }

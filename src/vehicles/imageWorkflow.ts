@@ -3,6 +3,8 @@ import { Prisma } from '@prisma/client'
 const IMAGE_VIEW = 'default'
 const IMAGE_PROMPT_VERSION = 'vehicle-image-v1'
 
+type VehicleImageClient = Pick<Prisma.TransactionClient, 'vehicleImage'>
+
 export interface VehicleImageSource {
     make: string
     model: string
@@ -17,6 +19,17 @@ export interface EnsuredVehicleImage {
     classificationKey: string
     storageKey: string
     reused: boolean
+    classifierStatus: string
+    generationStatus: string
+    uploadStatus: string
+    localTmpFilename: string | null
+}
+
+export interface ClassifiedVehicleImageSource extends VehicleImageSource {
+    yearStart: number
+    yearEnd: number
+    bodyStyle?: string | null
+    view?: string | null
 }
 
 interface VehicleImageDescriptor {
@@ -26,9 +39,12 @@ interface VehicleImageDescriptor {
     make: string
     model: string
     color: string
-    year: number
+    yearStart: number
+    yearEnd: number
     trim: string
     vehicleType: string | null
+    bodyStyle: string | null
+    view: string
 }
 
 function cleanValue(value?: string | null): string | null {
@@ -45,12 +61,23 @@ function normalizeSegment(value: string): string {
         .replace(/^-+|-+$/g, '')
 }
 
-function buildVehicleImageDescriptor(source: VehicleImageSource): VehicleImageDescriptor | null {
+function buildBaseDescriptor(
+    source: VehicleImageSource,
+    options?: {
+        yearStart?: number
+        yearEnd?: number
+        bodyStyle?: string | null
+        view?: string | null
+        vehicleType?: string | null
+    }
+): VehicleImageDescriptor | null {
     const make = cleanValue(source.make)
     const model = cleanValue(source.model)
     const trim = cleanValue(source.trim)
     const color = cleanValue(source.color)
-    const vehicleType = cleanValue(source.vehicleType)
+    const vehicleType = cleanValue(options?.vehicleType ?? source.vehicleType)
+    const bodyStyle = cleanValue(options?.bodyStyle)
+    const view = cleanValue(options?.view) ?? IMAGE_VIEW
 
     if (!make || !model || !trim || !color) {
         return null
@@ -68,7 +95,7 @@ function buildVehicleImageDescriptor(source: VehicleImageSource): VehicleImageDe
         normalizedTrim,
         normalizedColor,
         normalizedVehicleType,
-        IMAGE_VIEW
+        view
     ].join(':')
 
     return {
@@ -78,15 +105,37 @@ function buildVehicleImageDescriptor(source: VehicleImageSource): VehicleImageDe
         make,
         model,
         color,
-        year: source.year,
+        yearStart: options?.yearStart ?? source.year,
+        yearEnd: options?.yearEnd ?? source.year,
         trim,
-        vehicleType
+        vehicleType,
+        bodyStyle,
+        view
     }
 }
 
+function buildVehicleImageDescriptor(source: VehicleImageSource): VehicleImageDescriptor | null {
+    return buildBaseDescriptor(source)
+}
+
+export function buildClassifiedVehicleImageDescriptor(
+    source: ClassifiedVehicleImageSource
+): VehicleImageDescriptor | null {
+    return buildBaseDescriptor(source, {
+        yearStart: source.yearStart,
+        yearEnd: source.yearEnd,
+        bodyStyle: source.bodyStyle,
+        view: source.view,
+        vehicleType: source.vehicleType
+    })
+}
+
 async function createVehicleImage(
-    tx: Prisma.TransactionClient,
-    descriptor: VehicleImageDescriptor
+    tx: VehicleImageClient,
+    descriptor: VehicleImageDescriptor,
+    options?: {
+        classifierCompleted?: boolean
+    }
 ): Promise<EnsuredVehicleImage> {
     const created = await tx.vehicleImage.create({
         data: {
@@ -94,15 +143,18 @@ async function createVehicleImage(
             make: descriptor.make,
             model: descriptor.model,
             color: descriptor.color,
-            year_start: descriptor.year,
-            year_end: descriptor.year,
+            year_start: descriptor.yearStart,
+            year_end: descriptor.yearEnd,
             trim: descriptor.trim,
             vehicle_type: descriptor.vehicleType,
-            body_style: null,
-            view: IMAGE_VIEW,
+            body_style: descriptor.bodyStyle,
+            view: descriptor.view,
             generation_key: descriptor.generationKey,
             prompt_version: IMAGE_PROMPT_VERSION,
-            image_storage_key: descriptor.storageKey
+            image_storage_key: descriptor.storageKey,
+            classifier_status: options?.classifierCompleted ? 'completed' : 'pending',
+            classifier_error: null,
+            classified_at: options?.classifierCompleted ? new Date() : null
         }
     })
 
@@ -110,7 +162,73 @@ async function createVehicleImage(
         imageId: created.id,
         classificationKey: created.classification_key,
         storageKey: created.image_storage_key,
-        reused: false
+        reused: false,
+        classifierStatus: created.classifier_status,
+        generationStatus: created.generation_status,
+        uploadStatus: created.upload_status,
+        localTmpFilename: created.local_tmp_filename
+    }
+}
+
+async function ensureVehicleImageFromDescriptor(
+    tx: VehicleImageClient,
+    descriptor: VehicleImageDescriptor,
+    options?: {
+        classifierCompleted?: boolean
+    }
+): Promise<EnsuredVehicleImage> {
+    const existing = await tx.vehicleImage.findUnique({
+        where: { classification_key: descriptor.classificationKey }
+    })
+
+    if (existing) {
+        const nextYearStart = Math.min(existing.year_start, descriptor.yearStart)
+        const nextYearEnd = Math.max(existing.year_end, descriptor.yearEnd)
+
+        const needsUpdate =
+            nextYearStart !== existing.year_start ||
+            nextYearEnd !== existing.year_end ||
+            existing.body_style !== (descriptor.bodyStyle ?? null) ||
+            existing.vehicle_type !== descriptor.vehicleType ||
+            existing.view !== descriptor.view ||
+            (options?.classifierCompleted && existing.classifier_status !== 'completed')
+
+        const updated = needsUpdate
+            ? await tx.vehicleImage.update({
+                  where: { id: existing.id },
+                  data: {
+                      year_start: nextYearStart,
+                      year_end: nextYearEnd,
+                      body_style: descriptor.bodyStyle,
+                      vehicle_type: descriptor.vehicleType,
+                      view: descriptor.view,
+                      classifier_status: options?.classifierCompleted ? 'completed' : existing.classifier_status,
+                      classifier_error: options?.classifierCompleted ? null : existing.classifier_error,
+                      classified_at: options?.classifierCompleted ? new Date() : existing.classified_at
+                  }
+              })
+            : existing
+
+        return {
+            imageId: updated.id,
+            classificationKey: updated.classification_key,
+            storageKey: updated.image_storage_key,
+            reused: true,
+            classifierStatus: updated.classifier_status,
+            generationStatus: updated.generation_status,
+            uploadStatus: updated.upload_status,
+            localTmpFilename: updated.local_tmp_filename
+        }
+    }
+
+    try {
+        return await createVehicleImage(tx, descriptor, options)
+    } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+            return ensureVehicleImageFromDescriptor(tx, descriptor, options)
+        }
+
+        throw error
     }
 }
 
@@ -124,63 +242,18 @@ export async function ensureVehicleImage(
         return null
     }
 
-    const existing = await tx.vehicleImage.findUnique({
-        where: { classification_key: descriptor.classificationKey }
-    })
+    return ensureVehicleImageFromDescriptor(tx, descriptor)
+}
 
-    if (existing) {
-        const nextYearStart = Math.min(existing.year_start, descriptor.year)
-        const nextYearEnd = Math.max(existing.year_end, descriptor.year)
+export async function ensureClassifiedVehicleImage(
+    tx: VehicleImageClient,
+    source: ClassifiedVehicleImageSource
+): Promise<EnsuredVehicleImage | null> {
+    const descriptor = buildClassifiedVehicleImageDescriptor(source)
 
-        if (nextYearStart !== existing.year_start || nextYearEnd !== existing.year_end) {
-            await tx.vehicleImage.update({
-                where: { id: existing.id },
-                data: {
-                    year_start: nextYearStart,
-                    year_end: nextYearEnd
-                }
-            })
-        }
-
-        return {
-            imageId: existing.id,
-            classificationKey: existing.classification_key,
-            storageKey: existing.image_storage_key,
-            reused: true
-        }
+    if (!descriptor) {
+        return null
     }
 
-    try {
-        return await createVehicleImage(tx, descriptor)
-    } catch (error) {
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-            const conflicted = await tx.vehicleImage.findUnique({
-                where: { classification_key: descriptor.classificationKey }
-            })
-
-            if (conflicted) {
-                const nextYearStart = Math.min(conflicted.year_start, descriptor.year)
-                const nextYearEnd = Math.max(conflicted.year_end, descriptor.year)
-
-                if (nextYearStart !== conflicted.year_start || nextYearEnd !== conflicted.year_end) {
-                    await tx.vehicleImage.update({
-                        where: { id: conflicted.id },
-                        data: {
-                            year_start: nextYearStart,
-                            year_end: nextYearEnd
-                        }
-                    })
-                }
-
-                return {
-                    imageId: conflicted.id,
-                    classificationKey: conflicted.classification_key,
-                    storageKey: conflicted.image_storage_key,
-                    reused: true
-                }
-            }
-        }
-
-        throw error
-    }
+    return ensureVehicleImageFromDescriptor(tx, descriptor, { classifierCompleted: true })
 }

@@ -10,22 +10,8 @@ import { lookupVin, VinLookupError } from '../vehicles/vinLookup.js'
 const router = Router()
 const vehiclesLogger = createLogger({ component: 'vehicle-routes' })
 
-function shouldScheduleVehicleImage(
-    image?: {
-        classifier_status: string
-        generation_status: string
-        upload_status: string
-    } | null
-): boolean {
-    if (!image) {
-        return false
-    }
-
-    return !(
-        image.classifier_status === 'completed' &&
-        image.generation_status === 'completed' &&
-        image.upload_status === 'completed'
-    )
+function shouldScheduleVehicleImage(color?: string | null): boolean {
+    return Boolean(color?.trim())
 }
 
 function serializeVehicle(vehicle: {
@@ -233,39 +219,26 @@ router.post(
 
         const normalizedYear = Number(year)
 
-        const { createdVehicle, ensuredImage } = await prisma.$transaction(async tx => {
-            const ensuredImage = await ensureVehicleImage(tx, {
+        const createdVehicle = await prisma.vehicle.create({
+            data: {
+                user_id: authUser.id,
+                image_id: null,
                 make,
                 model,
                 year: normalizedYear,
                 trim,
-                vehicleType: vehicleType ?? null,
-                color: color ?? null
-            })
-
-            const createdVehicle = await tx.vehicle.create({
-                data: {
-                    user_id: authUser.id,
-                    image_id: ensuredImage?.imageId ?? null,
-                    make,
-                    model,
-                    year: normalizedYear,
-                    trim,
-                    vehicle_type: vehicleType || null,
-                    plate_number: plateNumber || null,
-                    vin: vin || null,
-                    engine: engine || null,
-                    transmission,
-                    fuel_type: fuelType,
-                    purchase_mileage: purchaseMileage ?? null,
-                    mileage: mileage ?? null,
-                    color: color || null,
-                    notes: notes || null
-                },
-                include: { image: true }
-            })
-
-            return { createdVehicle, ensuredImage }
+                vehicle_type: vehicleType || null,
+                plate_number: plateNumber || null,
+                vin: vin || null,
+                engine: engine || null,
+                transmission,
+                fuel_type: fuelType,
+                purchase_mileage: purchaseMileage ?? null,
+                mileage: mileage ?? null,
+                color: color || null,
+                notes: notes || null
+            },
+            include: { image: true }
         })
 
         vehiclesLogger.info('vehicles.created', {
@@ -281,11 +254,8 @@ router.post(
 
         res.status(201).json(serializeVehicle(createdVehicle))
 
-        if (ensuredImage && shouldScheduleVehicleImage(createdVehicle.image)) {
+        if (shouldScheduleVehicleImage(createdVehicle.color)) {
             scheduleVehicleImagePipeline({
-                imageId: ensuredImage.imageId,
-                classificationKey: ensuredImage.classificationKey,
-                storageKey: ensuredImage.storageKey,
                 make: createdVehicle.make,
                 model: createdVehicle.model,
                 year: createdVehicle.year,

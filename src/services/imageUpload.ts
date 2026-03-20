@@ -1,5 +1,4 @@
 import { createReadStream } from 'node:fs'
-import { unlink } from 'node:fs/promises'
 import { Readable } from 'node:stream'
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web'
 import * as BunnyStorageSDK from '@bunny.net/storage-sdk'
@@ -92,12 +91,5 @@ export async function uploadGeneratedImage({
     imageUploadLogger.info('vehicle_image.upload_completed', {
         filename,
         storageKey: remotePath
-    })
-
-    await unlink(filePath).catch(error => {
-        imageUploadLogger.warn('vehicle_image.tmp_cleanup_failed', {
-            filename,
-            error
-        })
     })
 }

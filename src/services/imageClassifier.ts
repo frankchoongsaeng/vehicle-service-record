@@ -1,6 +1,6 @@
 import OpenAI from 'openai'
 import { createLogger } from '../logging/logger.js'
-import type { VehicleImageGenerationInput } from './imageGeneration.js'
+import type { VehicleImageSourceInput } from './imageGeneration.js'
 
 const imageClassifierLogger = createLogger({ component: 'image-classifier-service' })
 const DEFAULT_CLASSIFIER_MODEL = 'gpt-4.1-mini'
@@ -47,7 +47,7 @@ function normalizeYearRange(
     }
 }
 
-function buildClassifierPrompt(input: VehicleImageGenerationInput): string {
+function buildClassifierPrompt(input: VehicleImageSourceInput): string {
     return [
         'You classify reusable vehicle illustration metadata for a maintenance app.',
         'Return only valid JSON.',
@@ -61,14 +61,16 @@ function buildClassifierPrompt(input: VehicleImageGenerationInput): string {
     ].join(' ')
 }
 
-export async function classifyVehicleImage(
-    input: VehicleImageGenerationInput
-): Promise<VehicleImageClassificationResult> {
+function buildClassifierLogKey(input: VehicleImageSourceInput): string {
+    return [input.make, input.model, input.trim, input.year].join(' ').trim()
+}
+
+export async function classifyVehicleImage(input: VehicleImageSourceInput): Promise<VehicleImageClassificationResult> {
     const client = getOpenAiClient()
     const model = process.env.OPENAI_IMAGE_CLASSIFIER_MODEL?.trim() || DEFAULT_CLASSIFIER_MODEL
 
     imageClassifierLogger.info('vehicle_image.classification_started', {
-        classificationKey: input.classificationKey,
+        vehicleKey: buildClassifierLogKey(input),
         make: input.make,
         model: input.model,
         year: input.year,
@@ -108,7 +110,7 @@ export async function classifyVehicleImage(
     }
 
     imageClassifierLogger.info('vehicle_image.classification_completed', {
-        classificationKey: input.classificationKey,
+        vehicleKey: buildClassifierLogKey(input),
         yearStart: result.yearStart,
         yearEnd: result.yearEnd,
         bodyStyle: result.bodyStyle ?? undefined,

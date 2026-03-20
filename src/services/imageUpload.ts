@@ -42,6 +42,16 @@ interface UploadGeneratedImageInput {
     contentType?: string
 }
 
+function getPublicBaseUrl(): string | null {
+    const baseUrl = process.env.BUNNY_PUBLIC_BASE_URL?.trim()
+
+    if (!baseUrl) {
+        return null
+    }
+
+    return baseUrl.replace(/\/+$/, '')
+}
+
 function getStorageZone() {
     const zoneName = process.env.BUNNY_STORAGE_ZONE_NAME?.trim()
     const accessKey = process.env.BUNNY_STORAGE_ACCESS_KEY?.trim()
@@ -67,10 +77,20 @@ function normalizeRemotePath(storageKey: string): string {
     return `/${storageKey}`.replace(/\/+/g, '/').replace(/\/\/+/, '/')
 }
 
+export function resolveUploadedImageUrl(storageKey: string): string | null {
+    const publicBaseUrl = getPublicBaseUrl()
+
+    if (!publicBaseUrl) {
+        return null
+    }
+
+    return `${publicBaseUrl}/${storageKey.replace(/^\/+/, '')}`
+}
+
 export async function uploadGeneratedImage({
     filename,
     storageKey,
-    contentType = 'image/png'
+    contentType = 'image/webp'
 }: UploadGeneratedImageInput): Promise<void> {
     const filePath = resolveGeneratedImagePath(filename)
     const storageZone = getStorageZone()

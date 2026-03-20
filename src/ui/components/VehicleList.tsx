@@ -57,7 +57,10 @@ export default function VehicleList({ vehicles, onSelect, onEdit, onDelete }: Pr
                                         VIN: {v.vin ?? 'N/A'}
                                     </p>
 
-                                    <div className='flex flex-wrap justify-start gap-2' onClick={e => e.stopPropagation()}>
+                                    <div
+                                        className='flex flex-wrap justify-start gap-2'
+                                        onClick={e => e.stopPropagation()}
+                                    >
                                         <Button
                                             variant='default'
                                             size='sm'

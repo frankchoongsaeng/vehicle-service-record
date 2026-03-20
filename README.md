@@ -134,6 +134,7 @@ Important variables:
 - `BUNNY_STORAGE_ZONE_NAME`: Bunny Storage zone name used by the image upload service
 - `BUNNY_STORAGE_ACCESS_KEY`: Bunny Storage API access key used by the image upload service
 - `BUNNY_STORAGE_REGION`: Bunny Storage region identifier, defaults to `Falkenstein`
+- `BUNNY_PUBLIC_BASE_URL`: public base URL used to deliver uploaded vehicle images to the browser, for example `https://media.example.com`
 
 ## Backend Logging
 

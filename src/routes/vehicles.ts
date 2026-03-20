@@ -1,10 +1,9 @@
-import { access } from 'node:fs/promises'
 import { Router, Request, Response } from 'express'
 import { prisma } from '../db.js'
 import { createLogger } from '../logging/logger.js'
 import { asyncHandler } from '../middleware/asyncHandler.js'
 import { requireAuth } from '../middleware/auth.js'
-import { resolveGeneratedImagePath } from '../services/imageGeneration.js'
+import { resolveUploadedImageUrl } from '../services/imageUpload.js'
 import { scheduleVehicleImagePipeline } from '../vehicles/imagePipeline.js'
 import { ensureVehicleImage } from '../vehicles/imageWorkflow.js'
 import { lookupVin, VinLookupError } from '../vehicles/vinLookup.js'
@@ -16,8 +15,18 @@ function shouldScheduleVehicleImage(color?: string | null): boolean {
     return Boolean(color?.trim())
 }
 
-function getVehicleImageUrl(imageId?: number | null): string | null {
-    return imageId ? `/api/vehicles/images/${imageId}` : null
+function getVehicleImageUrl(
+    image?: {
+        id: number
+        image_storage_key: string
+        upload_status: string
+    } | null
+): string | null {
+    if (!image || image.upload_status !== 'completed') {
+        return null
+    }
+
+    return resolveUploadedImageUrl(image.image_storage_key) ? `/api/vehicles/images/${image.id}` : null
 }
 
 function serializeVehicle(vehicle: {
@@ -55,6 +64,7 @@ function serializeVehicle(vehicle: {
         generation_key: string | null
         prompt_version: string | null
         image_storage_key: string
+        upload_status: string
         created_at: Date
         updated_at: Date
     } | null
@@ -62,7 +72,7 @@ function serializeVehicle(vehicle: {
     return {
         id: vehicle.id,
         imageId: vehicle.image_id,
-        imageUrl: getVehicleImageUrl(vehicle.image_id),
+        imageUrl: getVehicleImageUrl(vehicle.image),
         make: vehicle.make,
         model: vehicle.model,
         year: vehicle.year,
@@ -100,13 +110,14 @@ router.get(
                 id: true,
                 image: {
                     select: {
-                        local_tmp_filename: true
+                        image_storage_key: true,
+                        upload_status: true
                     }
                 }
             }
         })
 
-        if (!vehicleWithImage?.image?.local_tmp_filename) {
+        if (!vehicleWithImage?.image) {
             vehiclesLogger.warn('vehicles.image_not_found', {
                 requestId: req.requestId,
                 userId: authUser.id,
@@ -117,25 +128,36 @@ router.get(
             return
         }
 
-        const filePath = resolveGeneratedImagePath(vehicleWithImage.image.local_tmp_filename)
-
-        try {
-            await access(filePath)
-        } catch {
-            vehiclesLogger.warn('vehicles.image_file_missing', {
+        if (vehicleWithImage.image.upload_status !== 'completed') {
+            vehiclesLogger.warn('vehicles.image_not_ready', {
                 requestId: req.requestId,
                 userId: authUser.id,
                 imageId,
                 vehicleId: vehicleWithImage.id,
-                filename: vehicleWithImage.image.local_tmp_filename
+                uploadStatus: vehicleWithImage.image.upload_status
             })
 
-            res.status(404).json({ error: 'Vehicle image file not found' })
+            res.status(404).json({ error: 'Vehicle image not available' })
+            return
+        }
+
+        const publicImageUrl = resolveUploadedImageUrl(vehicleWithImage.image.image_storage_key)
+
+        if (!publicImageUrl) {
+            vehiclesLogger.error('vehicles.image_public_url_unconfigured', {
+                requestId: req.requestId,
+                userId: authUser.id,
+                imageId,
+                vehicleId: vehicleWithImage.id,
+                storageKey: vehicleWithImage.image.image_storage_key
+            })
+
+            res.status(503).json({ error: 'Vehicle image delivery is not configured' })
             return
         }
 
         res.setHeader('Cache-Control', 'private, max-age=3600')
-        res.sendFile(filePath)
+        res.redirect(302, publicImageUrl)
     })
 )
 

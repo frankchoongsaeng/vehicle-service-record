@@ -7,7 +7,7 @@ import { createLogger } from '../logging/logger.js'
 
 const imageGenerationLogger = createLogger({ component: 'image-generation-service' })
 const DEFAULT_IMAGE_MODEL = 'gpt-image-1'
-const DEFAULT_IMAGE_SIZE = '1024x1536'
+const DEFAULT_IMAGE_SIZE = '1536x1024'
 const DEFAULT_IMAGE_QUALITY = 'medium'
 const DEFAULT_OUTPUT_FORMAT = 'webp'
 const DEFAULT_BACKGROUND = 'transparent'

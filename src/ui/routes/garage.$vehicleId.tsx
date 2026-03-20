@@ -12,22 +12,12 @@ import { PageHeader } from '../components/PageHeader'
 import { Button } from '../components/ui/button'
 import { MaintenanceTimeline } from '../components/dashboard/MaintenanceTimeline'
 import { StatCard } from '../components/dashboard/StatCard'
-import type {
-    SnapshotField,
-    SummaryStat,
-    TimelineEvent,
-    UpcomingItem
-} from '../components/dashboard/types'
+import type { SnapshotField, SummaryStat, TimelineEvent, UpcomingItem } from '../components/dashboard/types'
 import { UpcomingMaintenancePanel } from '../components/dashboard/UpcomingMaintenancePanel'
 import { VehicleSnapshotCard } from '../components/dashboard/VehicleSnapshotCard'
 import { useAuth } from '../auth/useAuth'
 import type { ServiceRecord as ApiServiceRecord, Vehicle } from '../types/index.js'
-import {
-    buildSummaryStats,
-    buildTimeline,
-    buildUpcomingItems,
-    fetchApiData
-} from '../lib/maintenance.js'
+import { buildSummaryStats, buildTimeline, buildUpcomingItems, fetchApiData } from '../lib/maintenance.js'
 
 export const meta: MetaFunction = () => {
     return [
@@ -98,8 +88,7 @@ export default function VehicleDashboardRoute() {
     const navigate = useNavigate()
     const location = useLocation()
     const outlet = useOutlet()
-    const { vehicleId, vehicleLabel, summaryStats, upcomingItems, snapshot, timeline } =
-        useLoaderData<typeof loader>()
+    const { vehicleId, vehicleLabel, summaryStats, upcomingItems, snapshot, timeline } = useLoaderData<typeof loader>()
 
     useEffect(() => {
         if (auth.status !== 'unauthenticated') {

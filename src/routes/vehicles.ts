@@ -3,11 +3,25 @@ import { prisma } from '../db.js'
 import { createLogger } from '../logging/logger.js'
 import { asyncHandler } from '../middleware/asyncHandler.js'
 import { requireAuth } from '../middleware/auth.js'
+import { scheduleVehicleImagePipeline } from '../vehicles/imagePipeline.js'
 import { ensureVehicleImage } from '../vehicles/imageWorkflow.js'
 import { lookupVin, VinLookupError } from '../vehicles/vinLookup.js'
 
 const router = Router()
 const vehiclesLogger = createLogger({ component: 'vehicle-routes' })
+
+function shouldScheduleVehicleImage(
+    image?: {
+        generation_status: string
+        upload_status: string
+    } | null
+): boolean {
+    if (!image) {
+        return false
+    }
+
+    return !(image.generation_status === 'completed' && image.upload_status === 'completed')
+}
 
 function serializeVehicle(vehicle: {
     id: number
@@ -214,7 +228,7 @@ router.post(
 
         const normalizedYear = Number(year)
 
-        const created = await prisma.$transaction(async tx => {
+        const { createdVehicle, ensuredImage } = await prisma.$transaction(async tx => {
             const ensuredImage = await ensureVehicleImage(tx, {
                 make,
                 model,
@@ -224,7 +238,7 @@ router.post(
                 color: color ?? null
             })
 
-            return tx.vehicle.create({
+            const createdVehicle = await tx.vehicle.create({
                 data: {
                     user_id: authUser.id,
                     image_id: ensuredImage?.imageId ?? null,
@@ -245,20 +259,39 @@ router.post(
                 },
                 include: { image: true }
             })
+
+            return { createdVehicle, ensuredImage }
         })
 
         vehiclesLogger.info('vehicles.created', {
             requestId: req.requestId,
             userId: authUser.id,
-            vehicleId: created.id,
-            imageId: created.image_id,
-            classificationKey: created.image?.classification_key ?? undefined,
-            make: created.make,
-            model: created.model,
-            year: created.year
+            vehicleId: createdVehicle.id,
+            imageId: createdVehicle.image_id,
+            classificationKey: createdVehicle.image?.classification_key ?? undefined,
+            make: createdVehicle.make,
+            model: createdVehicle.model,
+            year: createdVehicle.year
         })
 
-        res.status(201).json(serializeVehicle(created))
+        res.status(201).json(serializeVehicle(createdVehicle))
+
+        if (ensuredImage && shouldScheduleVehicleImage(createdVehicle.image)) {
+            scheduleVehicleImagePipeline({
+                imageId: ensuredImage.imageId,
+                classificationKey: ensuredImage.classificationKey,
+                storageKey: ensuredImage.storageKey,
+                make: createdVehicle.make,
+                model: createdVehicle.model,
+                year: createdVehicle.year,
+                trim: createdVehicle.trim,
+                vehicleType: createdVehicle.vehicle_type,
+                color: createdVehicle.color,
+                requestId: req.requestId,
+                userId: authUser.id,
+                vehicleId: createdVehicle.id
+            })
+        }
     })
 )
 

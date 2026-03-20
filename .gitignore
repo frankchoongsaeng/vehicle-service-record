@@ -30,3 +30,4 @@ server/dist
 
 # SQLite database (runtime data)
 server/data/
+tmp/

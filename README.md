@@ -128,6 +128,11 @@ Important variables:
 - `LOG_LEVEL`: backend log threshold, for example `debug`, `info`, `warn`, or `error`
 - `LOG_READ_REQUEST_SAMPLE_RATE`: production sampling rate for successful read-request lifecycle logs between `0` and `1`
 - `LOG_FILE_PATH`: optional NDJSON backend log file path, useful for searching `requestId` values outside the terminal
+- `OPENAI_API_KEY`: required for the async vehicle image generation service
+- `OPENAI_IMAGE_MODEL`: optional OpenAI image model override, defaults to `gpt-image-1`
+- `BUNNY_STORAGE_ZONE_NAME`: Bunny Storage zone name used by the image upload service
+- `BUNNY_STORAGE_ACCESS_KEY`: Bunny Storage API access key used by the image upload service
+- `BUNNY_STORAGE_REGION`: Bunny Storage region identifier, defaults to `Falkenstein`
 
 ## Backend Logging
 

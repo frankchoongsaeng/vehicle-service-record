@@ -51,8 +51,8 @@ model Vehicle {
 }
 
 model VehicleImage {
-    id                 Int      @id @default(autoincrement())
-    classification_key String   @unique
+    id                 Int       @id @default(autoincrement())
+    classification_key String    @unique
     make               String
     model              String
     color              String
@@ -61,12 +61,18 @@ model VehicleImage {
     trim               String?
     vehicle_type       String?
     body_style         String?
-    view               String   @default("default")
+    view               String    @default("default")
     generation_key     String?
     prompt_version     String?
-    image_storage_key  String   @unique
-    created_at         DateTime @default(now())
-    updated_at         DateTime @updatedAt
+    image_storage_key  String    @unique
+    local_tmp_filename String?
+    generation_status  String    @default("pending")
+    generation_error   String?
+    upload_status      String    @default("pending")
+    upload_error       String?
+    uploaded_at        DateTime?
+    created_at         DateTime  @default(now())
+    updated_at         DateTime  @updatedAt
 
     vehicles Vehicle[]
 

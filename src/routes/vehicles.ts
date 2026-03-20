@@ -11,6 +11,7 @@ const vehiclesLogger = createLogger({ component: 'vehicle-routes' })
 function serializeVehicle(vehicle: {
     id: number
     user_id: string
+    image_id: number | null
     make: string
     model: string
     year: number
@@ -27,9 +28,28 @@ function serializeVehicle(vehicle: {
     notes: string | null
     created_at: Date
     updated_at: Date
+    image?: {
+        id: number
+        classification_key: string
+        make: string
+        model: string
+        color: string
+        year_start: number
+        year_end: number
+        trim: string | null
+        vehicle_type: string | null
+        body_style: string | null
+        view: string
+        generation_key: string | null
+        prompt_version: string | null
+        image_storage_key: string
+        created_at: Date
+        updated_at: Date
+    } | null
 }) {
     return {
         id: vehicle.id,
+        imageId: vehicle.image_id,
         make: vehicle.make,
         model: vehicle.model,
         year: vehicle.year,
@@ -44,6 +64,26 @@ function serializeVehicle(vehicle: {
         mileage: vehicle.mileage,
         color: vehicle.color,
         notes: vehicle.notes,
+        image: vehicle.image
+            ? {
+                  id: vehicle.image.id,
+                  classificationKey: vehicle.image.classification_key,
+                  make: vehicle.image.make,
+                  model: vehicle.image.model,
+                  color: vehicle.image.color,
+                  yearStart: vehicle.image.year_start,
+                  yearEnd: vehicle.image.year_end,
+                  trim: vehicle.image.trim,
+                  vehicleType: vehicle.image.vehicle_type,
+                  bodyStyle: vehicle.image.body_style,
+                  view: vehicle.image.view,
+                  generationKey: vehicle.image.generation_key,
+                  promptVersion: vehicle.image.prompt_version,
+                  storageKey: vehicle.image.image_storage_key,
+                  created_at: vehicle.image.created_at,
+                  updated_at: vehicle.image.updated_at
+              }
+            : null,
         created_at: vehicle.created_at,
         updated_at: vehicle.updated_at
     }
@@ -97,6 +137,7 @@ router.get(
         const authUser = req.authUser!
         const vehicles = await prisma.vehicle.findMany({
             where: { user_id: authUser.id },
+            include: { image: true },
             orderBy: [{ make: 'asc' }, { model: 'asc' }, { year: 'desc' }]
         })
 
@@ -120,7 +161,8 @@ router.get(
             where: {
                 id: vehicleId,
                 user_id: authUser.id
-            }
+            },
+            include: { image: true }
         })
         if (!vehicle) {
             vehiclesLogger.warn('vehicles.get_not_found', {
@@ -206,7 +248,8 @@ router.post(
                 mileage: mileage ?? null,
                 color: color || null,
                 notes: notes || null
-            }
+            },
+            include: { image: true }
         })
 
         vehiclesLogger.info('vehicles.created', {
@@ -304,7 +347,8 @@ router.put(
                 mileage: mileage ?? null,
                 color: color || null,
                 notes: notes || null
-            }
+            },
+            include: { image: true }
         })
 
         vehiclesLogger.info('vehicles.updated', {

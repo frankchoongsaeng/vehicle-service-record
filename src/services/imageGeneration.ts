@@ -7,7 +7,10 @@ import { createLogger } from '../logging/logger.js'
 
 const imageGenerationLogger = createLogger({ component: 'image-generation-service' })
 const DEFAULT_IMAGE_MODEL = 'gpt-image-1'
-const DEFAULT_IMAGE_SIZE = '1024x1024'
+const DEFAULT_IMAGE_SIZE = '1024x1536'
+const DEFAULT_IMAGE_QUALITY = 'medium'
+const DEFAULT_OUTPUT_FORMAT = 'webp'
+const DEFAULT_BACKGROUND = 'transparent'
 
 export interface VehicleImageSourceInput {
     make: string
@@ -44,22 +47,33 @@ function sanitizeFileSegment(value: string): string {
 }
 
 function buildPrompt(input: VehicleImageGenerationInput): string {
-    const color = input.color?.trim() || 'neutral'
-    const vehicleType = input.vehicleType?.trim() || 'vehicle'
-    const bodyStyle = input.bodyStyle?.trim() || 'unspecified body style'
-    const view = input.view?.trim() || 'default'
+    const color = input.color?.trim() || ''
+    const subjectColorSegment = color ? ` ${color}` : ''
+    const optionalContext = [input.trim, input.bodyStyle, input.vehicleType]
+        .map(value => value?.trim())
+        .filter((value): value is string => Boolean(value))
+        .join(', ')
 
     return [
-        'Create a clean, realistic catalog-style vehicle image.',
-        `Subject: ${color} ${input.year} ${input.make} ${input.model} ${input.trim}.`,
-        `Reusable generation range: ${input.yearStart} to ${input.yearEnd}.`,
-        `Vehicle type: ${vehicleType}.`,
-        `Body style: ${bodyStyle}.`,
-        `View: ${view}.`,
-        'Composition: centered vehicle, front three-quarter view, full vehicle visible unless the requested view says otherwise.',
-        'Background: simple studio backdrop with soft shadow.',
-        'Do not include people, text, logos, license plate text, watermarks, or extra vehicles.'
-    ].join(' ')
+        `Generate a high-quality, realistic studio-style vehicle cutout of a ${input.year} ${input.make} ${input.model}${subjectColorSegment}.`,
+        '',
+        'Requirements:',
+        '- Show the car from a front-right three-quarter angle, clearly revealing both the front and the right side.',
+        '- The vehicle must be the main and only subject.',
+        `- Use accurate body shape, proportions, trim styling, headlights, grille, wheels, mirrors, and overall design details appropriate for a ${input.year} ${input.make} ${input.model}.`,
+        color
+            ? `- If a color is provided, the car paint must match that color exactly. Use ${color} as the paint color.`
+            : `- If no color is provided, use a paint color that was commonly available or strongly associated with the ${input.year} ${input.make} ${input.model}.`,
+        '- Clean studio lighting with soft realistic reflections on the paint and glass.',
+        '- Transparent background only. No floor, no shadows baked into a background, no environment, no scenery, no road, no people, no text, no watermark, no logo overlay, no license plate text.',
+        '- Center the full vehicle in frame with all edges fully visible.',
+        '- Output should look like a polished automotive catalog or dealership cutout image.',
+        '- Preserve realism and avoid stylization, cartoon effects, illustration effects, or exaggerated concept-car features.',
+        `- The reusable model-year span for this image should fit ${input.yearStart} through ${input.yearEnd}.`,
+        optionalContext ? `- Additional identifying context: ${optionalContext}.` : null
+    ]
+        .filter((line): line is string => line !== null)
+        .join('\n')
 }
 
 function getOpenAiClient(): OpenAI {
@@ -91,7 +105,10 @@ export async function generateVehicleImage(input: VehicleImageGenerationInput): 
     const response = await client.images.generate({
         model,
         prompt: buildPrompt(input),
-        size: DEFAULT_IMAGE_SIZE
+        size: DEFAULT_IMAGE_SIZE,
+        quality: DEFAULT_IMAGE_QUALITY,
+        output_format: DEFAULT_OUTPUT_FORMAT,
+        background: DEFAULT_BACKGROUND
     })
 
     const imageBase64 = response.data?.[0]?.b64_json
@@ -100,7 +117,7 @@ export async function generateVehicleImage(input: VehicleImageGenerationInput): 
         throw new Error('OpenAI did not return image data')
     }
 
-    const filename = `${sanitizeFileSegment(input.classificationKey)}-${randomUUID()}.png`
+    const filename = `${sanitizeFileSegment(input.classificationKey)}-${randomUUID()}.webp`
     const filePath = resolveGeneratedImagePath(filename)
 
     await mkdir(getProjectTmpDirectory(), { recursive: true })

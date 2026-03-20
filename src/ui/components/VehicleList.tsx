@@ -1,9 +1,16 @@
-import { Pencil, Trash2 } from 'lucide-react'
+import { EllipsisVertical, Pencil, Trash2 } from 'lucide-react'
 
 import { fallbackVehicleTypeImage, getVehicleTypeImage } from '../lib/vehicleTypes.js'
 import { Badge } from './ui/badge.js'
 import { Button } from './ui/button.js'
 import { Card, CardContent } from './ui/card.js'
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuGroup,
+    DropdownMenuItem,
+    DropdownMenuTrigger
+} from './ui/dropdown-menu.js'
 import type { Vehicle } from '../types/index.js'
 
 interface Props {
@@ -57,36 +64,43 @@ export default function VehicleList({ vehicles, onSelect, onEdit, onDelete }: Pr
                                         VIN: {v.vin ?? 'N/A'}
                                     </p>
 
-                                    <div
-                                        className='flex flex-wrap justify-start gap-2'
-                                        onClick={e => e.stopPropagation()}
-                                    >
-                                        <Button
-                                            variant='default'
-                                            size='sm'
-                                            title='Update vehicle'
-                                            onClick={() => onEdit(v)}
-                                            aria-label='Update vehicle'
-                                            className='shadow-none'
-                                        >
-                                            <Pencil data-icon='inline-start' />
-                                            Update
-                                        </Button>
-                                        <Button
-                                            variant='destructive'
-                                            size='sm'
-                                            title='Delete vehicle'
-                                            onClick={() => onDelete(v)}
-                                            aria-label='Delete vehicle'
-                                            className='shadow-none'
-                                        >
-                                            <Trash2 data-icon='inline-start' />
-                                            Delete
-                                        </Button>
-                                    </div>
                                 </div>
 
-                                <div className='flex items-center justify-center'>
+                                <div
+                                    className='flex h-full flex-col items-stretch'
+                                    onClick={event => event.stopPropagation()}
+                                >
+                                    <div className='flex justify-end pr-2 pt-2'>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button
+                                                    variant='ghost'
+                                                    size='icon'
+                                                    aria-label={`Open actions for ${v.year} ${v.make} ${v.model}`}
+                                                    className='text-muted-foreground shadow-none hover:bg-transparent hover:text-foreground focus-visible:ring-0'
+                                                >
+                                                    <EllipsisVertical />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align='end'>
+                                                <DropdownMenuGroup>
+                                                    <DropdownMenuItem onClick={() => onEdit(v)}>
+                                                        <Pencil />
+                                                        Update
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem
+                                                        onClick={() => onDelete(v)}
+                                                        className='text-destructive focus:text-destructive'
+                                                    >
+                                                        <Trash2 />
+                                                        Delete
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuGroup>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
+
+                                    <div className='flex flex-1 items-center justify-center'>
                                     <img
                                         src={v.imageUrl ?? getVehicleTypeImage(v.vehicleType)}
                                         alt={`${v.year} ${v.make} ${v.model}`}
@@ -111,6 +125,7 @@ export default function VehicleList({ vehicles, onSelect, onEdit, onDelete }: Pr
                                             event.currentTarget.src = fallbackSrc
                                         }}
                                     />
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>

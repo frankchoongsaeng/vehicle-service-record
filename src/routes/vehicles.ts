@@ -1,8 +1,10 @@
+import { access } from 'node:fs/promises'
 import { Router, Request, Response } from 'express'
 import { prisma } from '../db.js'
 import { createLogger } from '../logging/logger.js'
 import { asyncHandler } from '../middleware/asyncHandler.js'
 import { requireAuth } from '../middleware/auth.js'
+import { resolveGeneratedImagePath } from '../services/imageGeneration.js'
 import { scheduleVehicleImagePipeline } from '../vehicles/imagePipeline.js'
 import { ensureVehicleImage } from '../vehicles/imageWorkflow.js'
 import { lookupVin, VinLookupError } from '../vehicles/vinLookup.js'
@@ -12,6 +14,10 @@ const vehiclesLogger = createLogger({ component: 'vehicle-routes' })
 
 function shouldScheduleVehicleImage(color?: string | null): boolean {
     return Boolean(color?.trim())
+}
+
+function getVehicleImageUrl(imageId?: number | null): string | null {
+    return imageId ? `/api/vehicles/images/${imageId}` : null
 }
 
 function serializeVehicle(vehicle: {
@@ -56,6 +62,7 @@ function serializeVehicle(vehicle: {
     return {
         id: vehicle.id,
         imageId: vehicle.image_id,
+        imageUrl: getVehicleImageUrl(vehicle.image_id),
         make: vehicle.make,
         model: vehicle.model,
         year: vehicle.year,
@@ -76,6 +83,61 @@ function serializeVehicle(vehicle: {
 }
 
 router.use(requireAuth)
+
+// GET /api/vehicles/images/:imageId
+router.get(
+    '/images/:imageId',
+    asyncHandler(async (req: Request, res: Response) => {
+        const authUser = req.authUser!
+        const imageId = Number(req.params.imageId)
+
+        const vehicleWithImage = await prisma.vehicle.findFirst({
+            where: {
+                user_id: authUser.id,
+                image_id: imageId
+            },
+            select: {
+                id: true,
+                image: {
+                    select: {
+                        local_tmp_filename: true
+                    }
+                }
+            }
+        })
+
+        if (!vehicleWithImage?.image?.local_tmp_filename) {
+            vehiclesLogger.warn('vehicles.image_not_found', {
+                requestId: req.requestId,
+                userId: authUser.id,
+                imageId
+            })
+
+            res.status(404).json({ error: 'Vehicle image not found' })
+            return
+        }
+
+        const filePath = resolveGeneratedImagePath(vehicleWithImage.image.local_tmp_filename)
+
+        try {
+            await access(filePath)
+        } catch {
+            vehiclesLogger.warn('vehicles.image_file_missing', {
+                requestId: req.requestId,
+                userId: authUser.id,
+                imageId,
+                vehicleId: vehicleWithImage.id,
+                filename: vehicleWithImage.image.local_tmp_filename
+            })
+
+            res.status(404).json({ error: 'Vehicle image file not found' })
+            return
+        }
+
+        res.setHeader('Cache-Control', 'private, max-age=3600')
+        res.sendFile(filePath)
+    })
+)
 
 // GET /api/vehicles/vin-search/:vin
 router.get(

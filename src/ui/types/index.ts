@@ -1,6 +1,7 @@
 export interface Vehicle {
     id: number
     imageId?: number | null
+    imageUrl?: string | null
     make: string
     model: string
     year: number

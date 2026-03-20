@@ -155,9 +155,9 @@ export default function App({ currentUser, onLogout }: AppProps) {
 
             <div className='space-y-6'>
                 <PageHeader
-                    eyebrow='Garage'
                     title='Your vehicles'
                     description='Select a vehicle to open its dashboard or update its profile.'
+                    variant='plain'
                 />
 
                 <main>

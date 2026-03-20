@@ -36,7 +36,7 @@ export default function VehicleList({ vehicles, onSelect, onEdit, onDelete }: Pr
                             <CardContent className='space-y-3 p-4'>
                                 <div>
                                     <p className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
-                                        {v.year} vehicle profile
+                                        {v.year}
                                     </p>
                                     <p className='text-lg font-semibold text-foreground'>
                                         {v.make} {v.model}
@@ -57,25 +57,28 @@ export default function VehicleList({ vehicles, onSelect, onEdit, onDelete }: Pr
                                     </p>
                                 )}
 
-                                <div className='flex justify-end gap-2' onClick={e => e.stopPropagation()}>
+                                <div className='flex justify-start gap-2' onClick={e => e.stopPropagation()}>
                                     <Button
-                                        variant='outline'
-                                        size='icon'
-                                        title='Edit vehicle'
+                                        variant='default'
+                                        size='sm'
+                                        title='Update vehicle'
                                         onClick={() => onEdit(v)}
-                                        aria-label='Edit vehicle'
+                                        aria-label='Update vehicle'
+                                        className='shadow-none'
                                     >
-                                        <Pencil className='h-4 w-4' />
+                                        <Pencil data-icon='inline-start' />
+                                        Update
                                     </Button>
                                     <Button
-                                        variant='outline'
-                                        size='icon'
+                                        variant='destructive'
+                                        size='sm'
                                         title='Delete vehicle'
                                         onClick={() => onDelete(v)}
                                         aria-label='Delete vehicle'
-                                        className='text-destructive hover:bg-destructive/10 hover:text-destructive'
+                                        className='shadow-none'
                                     >
-                                        <Trash2 className='h-4 w-4' />
+                                        <Trash2 data-icon='inline-start' />
+                                        Delete
                                     </Button>
                                 </div>
                             </CardContent>

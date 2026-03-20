@@ -28,14 +28,14 @@ export default function VehicleList({ vehicles, onSelect, onEdit, onDelete }: Pr
                     {vehicles.map(v => (
                         <Card
                             key={v.id}
-                            className='cursor-pointer transition-all hover:border-ring/50 hover:-translate-y-0.5 hover:shadow-md'
+                            className='cursor-pointer overflow-hidden transition-all hover:border-ring/50 hover:-translate-y-0.5 hover:shadow-md'
                             onClick={() => onSelect(v)}
                             role='button'
                             tabIndex={0}
                             onKeyDown={e => e.key === 'Enter' && onSelect(v)}
                         >
-                            <CardContent className='grid grid-cols-[minmax(0,1fr)_7rem] gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_9rem]'>
-                                <div className='flex min-w-0 flex-col gap-3'>
+                            <CardContent className='grid grid-cols-[minmax(0,1fr)_7rem] p-0 sm:grid-cols-[minmax(0,1fr)_9rem]'>
+                                <div className='flex min-w-0 flex-col gap-3 p-4'>
                                     <div>
                                         <p className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
                                             {v.year}
@@ -86,12 +86,12 @@ export default function VehicleList({ vehicles, onSelect, onEdit, onDelete }: Pr
                                     </div>
                                 </div>
 
-                                <div className='overflow-hidden rounded-lg border bg-muted/30'>
+                                <div className='flex items-center justify-center'>
                                     <img
                                         src={v.imageUrl ?? getVehicleTypeImage(v.vehicleType)}
                                         alt={`${v.year} ${v.make} ${v.model}`}
                                         data-fallback-src={getVehicleTypeImage(v.vehicleType)}
-                                        className='h-full min-h-28 w-full object-cover'
+                                        className='block h-full min-h-28 w-full object-contain'
                                         loading='lazy'
                                         onError={event => {
                                             const fallbackSrc = event.currentTarget.dataset.fallbackSrc

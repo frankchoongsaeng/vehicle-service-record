@@ -51,11 +51,9 @@ export default function VehicleList({ vehicles, onSelect, onEdit, onDelete }: Pr
                                     )}
                                 </div>
 
-                                {v.vin && (
-                                    <p className='truncate text-xs text-muted-foreground' title={v.vin}>
-                                        VIN: {v.vin}
-                                    </p>
-                                )}
+                                <p className='truncate text-xs text-muted-foreground' title={v.vin ?? 'N/A'}>
+                                    VIN: {v.vin ?? 'N/A'}
+                                </p>
 
                                 <div className='flex justify-start gap-2' onClick={e => e.stopPropagation()}>
                                     <Button

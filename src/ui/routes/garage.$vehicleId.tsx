@@ -10,12 +10,9 @@ import { AuthenticatedShell } from '../components/AuthenticatedShell'
 import BrandedLoadingScreen from '../components/BrandedLoadingScreen'
 import { PageHeader } from '../components/PageHeader'
 import { Button } from '../components/ui/button'
-import { QuickAddServiceForm } from '../components/dashboard/QuickAddServiceForm'
 import { MaintenanceTimeline } from '../components/dashboard/MaintenanceTimeline'
-import { ServiceRecordTable } from '../components/dashboard/ServiceRecordTable'
 import { StatCard } from '../components/dashboard/StatCard'
 import type {
-    ServiceRecord as DashboardServiceRecord,
     SnapshotField,
     SummaryStat,
     TimelineEvent,
@@ -26,7 +23,6 @@ import { VehicleSnapshotCard } from '../components/dashboard/VehicleSnapshotCard
 import { useAuth } from '../auth/useAuth'
 import type { ServiceRecord as ApiServiceRecord, Vehicle } from '../types/index.js'
 import {
-    buildDisplayServiceRecords,
     buildSummaryStats,
     buildTimeline,
     buildUpcomingItems,
@@ -47,7 +43,6 @@ interface DashboardLoaderData {
     vehicleId: string | undefined
     vehicleLabel: string
     summaryStats: SummaryStat[]
-    serviceRecords: DashboardServiceRecord[]
     upcomingItems: UpcomingItem[]
     snapshot: SnapshotField[]
     timeline: TimelineEvent[]
@@ -67,7 +62,6 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
 
     const now = new Date()
     const vehicleLabel = `${vehicle.year} ${vehicle.make} ${vehicle.model}`
-    const serviceRecords: DashboardServiceRecord[] = buildDisplayServiceRecords(records, now)
     const upcomingItems = buildUpcomingItems(vehicle, records, now)
     const summaryStats: SummaryStat[] = buildSummaryStats(vehicle, records, upcomingItems, now)
 
@@ -91,7 +85,6 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
         vehicleId: params.vehicleId,
         vehicleLabel,
         summaryStats,
-        serviceRecords,
         upcomingItems,
         snapshot,
         timeline
@@ -105,7 +98,7 @@ export default function VehicleDashboardRoute() {
     const navigate = useNavigate()
     const location = useLocation()
     const outlet = useOutlet()
-    const { vehicleId, vehicleLabel, summaryStats, serviceRecords, upcomingItems, snapshot, timeline } =
+    const { vehicleId, vehicleLabel, summaryStats, upcomingItems, snapshot, timeline } =
         useLoaderData<typeof loader>()
 
     useEffect(() => {
@@ -172,17 +165,12 @@ export default function VehicleDashboardRoute() {
                 </section>
 
                 <section className='grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]'>
-                    <ServiceRecordTable records={serviceRecords} />
+                    <MaintenanceTimeline events={timeline} />
 
                     <div className='space-y-6'>
                         <UpcomingMaintenancePanel items={upcomingItems} />
                         <VehicleSnapshotCard vehicleLabel={vehicleLabel} fields={snapshot} />
                     </div>
-                </section>
-
-                <section className='grid gap-6 xl:grid-cols-2'>
-                    <MaintenanceTimeline events={timeline} />
-                    <QuickAddServiceForm />
                 </section>
             </div>
         </AuthenticatedShell>

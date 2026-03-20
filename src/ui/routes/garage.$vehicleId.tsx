@@ -138,9 +138,9 @@ export default function VehicleDashboardRoute() {
         >
             <div className='space-y-6'>
                 <PageHeader
-                    eyebrow='Dashboard'
-                    title='Vehicle maintenance dashboard'
-                    description={`Service activity, upcoming work, and vehicle health snapshots for ${vehicleLabel}.`}
+                    eyebrow='Overview'
+                    title={vehicleLabel}
+                    description='Service activity, upcoming work, and vehicle health snapshots.'
                     actions={
                         <>
                             <Button asChild variant='outline'>

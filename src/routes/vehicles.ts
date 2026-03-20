@@ -12,6 +12,7 @@ const vehiclesLogger = createLogger({ component: 'vehicle-routes' })
 
 function shouldScheduleVehicleImage(
     image?: {
+        classifier_status: string
         generation_status: string
         upload_status: string
     } | null
@@ -20,7 +21,11 @@ function shouldScheduleVehicleImage(
         return false
     }
 
-    return !(image.generation_status === 'completed' && image.upload_status === 'completed')
+    return !(
+        image.classifier_status === 'completed' &&
+        image.generation_status === 'completed' &&
+        image.upload_status === 'completed'
+    )
 }
 
 function serializeVehicle(vehicle: {

@@ -130,6 +130,7 @@ Important variables:
 - `LOG_FILE_PATH`: optional NDJSON backend log file path, useful for searching `requestId` values outside the terminal
 - `OPENAI_API_KEY`: required for the async vehicle image generation service
 - `OPENAI_IMAGE_MODEL`: optional OpenAI image model override, defaults to `gpt-image-1`
+- `OPENAI_IMAGE_CLASSIFIER_MODEL`: optional OpenAI model override for the image classifier service, defaults to `gpt-4.1-mini`
 - `BUNNY_STORAGE_ZONE_NAME`: Bunny Storage zone name used by the image upload service
 - `BUNNY_STORAGE_ACCESS_KEY`: Bunny Storage API access key used by the image upload service
 - `BUNNY_STORAGE_REGION`: Bunny Storage region identifier, defaults to `Falkenstein`

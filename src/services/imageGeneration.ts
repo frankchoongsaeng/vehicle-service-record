@@ -64,10 +64,7 @@ export function resolveGeneratedImagePath(filename: string): string {
     return resolve(getProjectTmpDirectory(), filename)
 }
 
-export async function generateVehicleImage(
-    input: VehicleImageGenerationInput,
-    onGenerated: (filename: string) => Promise<void> | void
-): Promise<void> {
+export async function generateVehicleImage(input: VehicleImageGenerationInput): Promise<string> {
     const client = getOpenAiClient()
     const model = process.env.OPENAI_IMAGE_MODEL?.trim() || DEFAULT_IMAGE_MODEL
 
@@ -102,5 +99,5 @@ export async function generateVehicleImage(
         filename
     })
 
-    await onGenerated(filename)
+    return filename
 }

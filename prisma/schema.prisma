@@ -66,6 +66,9 @@ model VehicleImage {
     prompt_version     String?
     image_storage_key  String    @unique
     local_tmp_filename String?
+    classifier_status  String    @default("pending")
+    classifier_error   String?
+    classified_at      DateTime?
     generation_status  String    @default("pending")
     generation_error   String?
     upload_status      String    @default("pending")

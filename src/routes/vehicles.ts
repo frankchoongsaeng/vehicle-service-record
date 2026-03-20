@@ -3,6 +3,7 @@ import { prisma } from '../db.js'
 import { createLogger } from '../logging/logger.js'
 import { asyncHandler } from '../middleware/asyncHandler.js'
 import { requireAuth } from '../middleware/auth.js'
+import { ensureVehicleImage } from '../vehicles/imageWorkflow.js'
 import { lookupVin, VinLookupError } from '../vehicles/vinLookup.js'
 
 const router = Router()
@@ -64,26 +65,6 @@ function serializeVehicle(vehicle: {
         mileage: vehicle.mileage,
         color: vehicle.color,
         notes: vehicle.notes,
-        image: vehicle.image
-            ? {
-                  id: vehicle.image.id,
-                  classificationKey: vehicle.image.classification_key,
-                  make: vehicle.image.make,
-                  model: vehicle.image.model,
-                  color: vehicle.image.color,
-                  yearStart: vehicle.image.year_start,
-                  yearEnd: vehicle.image.year_end,
-                  trim: vehicle.image.trim,
-                  vehicleType: vehicle.image.vehicle_type,
-                  bodyStyle: vehicle.image.body_style,
-                  view: vehicle.image.view,
-                  generationKey: vehicle.image.generation_key,
-                  promptVersion: vehicle.image.prompt_version,
-                  storageKey: vehicle.image.image_storage_key,
-                  created_at: vehicle.image.created_at,
-                  updated_at: vehicle.image.updated_at
-              }
-            : null,
         created_at: vehicle.created_at,
         updated_at: vehicle.updated_at
     }
@@ -231,31 +212,47 @@ router.post(
             return
         }
 
-        const created = await prisma.vehicle.create({
-            data: {
-                user_id: authUser.id,
+        const normalizedYear = Number(year)
+
+        const created = await prisma.$transaction(async tx => {
+            const ensuredImage = await ensureVehicleImage(tx, {
                 make,
                 model,
-                year: Number(year),
+                year: normalizedYear,
                 trim,
-                vehicle_type: vehicleType || null,
-                plate_number: plateNumber || null,
-                vin: vin || null,
-                engine: engine || null,
-                transmission,
-                fuel_type: fuelType,
-                purchase_mileage: purchaseMileage ?? null,
-                mileage: mileage ?? null,
-                color: color || null,
-                notes: notes || null
-            },
-            include: { image: true }
+                vehicleType: vehicleType ?? null,
+                color: color ?? null
+            })
+
+            return tx.vehicle.create({
+                data: {
+                    user_id: authUser.id,
+                    image_id: ensuredImage?.imageId ?? null,
+                    make,
+                    model,
+                    year: normalizedYear,
+                    trim,
+                    vehicle_type: vehicleType || null,
+                    plate_number: plateNumber || null,
+                    vin: vin || null,
+                    engine: engine || null,
+                    transmission,
+                    fuel_type: fuelType,
+                    purchase_mileage: purchaseMileage ?? null,
+                    mileage: mileage ?? null,
+                    color: color || null,
+                    notes: notes || null
+                },
+                include: { image: true }
+            })
         })
 
         vehiclesLogger.info('vehicles.created', {
             requestId: req.requestId,
             userId: authUser.id,
             vehicleId: created.id,
+            imageId: created.image_id,
+            classificationKey: created.image?.classification_key ?? undefined,
             make: created.make,
             model: created.model,
             year: created.year
@@ -313,6 +310,8 @@ router.put(
             return
         }
 
+        const normalizedYear = Number(year)
+
         const vehicleId = Number(req.params.id)
         const existing = await prisma.vehicle.findFirst({
             where: {
@@ -330,31 +329,45 @@ router.put(
             return
         }
 
-        const updated = await prisma.vehicle.update({
-            where: { id: vehicleId },
-            data: {
+        const updated = await prisma.$transaction(async tx => {
+            const ensuredImage = await ensureVehicleImage(tx, {
                 make,
                 model,
-                year: Number(year),
+                year: normalizedYear,
                 trim,
-                vehicle_type: vehicleType || null,
-                plate_number: plateNumber || null,
-                vin: vin || null,
-                engine: engine || null,
-                transmission,
-                fuel_type: fuelType,
-                purchase_mileage: purchaseMileage ?? null,
-                mileage: mileage ?? null,
-                color: color || null,
-                notes: notes || null
-            },
-            include: { image: true }
+                vehicleType: vehicleType ?? null,
+                color: color ?? null
+            })
+
+            return tx.vehicle.update({
+                where: { id: vehicleId },
+                data: {
+                    image_id: ensuredImage?.imageId ?? null,
+                    make,
+                    model,
+                    year: normalizedYear,
+                    trim,
+                    vehicle_type: vehicleType || null,
+                    plate_number: plateNumber || null,
+                    vin: vin || null,
+                    engine: engine || null,
+                    transmission,
+                    fuel_type: fuelType,
+                    purchase_mileage: purchaseMileage ?? null,
+                    mileage: mileage ?? null,
+                    color: color || null,
+                    notes: notes || null
+                },
+                include: { image: true }
+            })
         })
 
         vehiclesLogger.info('vehicles.updated', {
             requestId: req.requestId,
             userId: authUser.id,
             vehicleId: updated.id,
+            imageId: updated.image_id,
+            classificationKey: updated.image?.classification_key ?? undefined,
             make: updated.make,
             model: updated.model,
             year: updated.year

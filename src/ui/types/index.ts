@@ -1,22 +1,3 @@
-export interface VehicleImage {
-    id: number
-    classificationKey: string
-    make: string
-    model: string
-    color: string
-    yearStart: number
-    yearEnd: number
-    trim?: string | null
-    vehicleType?: string | null
-    bodyStyle?: string | null
-    view: string
-    generationKey?: string | null
-    promptVersion?: string | null
-    storageKey: string
-    created_at: string
-    updated_at: string
-}
-
 export interface Vehicle {
     id: number
     imageId?: number | null
@@ -34,7 +15,6 @@ export interface Vehicle {
     mileage?: number | null
     color?: string | null
     notes?: string | null
-    image?: VehicleImage | null
     created_at: string
     updated_at: string
 }

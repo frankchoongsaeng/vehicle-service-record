@@ -35,7 +35,7 @@ export default function VehicleList({ vehicles, onSelect, onEdit, onDelete }: Pr
                     {vehicles.map(v => (
                         <Card
                             key={v.id}
-                            className='cursor-pointer overflow-hidden transition-all hover:border-ring/50 hover:-translate-y-0.5 hover:shadow-md'
+                            className='cursor-pointer overflow-hidden shadow-none transition-colors hover:border-ring/50'
                             onClick={() => onSelect(v)}
                             role='button'
                             tabIndex={0}

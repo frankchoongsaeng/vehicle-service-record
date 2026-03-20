@@ -7,6 +7,7 @@ import { useAuth } from '../auth/useAuth.js'
 import BrandedLoadingScreen from '../components/BrandedLoadingScreen'
 import { AuthenticatedShell } from '../components/AuthenticatedShell'
 import VehicleForm from '../components/VehicleForm.js'
+import { fallbackVehicleTypeImage, getVehicleTypeImage } from '../lib/vehicleTypes.js'
 import type { VehicleInput } from '../types/index.js'
 
 export const meta: MetaFunction = () => {
@@ -14,23 +15,6 @@ export const meta: MetaFunction = () => {
         { title: 'Add New Vehicle | Duralog' },
         { name: 'description', content: 'Add a new vehicle to your Duralog garage.' }
     ]
-}
-
-const fallbackVehicleImage = '/images/add-car.png'
-const vehicleTypeImages: Record<string, string> = {
-    atv: '/images/add-atv.png',
-    car: '/images/add-car.png',
-    motorcycle: '/images/add-motorcycle.png',
-    scooter: '/images/add-scooter.png',
-    suv: '/images/add-suv.png',
-    truck: '/images/add-truck.webp',
-    utv: '/images/add-utv.png',
-    van: '/images/add-van.png'
-}
-
-function getVehicleTypeImage(vehicleType: string): string {
-    const normalizedVehicleType = vehicleType.trim().toLowerCase().replace(/\s+/g, '-')
-    return vehicleTypeImages[normalizedVehicleType] ?? fallbackVehicleImage
 }
 
 export default function AddNewVehicleRoute() {
@@ -73,11 +57,11 @@ export default function AddNewVehicleRoute() {
                         aria-hidden='true'
                         className='h-full w-full object-contain object-center'
                         onError={event => {
-                            if (event.currentTarget.src.endsWith(fallbackVehicleImage)) {
+                            if (event.currentTarget.src.endsWith(fallbackVehicleTypeImage)) {
                                 return
                             }
 
-                            event.currentTarget.src = fallbackVehicleImage
+                            event.currentTarget.src = fallbackVehicleTypeImage
                         }}
                     />
                 </div>

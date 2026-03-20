@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Info } from 'lucide-react'
 
 import * as api from '../api/client.js'
+import { isKnownVehicleType, vehicleTypeOptions } from '../lib/vehicleTypes.js'
 import { cn } from '../lib/utils.js'
 import type { VinLookupResult, Vehicle, VehicleInput } from '../types/index.js'
 import { Button } from './ui/button.js'
@@ -13,21 +14,6 @@ import { Textarea } from './ui/textarea.js'
 const vinHelperText = 'Add the VIN to help us auto-fill the rest of the vehicle details for you.'
 const transmissionOptions = ['Automatic', 'Manual', 'CVT', 'Dual-clutch', 'Semi-automatic'] as const
 const fuelTypeOptions = ['Gasoline', 'Diesel', 'Hybrid', 'Plug-in Hybrid', 'Electric', 'Flex Fuel'] as const
-const vehicleTypeOptions = [
-    'Car',
-    'SUV',
-    'Truck',
-    'Van',
-    'Minivan',
-    'Motorcycle',
-    'Scooter',
-    'ATV',
-    'UTV',
-    'RV',
-    'Trailer',
-    'Boat',
-    'Other'
-] as const
 const VIN_LENGTH = 17
 const VIN_POSITION_WEIGHTS = [8, 7, 6, 5, 4, 3, 2, 10, 0, 9, 8, 7, 6, 5, 4, 3, 2] as const
 const VIN_TRANSLITERATION: Record<string, number> = {
@@ -261,9 +247,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
         ? [String(form.year).trim(), trimmedMake, trimmedModel].filter(Boolean).join(' ')
         : ''
     const title = initial ? 'Edit Vehicle' : computedVehicleName || 'Add Vehicle'
-    const hasLegacyVehicleType = Boolean(
-        form.vehicleType && !vehicleTypeOptions.includes(form.vehicleType as (typeof vehicleTypeOptions)[number])
-    )
+    const hasLegacyVehicleType = Boolean(form.vehicleType && !isKnownVehicleType(form.vehicleType))
     const lastLookedUpVinRef = useRef('')
     const autoFilledFieldsRef = useRef<AutoFilledVehicleFields>({})
 
@@ -383,7 +367,11 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
 
         const missingRequiredFields = getMissingRequiredFields(form)
         if (missingRequiredFields.length > 0) {
-            setInvalidFields(Object.fromEntries(missingRequiredFields.map(field => [field, true])) as Partial<Record<RequiredVehicleField, true>>)
+            setInvalidFields(
+                Object.fromEntries(missingRequiredFields.map(field => [field, true])) as Partial<
+                    Record<RequiredVehicleField, true>
+                >
+            )
             setError('Fill in the required fields highlighted in red.')
             return
         }

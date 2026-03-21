@@ -103,7 +103,6 @@ export default function RecordsRoute() {
     }, [records, query, safeStatus, safeCategory])
 
     const evaluatedPlans = useMemo(() => evaluateMaintenancePlans(plans, vehicle, new Date()), [plans, vehicle])
-    const overduePlans = evaluatedPlans.filter(plan => plan.status === 'Overdue').length
     const actionPlans = evaluatedPlans.filter(plan => plan.status === 'Overdue' || plan.status === 'Upcoming').length
     const selectedPlan =
         selectedPlanId && selectedPlanId !== 'new' ? plans.find(plan => String(plan.id) === selectedPlanId) : undefined
@@ -215,29 +214,12 @@ export default function RecordsRoute() {
                         />
                     }
                     actions={
-                        <>
-                            <Button asChild variant='outline'>
-                                <Link to={`/garage/${vehicleId}`}>
-                                    <ChevronLeft data-icon='inline-start' />
-                                    Back to Dashboard
-                                </Link>
-                            </Button>
-                            {activeView === 'history' ? (
-                                <Button asChild>
-                                    <Link to={`/garage/${vehicleId}/records/new`}>
-                                        <Plus data-icon='inline-start' />
-                                        Add Record
-                                    </Link>
-                                </Button>
-                            ) : (
-                                <Button asChild>
-                                    <Link to={buildRecordsUrl({ view: 'plans', plan: 'new' })}>
-                                        <Plus data-icon='inline-start' />
-                                        Add Plan
-                                    </Link>
-                                </Button>
-                            )}
-                        </>
+                        <Button asChild variant='outline'>
+                            <Link to={`/garage/${vehicleId}`}>
+                                <ChevronLeft data-icon='inline-start' />
+                                Back to Overview
+                            </Link>
+                        </Button>
                     }
                 />
 
@@ -301,9 +283,6 @@ export default function RecordsRoute() {
                                 <CardContent className='p-4'>
                                     <p className='text-sm text-muted-foreground'>Action needed</p>
                                     <p className='mt-1 text-2xl font-semibold text-foreground'>{actionPlans}</p>
-                                    <p className='mt-1 text-sm text-muted-foreground'>
-                                        {overduePlans} overdue plan{overduePlans === 1 ? '' : 's'}
-                                    </p>
                                 </CardContent>
                             </Card>
                             <Card className='shadow-none'>
@@ -329,7 +308,17 @@ export default function RecordsRoute() {
                     <div className={cn('grid gap-6', isDetailOpen && 'xl:grid-cols-[minmax(0,1fr)_420px]')}>
                         <Card>
                             <CardHeader className='space-y-4'>
-                                <CardTitle>All Records</CardTitle>
+                                <div className='flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between'>
+                                    <div className='flex flex-col gap-1.5'>
+                                        <CardTitle>All Records</CardTitle>
+                                    </div>
+                                    <Button asChild size='sm'>
+                                        <Link to={`/garage/${vehicleId}/records/new`}>
+                                            <Plus data-icon='inline-start' />
+                                            New Record
+                                        </Link>
+                                    </Button>
+                                </div>
                                 <div className='grid gap-3 sm:grid-cols-[1fr_180px_180px]'>
                                     <div className='relative'>
                                         <Search className='pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-muted-foreground' />

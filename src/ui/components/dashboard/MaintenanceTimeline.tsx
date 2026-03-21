@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js'
+import { Separator } from '../ui/separator.js'
 import { TimelineItem } from './TimelineItem.js'
 import type { TimelineEvent } from './types.js'
 
@@ -8,18 +8,19 @@ interface MaintenanceTimelineProps {
 
 export function MaintenanceTimeline({ events }: MaintenanceTimelineProps) {
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Maintenance Timeline</CardTitle>
+        <div className='flex flex-col gap-4'>
+            <div className='flex flex-col gap-2'>
+                <h2 className='text-lg font-semibold text-foreground'>Maintenance Timeline</h2>
                 <p className='text-sm text-muted-foreground'>
                     A running view of completed work, alerts, and upcoming appointments.
                 </p>
-            </CardHeader>
-            <CardContent>
+            </div>
+            <Separator />
+            <div>
                 {events.map((event, index) => (
                     <TimelineItem key={event.id} event={event} isLast={index === events.length - 1} />
                 ))}
-            </CardContent>
-        </Card>
+            </div>
+        </div>
     )
 }

@@ -220,13 +220,12 @@ export default function VehicleDashboardRoute() {
                     ))}
                 </section>
 
+                <VehicleSnapshotCard fields={snapshot} />
+
                 <section className='grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]'>
                     <MaintenanceTimeline events={timeline} />
 
-                    <div className='space-y-6'>
-                        <UpcomingMaintenancePanel items={upcomingItems} />
-                        <VehicleSnapshotCard vehicleLabel={vehicleLabel} fields={snapshot} />
-                    </div>
+                    <UpcomingMaintenancePanel items={upcomingItems} />
                 </section>
             </div>
         </AuthenticatedShell>

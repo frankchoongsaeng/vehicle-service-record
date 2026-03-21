@@ -5,9 +5,9 @@ interface SnapshotRowProps {
 
 export function SnapshotRow({ label, value }: SnapshotRowProps) {
     return (
-        <div className='grid grid-cols-[130px_1fr] items-start gap-3 py-2 text-sm'>
-            <span className='text-muted-foreground'>{label}</span>
-            <span className='font-medium text-foreground'>{value}</span>
+        <div className='flex flex-col gap-1 rounded-lg border bg-muted/30 px-4 py-3 text-sm'>
+            <span className='text-xs font-medium normal-case text-muted-foreground'>{label}</span>
+            <span className='font-bold text-foreground'>{value}</span>
         </div>
     )
 }

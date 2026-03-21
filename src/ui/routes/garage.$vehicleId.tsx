@@ -3,7 +3,7 @@
 import type { LoaderFunctionArgs, MetaFunction } from '@remix-run/node'
 import { json } from '@remix-run/node'
 import { Link, useLoaderData, useLocation, useNavigate, useOutlet } from '@remix-run/react'
-import { Activity, CalendarClock, CircleDollarSign, Download, Plus, TriangleAlert } from 'lucide-react'
+import { Activity, CalendarClock, CircleDollarSign, FileText, Plus, TriangleAlert } from 'lucide-react'
 import { useEffect } from 'react'
 
 import { AuthenticatedShell } from '../components/AuthenticatedShell'
@@ -16,6 +16,7 @@ import type { SnapshotField, SummaryStat, TimelineEvent, UpcomingItem } from '..
 import { UpcomingMaintenancePanel } from '../components/dashboard/UpcomingMaintenancePanel'
 import { VehicleSnapshotCard } from '../components/dashboard/VehicleSnapshotCard'
 import { useAuth } from '../auth/useAuth'
+import { fallbackVehicleTypeImage, getVehicleTypeImage } from '../lib/vehicleTypes.js'
 import type { ServiceRecord as ApiServiceRecord, Vehicle } from '../types/index.js'
 import { buildSummaryStats, buildTimeline, buildUpcomingItems, fetchApiData } from '../lib/maintenance.js'
 
@@ -32,6 +33,8 @@ export const meta: MetaFunction = () => {
 interface DashboardLoaderData {
     vehicleId: string | undefined
     vehicleLabel: string
+    vehicleImageFallback: string
+    vehicleImageSrc: string
     summaryStats: SummaryStat[]
     upcomingItems: UpcomingItem[]
     snapshot: SnapshotField[]
@@ -52,6 +55,8 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
 
     const now = new Date()
     const vehicleLabel = `${vehicle.year} ${vehicle.make} ${vehicle.model}`
+    const vehicleImageFallback = getVehicleTypeImage(vehicle.vehicleType)
+    const vehicleImageSrc = vehicle.imageUrl ?? vehicleImageFallback
     const upcomingItems = buildUpcomingItems(vehicle, records, now)
     const summaryStats: SummaryStat[] = buildSummaryStats(vehicle, records, upcomingItems, now)
 
@@ -74,6 +79,8 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
     return json<DashboardLoaderData>({
         vehicleId: params.vehicleId,
         vehicleLabel,
+        vehicleImageFallback,
+        vehicleImageSrc,
         summaryStats,
         upcomingItems,
         snapshot,
@@ -88,7 +95,16 @@ export default function VehicleDashboardRoute() {
     const navigate = useNavigate()
     const location = useLocation()
     const outlet = useOutlet()
-    const { vehicleId, vehicleLabel, summaryStats, upcomingItems, snapshot, timeline } = useLoaderData<typeof loader>()
+    const {
+        vehicleId,
+        vehicleImageFallback,
+        vehicleImageSrc,
+        vehicleLabel,
+        summaryStats,
+        upcomingItems,
+        snapshot,
+        timeline
+    } = useLoaderData<typeof loader>()
 
     useEffect(() => {
         if (auth.status !== 'unauthenticated') {
@@ -123,11 +139,37 @@ export default function VehicleDashboardRoute() {
                     eyebrow='Overview'
                     title={vehicleLabel}
                     description='Service activity, upcoming work, and vehicle health snapshots.'
+                    cardClassName='border-none bg-transparent shadow-none'
+                    media={
+                        <img
+                            src={vehicleImageSrc}
+                            alt={vehicleLabel}
+                            data-fallback-src={vehicleImageFallback}
+                            className='block h-full min-h-48 w-full object-contain'
+                            onError={event => {
+                                const fallbackSrc = event.currentTarget.dataset.fallbackSrc
+
+                                if (!fallbackSrc) {
+                                    return
+                                }
+
+                                if (event.currentTarget.src.endsWith(fallbackSrc)) {
+                                    if (fallbackSrc !== fallbackVehicleTypeImage) {
+                                        event.currentTarget.src = fallbackVehicleTypeImage
+                                    }
+
+                                    return
+                                }
+
+                                event.currentTarget.src = fallbackSrc
+                            }}
+                        />
+                    }
                     actions={
                         <>
-                            <Button asChild variant='outline'>
+                            <Button asChild variant='secondary'>
                                 <Link to={`/garage/${vehicleId}/records`}>
-                                    <Download className='h-4 w-4' />
+                                    <FileText className='h-4 w-4' />
                                     Review Records
                                 </Link>
                             </Button>

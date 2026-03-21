@@ -90,6 +90,30 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
 
 const summaryIcons = [Activity, CircleDollarSign, TriangleAlert, CalendarClock] as const
 
+const summaryCardStyles = [
+    {
+        cardClassName: 'border-primary/20 bg-primary/5',
+        iconClassName: 'text-primary'
+    },
+    {
+        cardClassName: 'border-secondary bg-secondary/60',
+        iconClassName: 'text-secondary-foreground',
+        labelClassName: 'text-secondary-foreground/80',
+        valueClassName: 'text-secondary-foreground',
+        hintClassName: 'text-secondary-foreground/70'
+    },
+    {
+        cardClassName: 'border-accent bg-accent',
+        iconClassName: 'text-accent-foreground',
+        labelClassName: 'text-accent-foreground/80',
+        valueClassName: 'text-accent-foreground',
+        hintClassName: 'text-accent-foreground/70'
+    },
+    {
+        cardClassName: 'border-border bg-card'
+    }
+] as const
+
 export default function VehicleDashboardRoute() {
     const auth = useAuth()
     const navigate = useNavigate()
@@ -191,6 +215,7 @@ export default function VehicleDashboardRoute() {
                             value={stat.value}
                             hint={stat.hint}
                             icon={summaryIcons[index]}
+                            {...summaryCardStyles[index]}
                         />
                     ))}
                 </section>

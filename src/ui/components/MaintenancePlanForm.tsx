@@ -5,6 +5,7 @@ import type { MaintenancePlan, MaintenancePlanInput } from '../types/index.js'
 import { Button } from './ui/button.js'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card.js'
 import { Input } from './ui/input.js'
+import { InputGroup, InputGroupAddon, InputGroupInput } from './ui/input-group.js'
 import { Textarea } from './ui/textarea.js'
 
 interface Props {
@@ -136,15 +137,16 @@ export default function MaintenancePlanForm({ initial, onSubmit, onCancel, onDel
 
                         <div className='flex flex-col gap-2'>
                             <label className='text-sm font-medium text-foreground'>Last Completed Date</label>
-                            <div className='relative'>
-                                <CalendarClock className='pointer-events-none absolute left-3 top-2.5 text-muted-foreground' />
-                                <Input
+                            <InputGroup>
+                                <InputGroupInput
                                     type='date'
-                                    className='pl-9'
                                     value={form.lastCompletedDate}
                                     onChange={event => update('lastCompletedDate', event.target.value)}
                                 />
-                            </div>
+                                <InputGroupAddon>
+                                    <CalendarClock className='text-muted-foreground' />
+                                </InputGroupAddon>
+                            </InputGroup>
                         </div>
                     </div>
 
@@ -161,48 +163,51 @@ export default function MaintenancePlanForm({ initial, onSubmit, onCancel, onDel
                     <div className='grid gap-4 md:grid-cols-2'>
                         <div className='flex flex-col gap-2'>
                             <label className='text-sm font-medium text-foreground'>Repeat Every Months</label>
-                            <div className='relative'>
-                                <CalendarClock className='pointer-events-none absolute left-3 top-2.5 text-muted-foreground' />
-                                <Input
+                            <InputGroup>
+                                <InputGroupInput
                                     type='number'
                                     min='1'
-                                    className='pl-9'
                                     value={form.intervalMonths}
                                     onChange={event => update('intervalMonths', event.target.value)}
                                     placeholder='3'
                                 />
-                            </div>
+                                <InputGroupAddon>
+                                    <CalendarClock className='text-muted-foreground' />
+                                </InputGroupAddon>
+                            </InputGroup>
                         </div>
 
                         <div className='flex flex-col gap-2'>
                             <label className='text-sm font-medium text-foreground'>Repeat Every Mileage</label>
-                            <div className='relative'>
-                                <Milestone className='pointer-events-none absolute left-3 top-2.5 text-muted-foreground' />
-                                <Input
+                            <InputGroup>
+                                <InputGroupInput
                                     type='number'
                                     min='1'
-                                    className='pl-9'
                                     value={form.intervalMileage}
                                     onChange={event => update('intervalMileage', event.target.value)}
                                     placeholder='3000'
                                 />
-                            </div>
+                                <InputGroupAddon>
+                                    <Milestone className='text-muted-foreground' />
+                                </InputGroupAddon>
+                            </InputGroup>
                         </div>
                     </div>
 
                     <div className='flex flex-col gap-2'>
                         <label className='text-sm font-medium text-foreground'>Last Completed Mileage</label>
-                        <div className='relative'>
-                            <Milestone className='pointer-events-none absolute left-3 top-2.5 text-muted-foreground' />
-                            <Input
+                        <InputGroup>
+                            <InputGroupInput
                                 type='number'
                                 min='0'
-                                className='pl-9'
                                 value={form.lastCompletedMileage}
                                 onChange={event => update('lastCompletedMileage', event.target.value)}
                                 placeholder='45200'
                             />
-                        </div>
+                            <InputGroupAddon>
+                                <Milestone className='text-muted-foreground' />
+                            </InputGroupAddon>
+                        </InputGroup>
                     </div>
 
                     <div className='flex flex-col gap-3'>
@@ -222,14 +227,17 @@ export default function MaintenancePlanForm({ initial, onSubmit, onCancel, onDel
                         <div className='flex flex-col gap-3'>
                             {form.items.map((item, index) => (
                                 <div key={`${index}-${item}`} className='flex items-center gap-2'>
-                                    <div className='relative flex-1'>
-                                        <Wrench className='pointer-events-none absolute left-3 top-2.5 text-muted-foreground' />
-                                        <Input
-                                            value={item}
-                                            onChange={event => updateItem(index, event.target.value)}
-                                            className='pl-9'
-                                            placeholder={index === 0 ? 'Oil change' : 'Cabin filter'}
-                                        />
+                                    <div className='flex-1'>
+                                        <InputGroup>
+                                            <InputGroupInput
+                                                value={item}
+                                                onChange={event => updateItem(index, event.target.value)}
+                                                placeholder={index === 0 ? 'Oil change' : 'Cabin filter'}
+                                            />
+                                            <InputGroupAddon>
+                                                <Wrench className='text-muted-foreground' />
+                                            </InputGroupAddon>
+                                        </InputGroup>
                                     </div>
                                     <Button
                                         type='button'

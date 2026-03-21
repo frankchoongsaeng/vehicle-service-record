@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { Search } from 'lucide-react'
 import { useSearchParams } from '@remix-run/react'
 
-import { Input } from '../ui/input.js'
+import { InputGroup, InputGroupAddon, InputGroupInput } from '../ui/input-group.js'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table.js'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select.js'
@@ -66,16 +66,17 @@ export function ServiceRecordTable({ records }: ServiceRecordTableProps) {
                 </div>
 
                 <div className='grid gap-3 md:grid-cols-[1fr_180px_180px]'>
-                    <div className='relative'>
-                        <Search className='pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-muted-foreground' />
-                        <Input
+                    <InputGroup>
+                        <InputGroupInput
                             value={query}
                             onChange={event => updateFilter('recordsQuery', event.target.value)}
-                            className='pl-9'
                             placeholder='Search by service or workshop'
                             aria-label='Search records'
                         />
-                    </div>
+                        <InputGroupAddon>
+                            <Search className='text-muted-foreground' />
+                        </InputGroupAddon>
+                    </InputGroup>
 
                     <Select value={category} onValueChange={value => updateFilter('recordsCategory', value)}>
                         <SelectTrigger>

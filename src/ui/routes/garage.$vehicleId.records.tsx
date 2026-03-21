@@ -13,7 +13,7 @@ import { PageHeader } from '../components/PageHeader'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
-import { Input } from '../components/ui/input'
+import { InputGroup, InputGroupAddon, InputGroupInput } from '../components/ui/input-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
 import { useAuth } from '../auth/useAuth'
@@ -320,16 +320,17 @@ export default function RecordsRoute() {
                                     </Button>
                                 </div>
                                 <div className='grid gap-3 sm:grid-cols-[1fr_180px_180px]'>
-                                    <div className='relative'>
-                                        <Search className='pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-muted-foreground' />
-                                        <Input
+                                    <InputGroup>
+                                        <InputGroupInput
                                             value={query}
                                             onChange={event => updateFilter('q', event.target.value)}
-                                            className='pl-9'
                                             placeholder='Search by service or workshop'
                                             aria-label='Search records'
                                         />
-                                    </div>
+                                        <InputGroupAddon>
+                                            <Search className='text-muted-foreground' />
+                                        </InputGroupAddon>
+                                    </InputGroup>
 
                                     <Select
                                         value={safeCategory}

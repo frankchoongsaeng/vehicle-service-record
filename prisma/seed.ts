@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../src/db.js'
 import { hashPassword } from '../src/openauth/password.js'
-
-const prisma = new PrismaClient()
 
 const demoVehicles = [
     {

@@ -119,7 +119,8 @@ Copy `.env.example` to `.env` and adjust values for your environment.
 
 Important variables:
 
-- `DATABASE_URL`: Prisma SQLite connection string
+- `DATABASE_URL`: Prisma SQLite connection string. Use `file:./prisma/dev.db` for local SQLite or a `libsql://...` URL for a remote libSQL-compatible SQLite database.
+- `DATABASE_AUTH_TOKEN`: optional auth token for remote libSQL providers that require bearer-style authentication
 - `OPENAUTH_SECRET`: signing secret for the login session token
 - `OPENAUTH_ISSUER`: token issuer value, defaults to `vehicle-service-record-openauth`
 - `OPENAUTH_AUDIENCE`: token audience value, defaults to `vehicle-service-record-client`
@@ -147,6 +148,26 @@ LOG_FILE_PATH=./logs/backend.ndjson
 ```
 
 Each line in that file is one JSON log record, so you can grep or ingest it with external tooling while preserving the same `requestId` values emitted by the frontend API client and backend request logger.
+
+## Remote SQLite
+
+The app now supports switching between local SQLite and a remote libSQL-compatible database by changing `DATABASE_URL`.
+
+Examples:
+
+```bash
+# Local development database
+DATABASE_URL="file:./prisma/dev.db"
+
+# Remote libSQL database
+DATABASE_URL="libsql://your-database-host"
+DATABASE_AUTH_TOKEN="your-optional-token"
+```
+
+Notes:
+
+- The backend runtime, Prisma CLI commands, and `npm run db:seed` all follow the same `DATABASE_URL` setting.
+- Remote database URLs must be libSQL-compatible. Plain remote `sqlite://` URLs are not supported by Prisma.
 
 ## Login Flow
 

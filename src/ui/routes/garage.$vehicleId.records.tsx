@@ -186,7 +186,7 @@ export default function RecordsRoute() {
                 <PageHeader
                     eyebrow='Records'
                     title={vehicleLabel}
-                    description='Review service history or build recurring maintenance plans for this vehicle without leaving the records workflow.'
+                    description='Review history or manage maintenance plans without leaving records.'
                     cardClassName='border-none bg-transparent shadow-none'
                     media={
                         <img

@@ -1,4 +1,4 @@
-import { Link, useNavigate, useOutletContext, useParams } from '@remix-run/react'
+import { Link, useNavigate, useOutletContext, useParams, useRevalidator } from '@remix-run/react'
 import { X } from 'lucide-react'
 
 import * as api from '../api/client.js'
@@ -23,6 +23,7 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 export default function RecordDetailRoute() {
     const { vehicleId, recordId } = useParams()
     const navigate = useNavigate()
+    const revalidator = useRevalidator()
     const { records } = useOutletContext<OutletContext>()
     const record = records.find(r => r.id === recordId)
 
@@ -32,6 +33,7 @@ export default function RecordDetailRoute() {
                 <ServiceRecordForm
                     onSubmit={async data => {
                         const createdRecord = await api.createRecord(Number(vehicleId), data)
+                        revalidator.revalidate()
                         navigate(`/garage/${vehicleId}/records/${createdRecord.id}`, { replace: true })
                     }}
                     onCancel={() => navigate(`/garage/${vehicleId}/records`)}

@@ -32,6 +32,8 @@ type ServiceRecordWriteInput = {
     mileage: number | null
 }
 
+type MaintenancePlanBaselineRecord = ServiceRecordWriteInput
+
 function normalizeMatchText(value: string) {
     return value.trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ')
 }
@@ -59,67 +61,118 @@ function getRecordMatchKeys(record: ServiceRecordWriteInput) {
     return keys
 }
 
-function shouldUpdateCompletedDate(nextDate: string, currentDate: string | null) {
-    return currentDate == null || nextDate > currentDate
+function getPlanMatchKeys(items: Array<{ name: string }>) {
+    return new Set(items.map(item => normalizeMatchText(item.name)).filter(Boolean))
 }
 
-function shouldUpdateCompletedMileage(nextMileage: number | null, currentMileage: number | null) {
-    return nextMileage != null && (currentMileage == null || nextMileage > currentMileage)
+function hasMatchingPlanItem(recordKeys: Set<string>, planKeys: Set<string>) {
+    for (const key of recordKeys) {
+        if (planKeys.has(key)) {
+            return true
+        }
+    }
+
+    return false
 }
 
-async function syncMatchingMaintenancePlans(
+function getLatestCompletedDate(records: MaintenancePlanBaselineRecord[]) {
+    let latestDate: string | null = null
+
+    for (const record of records) {
+        if (latestDate == null || record.date > latestDate) {
+            latestDate = record.date
+        }
+    }
+
+    return latestDate
+}
+
+function getLatestCompletedMileage(records: MaintenancePlanBaselineRecord[]) {
+    let latestMileage: number | null = null
+
+    for (const record of records) {
+        if (record.mileage == null) {
+            continue
+        }
+
+        if (latestMileage == null || record.mileage > latestMileage) {
+            latestMileage = record.mileage
+        }
+    }
+
+    return latestMileage
+}
+
+async function recomputeMaintenancePlanBaselines(
     transaction: Prisma.TransactionClient,
     userId: string,
-    vehicleId: number,
-    record: ServiceRecordWriteInput
+    vehicleId: number
 ) {
-    const matchKeys = getRecordMatchKeys(record)
+    const [plans, records] = await Promise.all([
+        transaction.maintenancePlan.findMany({
+            where: {
+                user_id: userId,
+                vehicle_id: vehicleId
+            },
+            select: {
+                id: true,
+                last_completed_date: true,
+                last_completed_mileage: true,
+                items: {
+                    select: {
+                        name: true
+                    }
+                }
+            }
+        }),
+        transaction.serviceRecord.findMany({
+            where: {
+                user_id: userId,
+                vehicle_id: vehicleId
+            },
+            select: {
+                service_type: true,
+                description: true,
+                date: true,
+                mileage: true
+            }
+        })
+    ])
 
-    if (matchKeys.size === 0) {
+    if (plans.length === 0) {
         return 0
     }
 
-    const plans = await transaction.maintenancePlan.findMany({
-        where: {
-            user_id: userId,
-            vehicle_id: vehicleId
-        },
-        select: {
-            id: true,
-            last_completed_date: true,
-            last_completed_mileage: true,
-            items: {
-                select: {
-                    name: true
-                }
-            }
-        }
-    })
+    const recordsWithKeys = records.map(record => ({
+        ...record,
+        matchKeys: getRecordMatchKeys(record)
+    }))
 
-    const matchingPlans = plans.filter(plan => plan.items.some(item => matchKeys.has(normalizeMatchText(item.name))))
+    const updates = plans.flatMap(plan => {
+        const planKeys = getPlanMatchKeys(plan.items)
+        const matchingRecords = recordsWithKeys
+            .filter(record => hasMatchingPlanItem(record.matchKeys, planKeys))
+            .map(record => ({
+                service_type: record.service_type,
+                description: record.description,
+                date: record.date,
+                mileage: record.mileage
+            }))
 
-    const updates = matchingPlans.flatMap(plan => {
-        const data: {
-            last_completed_date?: string
-            last_completed_mileage?: number
-        } = {}
+        const nextCompletedDate = getLatestCompletedDate(matchingRecords)
+        const nextCompletedMileage = getLatestCompletedMileage(matchingRecords)
 
-        if (shouldUpdateCompletedDate(record.date, plan.last_completed_date)) {
-            data.last_completed_date = record.date
-        }
-
-        if (shouldUpdateCompletedMileage(record.mileage, plan.last_completed_mileage)) {
-            data.last_completed_mileage = record.mileage as number
-        }
-
-        if (Object.keys(data).length === 0) {
+        if (nextCompletedDate === plan.last_completed_date && nextCompletedMileage === plan.last_completed_mileage) {
             return []
         }
 
         return [
             transaction.maintenancePlan.update({
                 where: { id: plan.id },
-                data
+                data: {
+                    last_completed_date: nextCompletedDate,
+                    last_completed_mileage: nextCompletedMileage
+                }
             })
         ]
     })
@@ -253,7 +306,7 @@ router.post(
             return
         }
 
-        const { created, matchedPlanCount } = await prisma.$transaction(async transaction => {
+        const { created, recomputedPlanCount } = await prisma.$transaction(async transaction => {
             const created = await transaction.serviceRecord.create({
                 data: {
                     user_id: authUser.id,
@@ -267,14 +320,9 @@ router.post(
                 }
             })
 
-            const matchedPlanCount = await syncMatchingMaintenancePlans(transaction, authUser.id, vehicleId, {
-                service_type: created.service_type,
-                description: created.description,
-                date: created.date,
-                mileage: created.mileage
-            })
+            const recomputedPlanCount = await recomputeMaintenancePlanBaselines(transaction, authUser.id, vehicleId)
 
-            return { created, matchedPlanCount }
+            return { created, recomputedPlanCount }
         })
 
         recordsLogger.info('records.created', {
@@ -284,7 +332,7 @@ router.post(
             recordId: created.id,
             serviceType: created.service_type,
             date: created.date,
-            matchedPlanCount
+            recomputedPlanCount
         })
 
         res.status(201).json(created)
@@ -337,7 +385,7 @@ router.put(
             return
         }
 
-        const { updated, matchedPlanCount } = await prisma.$transaction(async transaction => {
+        const { updated, recomputedPlanCount } = await prisma.$transaction(async transaction => {
             const updated = await transaction.serviceRecord.update({
                 where: { id: recordId },
                 data: {
@@ -350,14 +398,9 @@ router.put(
                 }
             })
 
-            const matchedPlanCount = await syncMatchingMaintenancePlans(transaction, authUser.id, vehicleId, {
-                service_type: updated.service_type,
-                description: updated.description,
-                date: updated.date,
-                mileage: updated.mileage
-            })
+            const recomputedPlanCount = await recomputeMaintenancePlanBaselines(transaction, authUser.id, vehicleId)
 
-            return { updated, matchedPlanCount }
+            return { updated, recomputedPlanCount }
         })
 
         recordsLogger.info('records.updated', {
@@ -367,7 +410,7 @@ router.put(
             recordId: updated.id,
             serviceType: updated.service_type,
             date: updated.date,
-            matchedPlanCount
+            recomputedPlanCount
         })
 
         res.json(updated)
@@ -399,12 +442,17 @@ router.delete(
             return
         }
 
-        await prisma.serviceRecord.delete({ where: { id: recordId } })
+        const recomputedPlanCount = await prisma.$transaction(async transaction => {
+            await transaction.serviceRecord.delete({ where: { id: recordId } })
+            return recomputeMaintenancePlanBaselines(transaction, authUser.id, vehicleId)
+        })
+
         recordsLogger.info('records.deleted', {
             requestId: req.requestId,
             userId: authUser.id,
             vehicleId,
-            recordId
+            recordId,
+            recomputedPlanCount
         })
         res.status(204).send()
     })

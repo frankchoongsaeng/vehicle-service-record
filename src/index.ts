@@ -3,6 +3,7 @@ import cors from 'cors'
 import rateLimit from 'express-rate-limit'
 import { createRequestHandler } from '@remix-run/express'
 import authRouter from './routes/auth.js'
+import maintenancePlansRouter from './routes/maintenancePlans.js'
 import vehiclesRouter from './routes/vehicles.js'
 import recordsRouter from './routes/records.js'
 import { attachAuthUser } from './middleware/auth.js'
@@ -52,6 +53,7 @@ app.use('/api', apiLimiter)
 // Routes
 app.use('/api/auth', authRouter)
 app.use('/api/vehicles', vehiclesRouter)
+app.use('/api/vehicles/:vehicleId/maintenance-plans', maintenancePlansRouter)
 app.use('/api/vehicles/:vehicleId/records', recordsRouter)
 
 // Health check
@@ -85,7 +87,8 @@ app.listen(PORT, '0.0.0.0', () => {
         nodeEnv: process.env.NODE_ENV ?? 'development',
         logLevel: process.env.LOG_LEVEL ?? (process.env.NODE_ENV === 'development' ? 'debug' : 'info'),
         prismaQueryLogging: process.env.LOG_PRISMA_QUERIES === 'true',
-        readRequestSampleRate: process.env.LOG_READ_REQUEST_SAMPLE_RATE ?? (process.env.NODE_ENV === 'production' ? '0.1' : '1'),
+        readRequestSampleRate:
+            process.env.LOG_READ_REQUEST_SAMPLE_RATE ?? (process.env.NODE_ENV === 'production' ? '0.1' : '1'),
         logFilePath: process.env.LOG_FILE_PATH ?? undefined
     })
 })

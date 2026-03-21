@@ -1,7 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 
 import type { LoaderFunctionArgs, MetaFunction } from '@remix-run/node'
-import { json } from '@remix-run/node'
 import { Link, useLoaderData, useLocation, useNavigate, useOutlet } from '@remix-run/react'
 import { Activity, CalendarClock, CircleDollarSign, FileText, Plus, TriangleAlert } from 'lucide-react'
 import { useEffect } from 'react'
@@ -17,7 +16,7 @@ import { UpcomingMaintenancePanel } from '../components/dashboard/UpcomingMainte
 import { VehicleSnapshotCard } from '../components/dashboard/VehicleSnapshotCard'
 import { useAuth } from '../auth/useAuth'
 import { fallbackVehicleTypeImage, getVehicleTypeImage } from '../lib/vehicleTypes.js'
-import type { ServiceRecord as ApiServiceRecord, Vehicle } from '../types/index.js'
+import type { MaintenancePlan, ServiceRecord as ApiServiceRecord, Vehicle } from '../types/index.js'
 import { buildSummaryStats, buildTimeline, buildUpcomingItems, fetchApiData } from '../lib/maintenance.js'
 
 export const meta: MetaFunction = () => {
@@ -48,17 +47,18 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
         throw new Response('Not found', { status: 404 })
     }
 
-    const [vehicle, records] = await Promise.all([
+    const [vehicle, records, plans] = await Promise.all([
         fetchApiData<Vehicle>(request, `/api/vehicles/${vehicleId}`),
-        fetchApiData<ApiServiceRecord[]>(request, `/api/vehicles/${vehicleId}/records`)
+        fetchApiData<ApiServiceRecord[]>(request, `/api/vehicles/${vehicleId}/records`),
+        fetchApiData<MaintenancePlan[]>(request, `/api/vehicles/${vehicleId}/maintenance-plans`)
     ])
 
     const now = new Date()
     const vehicleLabel = `${vehicle.year} ${vehicle.make} ${vehicle.model}`
     const vehicleImageFallback = getVehicleTypeImage(vehicle.vehicleType)
     const vehicleImageSrc = vehicle.imageUrl ?? vehicleImageFallback
-    const upcomingItems = buildUpcomingItems(vehicle, records, now)
-    const summaryStats: SummaryStat[] = buildSummaryStats(vehicle, records, upcomingItems, now)
+    const upcomingItems = buildUpcomingItems(vehicle, plans, now)
+    const summaryStats: SummaryStat[] = buildSummaryStats(vehicle, records, plans, now)
 
     const snapshot: SnapshotField[] = [
         { label: 'Vehicle Type', value: vehicle.vehicleType || 'Not recorded' },
@@ -76,7 +76,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
 
     const timeline: TimelineEvent[] = buildTimeline(records, upcomingItems, now)
 
-    return json<DashboardLoaderData>({
+    return {
         vehicleId: params.vehicleId,
         vehicleLabel,
         vehicleImageFallback,
@@ -85,7 +85,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
         upcomingItems,
         snapshot,
         timeline
-    })
+    } satisfies DashboardLoaderData
 }
 
 const summaryIcons = [Activity, CircleDollarSign, TriangleAlert, CalendarClock] as const

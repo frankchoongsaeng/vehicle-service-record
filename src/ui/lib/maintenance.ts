@@ -1,6 +1,9 @@
-import { redirect } from '@remix-run/node'
-
-import { SERVICE_TYPES, type ServiceRecord as ApiServiceRecord, type Vehicle } from '../types/index.js'
+import {
+    SERVICE_TYPES,
+    type MaintenancePlan,
+    type ServiceRecord as ApiServiceRecord,
+    type Vehicle
+} from '../types/index.js'
 import type {
     ServiceRecord,
     ServiceStatus,
@@ -9,25 +12,26 @@ import type {
     UpcomingItem
 } from '../components/dashboard/types.js'
 
-type MaintenanceRule = {
-    serviceType: string
-    label: string
-    mileageInterval?: number
-    dayInterval?: number
+type UpcomingCandidate = UpcomingItem & { urgency: number }
+type PlanThresholdMetrics = {
+    daysRemaining: number | null
+    mileageRemaining: number | null
 }
 
-type UpcomingCandidate = UpcomingItem & { urgency: number }
+export type EvaluatedMaintenancePlan = {
+    id: string
+    title: string
+    description?: string
+    items: string[]
+    interval: string
+    due: string
+    lastCompleted: string
+    status: ServiceStatus
+}
 
-const serviceLabelByValue = new Map(SERVICE_TYPES.map(serviceType => [serviceType.value, serviceType.label]))
-
-const maintenanceRules: MaintenanceRule[] = [
-    { serviceType: 'oil_change', label: 'Engine Oil & Filter', mileageInterval: 5000, dayInterval: 180 },
-    { serviceType: 'tire_rotation', label: 'Tire Rotation', mileageInterval: 6000, dayInterval: 180 },
-    { serviceType: 'inspection', label: 'Inspection', dayInterval: 365 },
-    { serviceType: 'brake_service', label: 'Brake Service Check', mileageInterval: 12000, dayInterval: 365 },
-    { serviceType: 'cabin_filter', label: 'Cabin Filter', mileageInterval: 15000, dayInterval: 365 },
-    { serviceType: 'air_filter', label: 'Engine Air Filter', mileageInterval: 15000, dayInterval: 365 }
-]
+const serviceLabelByValue = new Map<string, string>(
+    SERVICE_TYPES.map(serviceType => [serviceType.value, serviceType.label])
+)
 
 export function getServiceLabel(serviceType: string) {
     return serviceLabelByValue.get(serviceType) ?? serviceType
@@ -75,25 +79,160 @@ export function formatDate(date: string) {
     })
 }
 
-function daysBetween(startDate: string, endDate: Date) {
-    const start = new Date(`${startDate}T00:00:00`)
-    const diff = endDate.getTime() - start.getTime()
-    return Math.floor(diff / (1000 * 60 * 60 * 24))
-}
-
 function daysUntil(date: string, now: Date) {
     const futureDate = new Date(`${date}T00:00:00`)
     return Math.ceil((futureDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
 }
 
-export function getRecordStatus(record: ApiServiceRecord, now: Date): ServiceStatus {
-    const remainingDays = daysUntil(record.date, now)
+function addMonths(date: string, months: number) {
+    const nextDate = new Date(`${date}T00:00:00`)
+    nextDate.setMonth(nextDate.getMonth() + months)
+    return nextDate.toISOString().slice(0, 10)
+}
 
-    if (remainingDays > 30) {
+function formatInterval(intervalMonths?: number | null, intervalMileage?: number | null) {
+    const parts: string[] = []
+
+    if (intervalMonths != null) {
+        parts.push(`every ${intervalMonths} month${intervalMonths === 1 ? '' : 's'}`)
+    }
+
+    if (intervalMileage != null) {
+        parts.push(`every ${intervalMileage.toLocaleString()} mi`)
+    }
+
+    return parts.join(' or ')
+}
+
+function getPlanThresholdMetrics(plan: MaintenancePlan, vehicle: Vehicle, now: Date): PlanThresholdMetrics {
+    const daysRemaining =
+        plan.intervalMonths != null && plan.lastCompletedDate
+            ? daysUntil(addMonths(plan.lastCompletedDate, plan.intervalMonths), now)
+            : null
+
+    const mileageRemaining =
+        plan.intervalMileage != null && plan.lastCompletedMileage != null && vehicle.mileage != null
+            ? plan.intervalMileage - (vehicle.mileage - plan.lastCompletedMileage)
+            : null
+
+    return { daysRemaining, mileageRemaining }
+}
+
+export function getMaintenancePlanStatus(plan: MaintenancePlan, vehicle: Vehicle, now: Date): ServiceStatus {
+    const { daysRemaining, mileageRemaining } = getPlanThresholdMetrics(plan, vehicle, now)
+    const thresholds = [daysRemaining, mileageRemaining].filter((value): value is number => value != null)
+
+    if (thresholds.length === 0) {
         return 'Planned'
     }
 
-    if (remainingDays > 0) {
+    if (thresholds.some(value => value <= 0)) {
+        return 'Overdue'
+    }
+
+    if ((daysRemaining != null && daysRemaining <= 30) || (mileageRemaining != null && mileageRemaining <= 750)) {
+        return 'Upcoming'
+    }
+
+    return 'Planned'
+}
+
+export function getMaintenancePlanDue(plan: MaintenancePlan, vehicle: Vehicle, now: Date): string {
+    const { daysRemaining, mileageRemaining } = getPlanThresholdMetrics(plan, vehicle, now)
+    const status = getMaintenancePlanStatus(plan, vehicle, now)
+
+    if (daysRemaining == null && mileageRemaining == null) {
+        if (
+            plan.intervalMonths != null &&
+            !plan.lastCompletedDate &&
+            plan.intervalMileage != null &&
+            plan.lastCompletedMileage == null
+        ) {
+            return 'Add last completed date or mileage'
+        }
+
+        if (plan.intervalMonths != null && !plan.lastCompletedDate) {
+            return 'Add last completed date'
+        }
+
+        if (plan.intervalMileage != null && plan.lastCompletedMileage == null) {
+            return 'Add last completed mileage'
+        }
+
+        if (plan.intervalMileage != null && vehicle.mileage == null) {
+            return 'Update current vehicle mileage'
+        }
+
+        return 'Plan cadence saved'
+    }
+
+    const dayText =
+        daysRemaining != null ? `${Math.abs(daysRemaining)} day${Math.abs(daysRemaining) === 1 ? '' : 's'}` : null
+    const mileageText = mileageRemaining != null ? `${Math.abs(mileageRemaining).toLocaleString()} mi` : null
+
+    if (status === 'Overdue') {
+        const overdueParts = [
+            daysRemaining != null && daysRemaining <= 0 && dayText ? dayText : null,
+            mileageRemaining != null && mileageRemaining <= 0 && mileageText ? mileageText : null
+        ].filter((value): value is string => value != null)
+
+        return overdueParts.length > 0 ? `Overdue by ${overdueParts.join(' or ')}` : 'Overdue'
+    }
+
+    const dueParts = [
+        dayText && daysRemaining != null
+            ? `${Math.max(daysRemaining, 0)} day${Math.max(daysRemaining, 0) === 1 ? '' : 's'}`
+            : null,
+        mileageText && mileageRemaining != null ? `${Math.max(mileageRemaining, 0).toLocaleString()} mi` : null
+    ].filter((value): value is string => value != null)
+
+    return dueParts.length > 0 ? `Due in ${dueParts.join(' or ')}` : 'Plan cadence saved'
+}
+
+export function getMaintenancePlanLastCompleted(plan: MaintenancePlan): string {
+    const parts: string[] = []
+
+    if (plan.lastCompletedDate) {
+        parts.push(formatDate(plan.lastCompletedDate))
+    }
+
+    if (plan.lastCompletedMileage != null) {
+        parts.push(`${plan.lastCompletedMileage.toLocaleString()} mi`)
+    }
+
+    return parts.length > 0 ? `Last completed ${parts.join(' at ')}` : 'No last completed baseline saved'
+}
+
+export function evaluateMaintenancePlans(
+    plans: MaintenancePlan[],
+    vehicle: Vehicle,
+    now: Date
+): EvaluatedMaintenancePlan[] {
+    return plans
+        .map(plan => ({
+            id: String(plan.id),
+            title: plan.title,
+            description: plan.description ?? undefined,
+            items: plan.items.map(item => item.name),
+            interval: formatInterval(plan.intervalMonths, plan.intervalMileage),
+            due: getMaintenancePlanDue(plan, vehicle, now),
+            lastCompleted: getMaintenancePlanLastCompleted(plan),
+            status: getMaintenancePlanStatus(plan, vehicle, now)
+        }))
+        .sort((left, right) => {
+            const urgencyScore = { Overdue: 0, Upcoming: 1, Planned: 2, Completed: 3 } as const
+            return urgencyScore[left.status] - urgencyScore[right.status] || left.title.localeCompare(right.title)
+        })
+}
+
+export function getRecordStatus(record: ApiServiceRecord, now: Date): ServiceStatus {
+    const daysRemaining = daysUntil(record.date, now)
+
+    if (daysRemaining > 30) {
+        return 'Planned'
+    }
+
+    if (daysRemaining > 0) {
         return 'Upcoming'
     }
 
@@ -112,7 +251,12 @@ export async function fetchApiData<T>(request: Request, path: string): Promise<T
     if (response.status === 401) {
         const requestUrl = new URL(request.url)
         const redirectTo = `${requestUrl.pathname}${requestUrl.search}${requestUrl.hash}`
-        throw redirect(`/login?redirectTo=${encodeURIComponent(redirectTo)}`)
+        throw new Response(null, {
+            status: 302,
+            headers: {
+                Location: `/login?redirectTo=${encodeURIComponent(redirectTo)}`
+            }
+        })
     }
 
     if (response.status === 404) {
@@ -143,85 +287,24 @@ export function buildDisplayServiceRecords(records: ApiServiceRecord[], now: Dat
         }))
 }
 
-export function buildUpcomingItems(vehicle: Vehicle, records: ApiServiceRecord[], now: Date): UpcomingItem[] {
-    const items: UpcomingCandidate[] = maintenanceRules.map(rule => {
-        const matchingRecords = records
-            .filter(record => record.service_type === rule.serviceType)
-            .sort((left, right) => left.date.localeCompare(right.date) || left.id - right.id)
-
-        const nextScheduled = matchingRecords.find(record => getRecordStatus(record, now) !== 'Completed')
-        if (nextScheduled) {
-            const remainingDays = Math.max(daysUntil(nextScheduled.date, now), 0)
-            const status = getRecordStatus(nextScheduled, now)
-
-            return {
-                id: `upcoming-${rule.serviceType}`,
-                title: rule.label,
-                due: `Scheduled for ${formatDate(nextScheduled.date)}`,
-                status,
-                urgency: status === 'Upcoming' ? 1 : 2
-            }
-        }
-
-        const completedRecords = [...matchingRecords].filter(record => getRecordStatus(record, now) === 'Completed')
-        const latestRecord = completedRecords.at(-1)
-        if (!latestRecord) {
-            return {
-                id: `upcoming-${rule.serviceType}`,
-                title: rule.label,
-                due: 'No recorded service yet',
-                status: 'Planned',
-                urgency: 2
-            }
-        }
-
-        const daysSinceService = daysBetween(latestRecord.date, now)
-        const mileageSinceService =
-            vehicle.mileage != null && latestRecord.mileage != null ? vehicle.mileage - latestRecord.mileage : null
-        const mileageRemaining =
-            mileageSinceService != null && rule.mileageInterval != null
-                ? rule.mileageInterval - mileageSinceService
-                : null
-        const daysRemaining = rule.dayInterval != null ? rule.dayInterval - daysSinceService : null
-
-        let status: ServiceStatus = 'Planned'
-        if ((mileageRemaining != null && mileageRemaining <= 0) || (daysRemaining != null && daysRemaining <= 0)) {
-            status = 'Overdue'
-        } else if (
-            (mileageRemaining != null && mileageRemaining <= 750) ||
-            (daysRemaining != null && daysRemaining <= 30)
-        ) {
-            status = 'Upcoming'
-        }
-
-        let due = `Last completed ${formatDate(latestRecord.date)}`
-        if (status === 'Overdue') {
-            if (mileageRemaining != null && mileageRemaining <= 0) {
-                due = `Overdue by ${Math.abs(mileageRemaining).toLocaleString()} mi`
-            } else if (daysRemaining != null && daysRemaining <= 0) {
-                due = `Overdue by ${Math.abs(daysRemaining)} day${Math.abs(daysRemaining) === 1 ? '' : 's'}`
-            }
-        } else if (status === 'Upcoming') {
-            if (mileageRemaining != null) {
-                due = `Due in ${Math.max(mileageRemaining, 0).toLocaleString()} mi`
-            } else if (daysRemaining != null) {
-                due = `Due in ${Math.max(daysRemaining, 0)} day${Math.max(daysRemaining, 0) === 1 ? '' : 's'}`
-            }
-        }
-
-        return {
-            id: `upcoming-${rule.serviceType}`,
-            title: rule.label,
-            due,
-            status,
-            urgency: status === 'Overdue' ? 0 : status === 'Upcoming' ? 1 : 2
-        }
-    })
+export function buildUpcomingItems(vehicle: Vehicle, plans: MaintenancePlan[], now: Date): UpcomingItem[] {
+    const items: UpcomingCandidate[] = evaluateMaintenancePlans(plans, vehicle, now).map(plan => ({
+        id: `plan-${plan.id}`,
+        title: plan.title,
+        due: plan.due,
+        status: plan.status,
+        urgency: plan.status === 'Overdue' ? 0 : plan.status === 'Upcoming' ? 1 : 2
+    }))
 
     return items
         .sort((left, right) => left.urgency - right.urgency || left.title.localeCompare(right.title))
         .slice(0, 3)
-        .map(({ urgency, ...item }) => item)
+        .map(item => ({
+            id: item.id,
+            title: item.title,
+            due: item.due,
+            status: item.status
+        }))
 }
 
 export function buildTimeline(records: ApiServiceRecord[], upcomingItems: UpcomingItem[], now: Date): TimelineEvent[] {
@@ -266,7 +349,7 @@ export function buildTimeline(records: ApiServiceRecord[], upcomingItems: Upcomi
 export function buildSummaryStats(
     vehicle: Vehicle,
     records: ApiServiceRecord[],
-    upcomingItems: UpcomingItem[],
+    plans: MaintenancePlan[],
     now: Date
 ): SummaryStat[] {
     const completedRecords = records
@@ -274,7 +357,7 @@ export function buildSummaryStats(
         .sort((left, right) => right.date.localeCompare(left.date) || right.id - left.id)
     const lastCompleted = completedRecords[0]
     const totalMaintenanceCost = completedRecords.reduce((total, record) => total + (record.cost ?? 0), 0)
-    const overdueCount = upcomingItems.filter(item => item.status === 'Overdue').length
+    const overdueCount = plans.filter(plan => getMaintenancePlanStatus(plan, vehicle, now) === 'Overdue').length
 
     return [
         {
@@ -293,7 +376,7 @@ export function buildSummaryStats(
         {
             title: 'Overdue Items',
             value: String(overdueCount),
-            hint: overdueCount > 0 ? 'Action is recommended soon' : 'No immediate maintenance alerts'
+            hint: overdueCount > 0 ? 'Based on saved maintenance plans' : 'No immediate maintenance alerts'
         },
         {
             title: 'Last Service',

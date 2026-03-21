@@ -6,7 +6,9 @@ import type {
     VinLookupResult,
     VehicleInput,
     ServiceRecord,
-    ServiceRecordInput
+    ServiceRecordInput,
+    MaintenancePlan,
+    MaintenancePlanInput
 } from '../types/index.js'
 
 const BASE = '/api'
@@ -168,5 +170,31 @@ export const updateRecord = (vehicleId: number, recordId: number, input: Service
 
 export const deleteRecord = (vehicleId: number, recordId: number): Promise<void> =>
     request(`/vehicles/${vehicleId}/records/${recordId}`, {
+        method: 'DELETE'
+    })
+
+// ── Maintenance Plans ───────────────────────────────────────────────────────
+
+export const getMaintenancePlans = (vehicleId: number): Promise<MaintenancePlan[]> =>
+    request(`/vehicles/${vehicleId}/maintenance-plans`)
+
+export const createMaintenancePlan = (vehicleId: number, input: MaintenancePlanInput): Promise<MaintenancePlan> =>
+    request(`/vehicles/${vehicleId}/maintenance-plans`, {
+        method: 'POST',
+        body: JSON.stringify(input)
+    })
+
+export const updateMaintenancePlan = (
+    vehicleId: number,
+    planId: number,
+    input: MaintenancePlanInput
+): Promise<MaintenancePlan> =>
+    request(`/vehicles/${vehicleId}/maintenance-plans/${planId}`, {
+        method: 'PUT',
+        body: JSON.stringify(input)
+    })
+
+export const deleteMaintenancePlan = (vehicleId: number, planId: number): Promise<void> =>
+    request(`/vehicles/${vehicleId}/maintenance-plans/${planId}`, {
         method: 'DELETE'
     })

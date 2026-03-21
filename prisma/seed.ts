@@ -203,6 +203,39 @@ const demoServiceRecords = [
     }
 ] as const
 
+const demoMaintenancePlans = [
+    {
+        vehicleKey: 'rav4',
+        title: 'Quarterly servicing',
+        description: 'Routine three-month service bundle for the daily driver.',
+        interval_months: 3,
+        interval_mileage: 3000,
+        last_completed_date: '2026-03-02',
+        last_completed_mileage: 48210,
+        items: ['Air filter', 'Oil change', 'Oil filter', 'Cabin filter']
+    },
+    {
+        vehicleKey: 'mazda3',
+        title: 'Seasonal tire and filter review',
+        description: 'Check commuter wear items before each season change.',
+        interval_months: 6,
+        interval_mileage: 6000,
+        last_completed_date: '2025-08-19',
+        last_completed_mileage: 68970,
+        items: ['Tire rotation', 'Air filter', 'Cabin filter', 'Brake inspection']
+    },
+    {
+        vehicleKey: 'porsche',
+        title: 'Annual specialist inspection',
+        description: 'Yearly mechanical and fluids review with the specialist shop.',
+        interval_months: 12,
+        interval_mileage: 5000,
+        last_completed_date: '2025-10-30',
+        last_completed_mileage: 80110,
+        items: ['Inspection', 'Transmission fluid service', 'Coolant check', 'Spark plugs review']
+    }
+] as const
+
 const privateVehicle = {
     make: 'Honda',
     model: 'CR-V',
@@ -297,11 +330,36 @@ async function main() {
         })
     }
 
+    for (const plan of demoMaintenancePlans) {
+        const vehicleId = createdVehicles.get(plan.vehicleKey)
+
+        if (!vehicleId) {
+            throw new Error(`Missing seeded vehicle for key: ${plan.vehicleKey}`)
+        }
+
+        await prisma.maintenancePlan.create({
+            data: {
+                user_id: user.id,
+                vehicle_id: vehicleId,
+                title: plan.title,
+                description: plan.description,
+                interval_months: plan.interval_months,
+                interval_mileage: plan.interval_mileage,
+                last_completed_date: plan.last_completed_date,
+                last_completed_mileage: plan.last_completed_mileage,
+                items: {
+                    create: plan.items.map(item => ({ name: item }))
+                }
+            }
+        })
+    }
+
     console.log(`Seeded development user: ${email}`)
     console.log(`Development password: ${password}`)
     console.log(
         `Seeded ${demoVehicles.length} demo vehicles and ${demoServiceRecords.length} service records for ${email}`
     )
+    console.log(`Seeded ${demoMaintenancePlans.length} maintenance plans for ${email}`)
     console.log(`Seeded secondary user for auth isolation: ${secondaryEmail}`)
 }
 

@@ -122,3 +122,34 @@ export interface ServiceRecordInput {
     cost?: number
     notes?: string
 }
+
+export interface MaintenancePlanItem {
+    id: number
+    name: string
+    created_at: string
+    updated_at: string
+}
+
+export interface MaintenancePlan {
+    id: number
+    vehicleId: number
+    title: string
+    description?: string | null
+    intervalMonths?: number | null
+    intervalMileage?: number | null
+    lastCompletedDate?: string | null
+    lastCompletedMileage?: number | null
+    items: MaintenancePlanItem[]
+    created_at: string
+    updated_at: string
+}
+
+export interface MaintenancePlanInput {
+    title: string
+    description?: string
+    intervalMonths?: number
+    intervalMileage?: number
+    lastCompletedDate?: string
+    lastCompletedMileage?: number
+    items: string[]
+}

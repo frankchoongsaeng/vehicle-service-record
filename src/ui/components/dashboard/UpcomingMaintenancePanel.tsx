@@ -39,7 +39,14 @@ export function UpcomingMaintenancePanel({ items }: UpcomingMaintenancePanelProp
                     Prioritized service items based on due date and condition.
                 </p>
             </CardHeader>
-            <CardContent className='space-y-3'>
+            <CardContent className='flex flex-col gap-3'>
+                {items.length === 0 ? (
+                    <div className='rounded-lg border border-dashed p-4 text-sm text-muted-foreground'>
+                        No maintenance plans yet. Add a plan from the records page to surface upcoming and overdue work
+                        here.
+                    </div>
+                ) : null}
+
                 {items.map(item => {
                     const tone = itemToneClasses[item.status]
 

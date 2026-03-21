@@ -14,8 +14,9 @@ model User {
     created_at    DateTime @default(now())
     updated_at    DateTime @updatedAt
 
-    vehicles        Vehicle[]
-    service_records ServiceRecord[]
+    vehicles          Vehicle[]
+    service_records   ServiceRecord[]
+    maintenance_plans MaintenancePlan[]
 
     @@map("users")
 }
@@ -41,9 +42,10 @@ model Vehicle {
     created_at       DateTime @default(now())
     updated_at       DateTime @updatedAt
 
-    user            User            @relation(fields: [user_id], references: [id], onDelete: Cascade)
-    image           VehicleImage?   @relation(fields: [image_id], references: [id], onDelete: SetNull)
-    service_records ServiceRecord[]
+    user              User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
+    image             VehicleImage?     @relation(fields: [image_id], references: [id], onDelete: SetNull)
+    service_records   ServiceRecord[]
+    maintenance_plans MaintenancePlan[]
 
     @@index([user_id])
     @@index([image_id])
@@ -104,4 +106,40 @@ model ServiceRecord {
     @@index([vehicle_id])
     @@index([user_id, vehicle_id])
     @@map("service_records")
+}
+
+model MaintenancePlan {
+    id                     Int      @id @default(autoincrement())
+    user_id                String
+    vehicle_id             Int
+    title                  String
+    description            String?
+    interval_months        Int?
+    interval_mileage       Int?
+    last_completed_date    String?
+    last_completed_mileage Int?
+    created_at             DateTime @default(now())
+    updated_at             DateTime @updatedAt
+
+    user    User                  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+    vehicle Vehicle               @relation(fields: [vehicle_id], references: [id], onDelete: Cascade)
+    items   MaintenancePlanItem[]
+
+    @@index([user_id])
+    @@index([vehicle_id])
+    @@index([user_id, vehicle_id])
+    @@map("maintenance_plans")
+}
+
+model MaintenancePlanItem {
+    id                  Int      @id @default(autoincrement())
+    maintenance_plan_id Int
+    name                String
+    created_at          DateTime @default(now())
+    updated_at          DateTime @updatedAt
+
+    maintenance_plan MaintenancePlan @relation(fields: [maintenance_plan_id], references: [id], onDelete: Cascade)
+
+    @@index([maintenance_plan_id])
+    @@map("maintenance_plan_items")
 }

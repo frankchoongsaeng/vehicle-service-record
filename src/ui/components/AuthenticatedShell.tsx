@@ -1,8 +1,7 @@
-import { NavLink, useLocation, useSearchParams } from '@remix-run/react'
-import { CarFront, LogOut, Menu, Plus, Settings, UserCircle2, X } from 'lucide-react'
+import { NavLink } from '@remix-run/react'
+import { BriefcaseBusiness, CarFront, LogOut, Menu, Plus, Settings, UserCircle2 } from 'lucide-react'
 import { useState } from 'react'
 
-import { cn } from '../lib/utils.js'
 import type { AuthUser } from '../types/index.js'
 import { Avatar, AvatarFallback } from './ui/avatar.js'
 import { Button } from './ui/button.js'
@@ -25,15 +24,6 @@ type AuthenticatedShellProps = {
     children: React.ReactNode
 }
 
-const navigationItems = [
-    {
-        label: 'Garage',
-        to: '/garage',
-        icon: CarFront,
-        matches: (pathname: string) => pathname === '/garage' || pathname.startsWith('/garage/')
-    }
-] as const
-
 export function AuthenticatedShell({
     currentUser,
     onLogout,
@@ -42,9 +32,6 @@ export function AuthenticatedShell({
     children
 }: AuthenticatedShellProps) {
     const [loggingOut, setLoggingOut] = useState(false)
-    const location = useLocation()
-    const [searchParams, setSearchParams] = useSearchParams()
-    const isMenuOpen = searchParams.get('navMenu') === 'open'
     const profileInitials = currentUser.email
         .split('@')[0]
         .split(/[^a-zA-Z0-9]+/)
@@ -53,18 +40,6 @@ export function AuthenticatedShell({
         .map(segment => segment[0]?.toUpperCase() ?? '')
         .join('')
         .slice(0, 2)
-
-    const toggleMenu = () => {
-        const nextParams = new URLSearchParams(searchParams)
-
-        if (isMenuOpen) {
-            nextParams.delete('navMenu')
-        } else {
-            nextParams.set('navMenu', 'open')
-        }
-
-        setSearchParams(nextParams, { replace: true })
-    }
 
     const handleLogout = async () => {
         try {
@@ -81,16 +56,29 @@ export function AuthenticatedShell({
                 <div className='mx-auto flex w-full max-w-screen-2xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8'>
                     <div className='grid grid-cols-[auto_1fr_auto] items-center gap-3'>
                         <div className='flex items-center gap-2 justify-self-start'>
-                            <Button
-                                variant='ghost'
-                                size='icon'
-                                onClick={toggleMenu}
-                                aria-label={isMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
-                                aria-expanded={isMenuOpen}
-                                aria-controls='authenticated-shell-navigation'
-                            >
-                                {isMenuOpen ? <X className='h-5 w-5' /> : <Menu className='h-5 w-5' />}
-                            </Button>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant='ghost' size='icon' aria-label='Open navigation menu'>
+                                        <Menu className='h-5 w-5' />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align='start' sideOffset={8}>
+                                    <DropdownMenuLabel>Navigation</DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuGroup>
+                                        <DropdownMenuItem asChild>
+                                            <NavLink to='/garage'>
+                                                <CarFront />
+                                                Manage Garage
+                                            </NavLink>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem disabled>
+                                            <BriefcaseBusiness />
+                                            Manage Workshops
+                                        </DropdownMenuItem>
+                                    </DropdownMenuGroup>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
 
                             <Button asChild variant='outline' className='hidden sm:inline-flex'>
                                 <NavLink to={selectedVehicleTo ?? '/garage/add-new'}>
@@ -105,14 +93,11 @@ export function AuthenticatedShell({
                         </div>
 
                         <NavLink to='/garage' className='mx-auto flex items-center gap-3'>
-                            <div className='flex h-11 w-11 items-center justify-center'>
-                                <Logo className='h-7 w-7 text-foreground' />
+                            <div className='shrink-0'>
+                                <Logo className='h-10 w-10 text-foreground' />
                             </div>
                             <div>
                                 <p className='text-lg font-semibold tracking-tight text-foreground'>Duralog</p>
-                                <p className='hidden text-sm text-muted-foreground sm:block'>
-                                    Vehicle service records with a cleaner workflow.
-                                </p>
                             </div>
                         </NavLink>
 
@@ -154,42 +139,6 @@ export function AuthenticatedShell({
                             </DropdownMenu>
                         </div>
                     </div>
-
-                    <nav
-                        id='authenticated-shell-navigation'
-                        className={cn(
-                            'gap-2',
-                            isMenuOpen
-                                ? 'flex flex-col items-stretch sm:flex-row sm:flex-wrap sm:items-center'
-                                : 'hidden'
-                        )}
-                    >
-                        {navigationItems.map(item => {
-                            const Icon = item.icon
-
-                            return (
-                                <NavLink key={item.to} to={item.to} end={item.to === '/garage'}>
-                                    {({ isActive }) => {
-                                        const active = isActive || item.matches(location.pathname)
-
-                                        return (
-                                            <span
-                                                className={cn(
-                                                    'inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors',
-                                                    active
-                                                        ? 'border-primary/30 bg-primary/10 text-foreground'
-                                                        : 'border-border bg-card text-muted-foreground hover:text-foreground'
-                                                )}
-                                            >
-                                                <Icon className='h-4 w-4' />
-                                                {item.label}
-                                            </span>
-                                        )
-                                    }}
-                                </NavLink>
-                            )
-                        })}
-                    </nav>
                 </div>
             </div>
 

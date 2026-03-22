@@ -104,6 +104,8 @@ export interface SignupInput {
 export interface ServiceRecord {
     id: number
     vehicle_id: number
+    maintenance_plan_id?: number | null
+    maintenance_plan_item_id?: number | null
     service_type: ServiceTypeValue
     description: string
     date: string
@@ -118,6 +120,8 @@ export interface ServiceRecordInput {
     service_type: ServiceTypeValue
     description: string
     date: string
+    maintenance_plan_id?: number
+    maintenance_plan_item_id?: number
     mileage?: number
     cost?: number
     notes?: string

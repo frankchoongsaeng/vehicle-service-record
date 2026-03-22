@@ -516,27 +516,10 @@ export default function RecordsRoute() {
                                         return (
                                             <div
                                                 key={plan.id}
-                                                role='button'
-                                                tabIndex={0}
                                                 className={cn(
-                                                    'flex flex-col gap-4 rounded-xl border p-4 text-left transition-colors hover:bg-accent/40',
+                                                    'flex flex-col gap-4 rounded-xl border p-4 text-left',
                                                     isSelected && 'border-primary/40 bg-primary/5'
                                                 )}
-                                                onClick={() =>
-                                                    navigate(buildRecordsUrl({ view: 'plans', plan: String(plan.id) }))
-                                                }
-                                                onKeyDown={event => {
-                                                    if (event.target !== event.currentTarget) {
-                                                        return
-                                                    }
-
-                                                    if (event.key === 'Enter' || event.key === ' ') {
-                                                        event.preventDefault()
-                                                        navigate(
-                                                            buildRecordsUrl({ view: 'plans', plan: String(plan.id) })
-                                                        )
-                                                    }
-                                                }}
                                             >
                                                 <div className='flex flex-wrap items-start justify-between gap-3'>
                                                     <div className='flex flex-col gap-1'>
@@ -551,8 +534,7 @@ export default function RecordsRoute() {
                                                             type='button'
                                                             variant='outline'
                                                             size='sm'
-                                                            onClick={event => {
-                                                                event.stopPropagation()
+                                                            onClick={() => {
                                                                 navigate(
                                                                     buildRecordsUrl({
                                                                         view: 'plans',
@@ -583,8 +565,7 @@ export default function RecordsRoute() {
                                                                 type='button'
                                                                 variant='outline'
                                                                 size='sm'
-                                                                onClick={event => {
-                                                                    event.stopPropagation()
+                                                                onClick={() => {
                                                                     navigate(
                                                                         buildRecordsUrl({
                                                                             view: 'plans',

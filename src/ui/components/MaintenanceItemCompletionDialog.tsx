@@ -186,6 +186,8 @@ export default function MaintenanceItemCompletionDialog({ open, plan, item, vehi
                 service_type: form.service_type,
                 description,
                 date: form.date,
+                maintenance_plan_id: plan.id,
+                maintenance_plan_item_id: item.id,
                 mileage: form.mileage ? Number(form.mileage) : undefined,
                 cost: form.cost ? Number(form.cost) : undefined,
                 notes: form.notes.trim() || undefined

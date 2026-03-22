@@ -1,12 +1,22 @@
 /* eslint-disable react-refresh/only-export-components */
 import type { LoaderFunctionArgs, MetaFunction } from '@remix-run/node'
 import { Link, Outlet, useLoaderData, useNavigate, useParams, useRevalidator, useSearchParams } from '@remix-run/react'
-import { ChevronLeft, ClipboardList, LayoutPanelLeft, ListFilter, Plus, Search, Wrench } from 'lucide-react'
+import {
+    CheckCircle2,
+    ChevronLeft,
+    ClipboardList,
+    LayoutPanelLeft,
+    ListFilter,
+    Plus,
+    Search,
+    Wrench
+} from 'lucide-react'
 import { useEffect, useMemo } from 'react'
 
 import * as api from '../api/client.js'
 import { AuthenticatedShell } from '../components/AuthenticatedShell'
 import BrandedLoadingScreen from '../components/BrandedLoadingScreen'
+import MaintenanceItemCompletionDialog from '../components/MaintenanceItemCompletionDialog.js'
 import MaintenancePlanForm from '../components/MaintenancePlanForm.js'
 import { StatusBadge } from '../components/dashboard/StatusBadge'
 import { PageHeader } from '../components/PageHeader'
@@ -25,6 +35,7 @@ import type {
     MaintenancePlan,
     MaintenancePlanInput,
     ServiceRecord as ApiServiceRecord,
+    ServiceRecordInput,
     Vehicle
 } from '../types/index.js'
 
@@ -103,9 +114,34 @@ export default function RecordsRoute() {
     }, [records, query, safeStatus, safeCategory])
 
     const evaluatedPlans = useMemo(() => evaluateMaintenancePlans(plans, vehicle, new Date()), [plans, vehicle])
+    const plansById = useMemo(() => new Map(plans.map(plan => [String(plan.id), plan])), [plans])
+    const planCards = useMemo(
+        () =>
+            evaluatedPlans
+                .map(summary => {
+                    const plan = plansById.get(summary.id)
+
+                    if (!plan) {
+                        return null
+                    }
+
+                    return { plan, summary }
+                })
+                .filter(
+                    (card): card is { plan: MaintenancePlan; summary: (typeof evaluatedPlans)[number] } => card != null
+                ),
+        [evaluatedPlans, plansById]
+    )
     const actionPlans = evaluatedPlans.filter(plan => plan.status === 'Overdue' || plan.status === 'Upcoming').length
-    const selectedPlan =
-        selectedPlanId && selectedPlanId !== 'new' ? plans.find(plan => String(plan.id) === selectedPlanId) : undefined
+    const selectedPlan = selectedPlanId && selectedPlanId !== 'new' ? plansById.get(selectedPlanId) : undefined
+    const completionPlanId = activeView === 'plans' ? searchParams.get('completePlan') : null
+    const completionItemId = activeView === 'plans' ? searchParams.get('completeItem') : null
+    const completionPlan = completionPlanId ? plansById.get(completionPlanId) : undefined
+    const completionItem =
+        completionPlan && completionItemId
+            ? completionPlan.items.find(item => String(item.id) === completionItemId)
+            : undefined
+    const isCompletionDialogOpen = Boolean(completionPlan && completionItem)
     const isPlanPanelOpen = activeView === 'plans' && Boolean(selectedPlanId)
     const isDetailOpen = activeView === 'history' ? Boolean(recordId) : isPlanPanelOpen
 
@@ -125,12 +161,23 @@ export default function RecordsRoute() {
         if (nextView === 'history') {
             next.delete('view')
             next.delete('plan')
+            next.delete('completePlan')
+            next.delete('completeItem')
         }
 
         if (nextView === 'plans') {
             next.delete('q')
             next.delete('status')
             next.delete('category')
+        }
+
+        if (!next.get('completePlan') || !next.get('completeItem')) {
+            next.delete('completePlan')
+            next.delete('completeItem')
+        }
+
+        if (next.get('completePlan') && !next.get('plan')) {
+            next.set('plan', next.get('completePlan')!)
         }
 
         const queryString = next.toString()
@@ -164,6 +211,14 @@ export default function RecordsRoute() {
     const handleDeletePlan = async (planId: number) => {
         await api.deleteMaintenancePlan(Number(vehicleId), planId)
         navigate(buildRecordsUrl({ view: 'plans', plan: null }), { replace: true })
+        revalidator.revalidate()
+    }
+
+    const handleCompletePlanItem = async (planId: number, data: ServiceRecordInput) => {
+        await api.createRecord(Number(vehicleId), data)
+        navigate(buildRecordsUrl({ view: 'plans', plan: String(planId), completePlan: null, completeItem: null }), {
+            replace: true
+        })
         revalidator.revalidate()
     }
 
@@ -455,46 +510,103 @@ export default function RecordsRoute() {
                                         </div>
                                     </div>
                                 ) : (
-                                    evaluatedPlans.map(plan => {
-                                        const isSelected = selectedPlanId === plan.id
+                                    planCards.map(({ plan, summary }) => {
+                                        const isSelected = selectedPlanId === String(plan.id)
 
                                         return (
-                                            <button
+                                            <div
                                                 key={plan.id}
-                                                type='button'
+                                                role='button'
+                                                tabIndex={0}
                                                 className={cn(
                                                     'flex flex-col gap-4 rounded-xl border p-4 text-left transition-colors hover:bg-accent/40',
                                                     isSelected && 'border-primary/40 bg-primary/5'
                                                 )}
                                                 onClick={() =>
-                                                    navigate(buildRecordsUrl({ view: 'plans', plan: plan.id }))
+                                                    navigate(buildRecordsUrl({ view: 'plans', plan: String(plan.id) }))
                                                 }
+                                                onKeyDown={event => {
+                                                    if (event.target !== event.currentTarget) {
+                                                        return
+                                                    }
+
+                                                    if (event.key === 'Enter' || event.key === ' ') {
+                                                        event.preventDefault()
+                                                        navigate(
+                                                            buildRecordsUrl({ view: 'plans', plan: String(plan.id) })
+                                                        )
+                                                    }
+                                                }}
                                             >
                                                 <div className='flex flex-wrap items-start justify-between gap-3'>
                                                     <div className='flex flex-col gap-1'>
-                                                        <p className='font-semibold text-foreground'>{plan.title}</p>
-                                                        <p className='text-sm text-muted-foreground'>{plan.interval}</p>
+                                                        <p className='font-semibold text-foreground'>{summary.title}</p>
+                                                        <p className='text-sm text-muted-foreground'>
+                                                            {summary.interval}
+                                                        </p>
                                                     </div>
-                                                    <StatusBadge status={plan.status} />
+                                                    <div className='flex items-center gap-2'>
+                                                        <StatusBadge status={summary.status} />
+                                                        <Button
+                                                            type='button'
+                                                            variant='outline'
+                                                            size='sm'
+                                                            onClick={event => {
+                                                                event.stopPropagation()
+                                                                navigate(
+                                                                    buildRecordsUrl({
+                                                                        view: 'plans',
+                                                                        plan: String(plan.id)
+                                                                    })
+                                                                )
+                                                            }}
+                                                        >
+                                                            Edit Plan
+                                                        </Button>
+                                                    </div>
                                                 </div>
 
-                                                {plan.description ? (
-                                                    <p className='text-sm text-muted-foreground'>{plan.description}</p>
+                                                {summary.description ? (
+                                                    <p className='text-sm text-muted-foreground'>
+                                                        {summary.description}
+                                                    </p>
                                                 ) : null}
 
-                                                <div className='flex flex-wrap gap-2'>
+                                                <div className='flex flex-col gap-2'>
                                                     {plan.items.map(item => (
-                                                        <Badge key={`${plan.id}-${item}`} variant='secondary'>
-                                                            {item}
-                                                        </Badge>
+                                                        <div
+                                                            key={item.id}
+                                                            className='flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed p-3'
+                                                        >
+                                                            <Badge variant='secondary'>{item.name}</Badge>
+                                                            <Button
+                                                                type='button'
+                                                                variant='outline'
+                                                                size='sm'
+                                                                onClick={event => {
+                                                                    event.stopPropagation()
+                                                                    navigate(
+                                                                        buildRecordsUrl({
+                                                                            view: 'plans',
+                                                                            plan: String(plan.id),
+                                                                            completePlan: String(plan.id),
+                                                                            completeItem: String(item.id)
+                                                                        })
+                                                                    )
+                                                                }}
+                                                            >
+                                                                <CheckCircle2 data-icon='inline-start' />
+                                                                Mark Complete
+                                                            </Button>
+                                                        </div>
                                                     ))}
                                                 </div>
 
                                                 <div className='grid gap-3 text-sm text-muted-foreground sm:grid-cols-2'>
-                                                    <p>{plan.due}</p>
-                                                    <p>{plan.lastCompleted}</p>
+                                                    <p>{summary.due}</p>
+                                                    <p>{summary.lastCompleted}</p>
                                                 </div>
-                                            </button>
+                                            </div>
                                         )
                                     })
                                 )}
@@ -537,6 +649,31 @@ export default function RecordsRoute() {
                         ) : null}
                     </div>
                 )}
+
+                {isCompletionDialogOpen && completionPlan && completionItem ? (
+                    <MaintenanceItemCompletionDialog
+                        open={isCompletionDialogOpen}
+                        plan={completionPlan}
+                        item={completionItem}
+                        vehicle={vehicle}
+                        onOpenChange={open => {
+                            if (open) {
+                                return
+                            }
+
+                            navigate(
+                                buildRecordsUrl({
+                                    view: 'plans',
+                                    plan: String(completionPlan.id),
+                                    completePlan: null,
+                                    completeItem: null
+                                }),
+                                { replace: true }
+                            )
+                        }}
+                        onSubmit={data => handleCompletePlanItem(completionPlan.id, data)}
+                    />
+                ) : null}
             </div>
         </AuthenticatedShell>
     )

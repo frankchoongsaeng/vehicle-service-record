@@ -4,26 +4,10 @@ import { prisma } from '../db.js'
 import { createLogger } from '../logging/logger.js'
 import { asyncHandler } from '../middleware/asyncHandler.js'
 import { requireAuth } from '../middleware/auth.js'
+import { getServiceTypeLabel } from '../types/serviceTypes.js'
 
 const router = Router({ mergeParams: true })
 const recordsLogger = createLogger({ component: 'service-record-routes' })
-
-const serviceTypeLabels = new Map<string, string>([
-    ['oil_change', 'Oil Change'],
-    ['tire_rotation', 'Tire Rotation'],
-    ['brake_service', 'Brake Service'],
-    ['tire_replacement', 'Tire Replacement'],
-    ['battery', 'Battery Replacement'],
-    ['air_filter', 'Air Filter'],
-    ['cabin_filter', 'Cabin Filter'],
-    ['transmission', 'Transmission Service'],
-    ['coolant', 'Coolant Flush'],
-    ['spark_plugs', 'Spark Plugs'],
-    ['timing_belt', 'Timing Belt / Chain'],
-    ['wiper_blades', 'Wiper Blades'],
-    ['inspection', 'Inspection'],
-    ['other', 'Other']
-])
 
 type ServiceRecordWriteInput = {
     maintenance_plan_id?: number | null
@@ -46,7 +30,7 @@ function getRecordMatchKeys(record: ServiceRecordWriteInput) {
     for (const candidate of [
         record.service_type,
         record.service_type.replace(/_/g, ' '),
-        serviceTypeLabels.get(record.service_type),
+        getServiceTypeLabel(record.service_type),
         record.description
     ]) {
         if (!candidate) {
@@ -63,8 +47,22 @@ function getRecordMatchKeys(record: ServiceRecordWriteInput) {
     return keys
 }
 
-function getPlanMatchKeys(items: Array<{ name: string }>) {
-    return new Set(items.map(item => normalizeMatchText(item.name)).filter(Boolean))
+function getPlanMatchKeys(plan: { service_type: string; items: Array<{ name: string }> }) {
+    const keys = new Set<string>()
+
+    for (const candidate of [
+        plan.service_type,
+        getServiceTypeLabel(plan.service_type),
+        ...plan.items.map(item => item.name)
+    ]) {
+        const normalized = normalizeMatchText(candidate)
+
+        if (normalized) {
+            keys.add(normalized)
+        }
+    }
+
+    return keys
 }
 
 function hasMatchingPlanItem(recordKeys: Set<string>, planKeys: Set<string>) {
@@ -118,6 +116,7 @@ async function recomputeMaintenancePlanBaselines(
             },
             select: {
                 id: true,
+                service_type: true,
                 last_completed_date: true,
                 last_completed_mileage: true,
                 items: {
@@ -153,7 +152,7 @@ async function recomputeMaintenancePlanBaselines(
 
     const updates = plans.flatMap(plan => {
         const linkedRecords = recordsWithKeys.filter(record => record.maintenance_plan_id === plan.id)
-        const planKeys = getPlanMatchKeys(plan.items)
+        const planKeys = getPlanMatchKeys(plan)
         const matchingRecords = (
             linkedRecords.length > 0
                 ? linkedRecords

@@ -1,3 +1,13 @@
+import {
+    SERVICE_TYPES,
+    getServiceTypeLabel,
+    isServiceTypeValue,
+    type ServiceTypeValue
+} from '../../types/serviceTypes.js'
+
+export { SERVICE_TYPES, getServiceTypeLabel, isServiceTypeValue }
+export type { ServiceTypeValue }
+
 export interface Vehicle {
     id: number
     imageId?: number | null
@@ -67,25 +77,6 @@ export interface VinLookupResult {
     }
 }
 
-export const SERVICE_TYPES = [
-    { value: 'oil_change', label: 'Oil Change' },
-    { value: 'tire_rotation', label: 'Tire Rotation' },
-    { value: 'brake_service', label: 'Brake Service' },
-    { value: 'tire_replacement', label: 'Tire Replacement' },
-    { value: 'battery', label: 'Battery Replacement' },
-    { value: 'air_filter', label: 'Air Filter' },
-    { value: 'cabin_filter', label: 'Cabin Filter' },
-    { value: 'transmission', label: 'Transmission Service' },
-    { value: 'coolant', label: 'Coolant Flush' },
-    { value: 'spark_plugs', label: 'Spark Plugs' },
-    { value: 'timing_belt', label: 'Timing Belt / Chain' },
-    { value: 'wiper_blades', label: 'Wiper Blades' },
-    { value: 'inspection', label: 'Inspection' },
-    { value: 'other', label: 'Other' }
-] as const
-
-export type ServiceTypeValue = (typeof SERVICE_TYPES)[number]['value']
-
 export interface AuthUser {
     id: string
     email: string
@@ -137,6 +128,7 @@ export interface MaintenancePlanItem {
 export interface MaintenancePlan {
     id: number
     vehicleId: number
+    serviceType: ServiceTypeValue
     title: string
     description?: string | null
     intervalMonths?: number | null
@@ -149,11 +141,11 @@ export interface MaintenancePlan {
 }
 
 export interface MaintenancePlanInput {
+    serviceType: ServiceTypeValue
     title: string
     description?: string
     intervalMonths?: number
     intervalMileage?: number
     lastCompletedDate?: string
     lastCompletedMileage?: number
-    items: string[]
 }

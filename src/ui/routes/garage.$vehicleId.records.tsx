@@ -27,7 +27,12 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from '../components/ui/i
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
 import { useAuth } from '../auth/useAuth'
-import { buildDisplayServiceRecords, evaluateMaintenancePlans, fetchApiData } from '../lib/maintenance.js'
+import {
+    buildDisplayServiceRecords,
+    evaluateMaintenancePlans,
+    fetchApiData,
+    getServiceLabel
+} from '../lib/maintenance.js'
 import { cn } from '../lib/utils'
 import { fallbackVehicleTypeImage, getVehicleTypeImage } from '../lib/vehicleTypes.js'
 import type { ServiceStatus } from '../components/dashboard/types'
@@ -135,13 +140,8 @@ export default function RecordsRoute() {
     const actionPlans = evaluatedPlans.filter(plan => plan.status === 'Overdue' || plan.status === 'Upcoming').length
     const selectedPlan = selectedPlanId && selectedPlanId !== 'new' ? plansById.get(selectedPlanId) : undefined
     const completionPlanId = activeView === 'plans' ? searchParams.get('completePlan') : null
-    const completionItemId = activeView === 'plans' ? searchParams.get('completeItem') : null
     const completionPlan = completionPlanId ? plansById.get(completionPlanId) : undefined
-    const completionItem =
-        completionPlan && completionItemId
-            ? completionPlan.items.find(item => String(item.id) === completionItemId)
-            : undefined
-    const isCompletionDialogOpen = Boolean(completionPlan && completionItem)
+    const isCompletionDialogOpen = Boolean(completionPlan)
     const isPlanPanelOpen = activeView === 'plans' && Boolean(selectedPlanId)
     const isDetailOpen = activeView === 'history' ? Boolean(recordId) : isPlanPanelOpen
 
@@ -162,18 +162,12 @@ export default function RecordsRoute() {
             next.delete('view')
             next.delete('plan')
             next.delete('completePlan')
-            next.delete('completeItem')
         }
 
         if (nextView === 'plans') {
             next.delete('q')
             next.delete('status')
             next.delete('category')
-        }
-
-        if (!next.get('completePlan') || !next.get('completeItem')) {
-            next.delete('completePlan')
-            next.delete('completeItem')
         }
 
         if (next.get('completePlan') && !next.get('plan')) {
@@ -216,7 +210,7 @@ export default function RecordsRoute() {
 
     const handleCompletePlanItem = async (planId: number, data: ServiceRecordInput) => {
         await api.createRecord(Number(vehicleId), data)
-        navigate(buildRecordsUrl({ view: 'plans', plan: String(planId), completePlan: null, completeItem: null }), {
+        navigate(buildRecordsUrl({ view: 'plans', plan: String(planId), completePlan: null }), {
             replace: true
         })
         revalidator.revalidate()
@@ -478,7 +472,7 @@ export default function RecordsRoute() {
                                 <div className='flex flex-col gap-1.5'>
                                     <CardTitle>Maintenance Plans</CardTitle>
                                     <CardDescription>
-                                        Bundle recurring maintenance items and let time or mileage trigger the next
+                                        Track one recurring service per plan and let time or mileage trigger the next
                                         action.
                                     </CardDescription>
                                 </div>
@@ -497,8 +491,8 @@ export default function RecordsRoute() {
                                             <span className='font-medium'>No maintenance plans yet</span>
                                         </div>
                                         <p>
-                                            Create a recurring plan for bundled work like quarterly servicing, then
-                                            track it here using time and mileage thresholds.
+                                            Create a recurring plan for one service type, then track it here using time
+                                            and mileage thresholds.
                                         </p>
                                         <div>
                                             <Button asChild size='sm'>
@@ -554,33 +548,27 @@ export default function RecordsRoute() {
                                                     </p>
                                                 ) : null}
 
-                                                <div className='flex flex-col gap-2'>
-                                                    {plan.items.map(item => (
-                                                        <div
-                                                            key={item.id}
-                                                            className='flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed p-3'
-                                                        >
-                                                            <Badge variant='secondary'>{item.name}</Badge>
-                                                            <Button
-                                                                type='button'
-                                                                variant='outline'
-                                                                size='sm'
-                                                                onClick={() => {
-                                                                    navigate(
-                                                                        buildRecordsUrl({
-                                                                            view: 'plans',
-                                                                            plan: String(plan.id),
-                                                                            completePlan: String(plan.id),
-                                                                            completeItem: String(item.id)
-                                                                        })
-                                                                    )
-                                                                }}
-                                                            >
-                                                                <CheckCircle2 data-icon='inline-start' />
-                                                                Mark Complete
-                                                            </Button>
-                                                        </div>
-                                                    ))}
+                                                <div className='flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed p-3'>
+                                                    <Badge variant='secondary'>
+                                                        {getServiceLabel(plan.serviceType)}
+                                                    </Badge>
+                                                    <Button
+                                                        type='button'
+                                                        variant='outline'
+                                                        size='sm'
+                                                        onClick={() => {
+                                                            navigate(
+                                                                buildRecordsUrl({
+                                                                    view: 'plans',
+                                                                    plan: String(plan.id),
+                                                                    completePlan: String(plan.id)
+                                                                })
+                                                            )
+                                                        }}
+                                                    >
+                                                        <CheckCircle2 data-icon='inline-start' />
+                                                        Mark Complete
+                                                    </Button>
                                                 </div>
 
                                                 <div className='grid gap-3 text-sm text-muted-foreground sm:grid-cols-2'>
@@ -631,11 +619,10 @@ export default function RecordsRoute() {
                     </div>
                 )}
 
-                {isCompletionDialogOpen && completionPlan && completionItem ? (
+                {isCompletionDialogOpen && completionPlan ? (
                     <MaintenanceItemCompletionDialog
                         open={isCompletionDialogOpen}
                         plan={completionPlan}
-                        item={completionItem}
                         vehicle={vehicle}
                         onOpenChange={open => {
                             if (open) {
@@ -646,8 +633,7 @@ export default function RecordsRoute() {
                                 buildRecordsUrl({
                                     view: 'plans',
                                     plan: String(completionPlan.id),
-                                    completePlan: null,
-                                    completeItem: null
+                                    completePlan: null
                                 }),
                                 { replace: true }
                             )

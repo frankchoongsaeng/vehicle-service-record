@@ -1,12 +1,20 @@
 import { useState } from 'react'
-import { CalendarClock, Milestone, Plus, Trash2, Wrench } from 'lucide-react'
+import { CalendarClock, Milestone, Trash2 } from 'lucide-react'
 
-import type { MaintenancePlan, MaintenancePlanInput } from '../types/index.js'
+import {
+    SERVICE_TYPES,
+    getServiceTypeLabel,
+    isServiceTypeValue,
+    type MaintenancePlan,
+    type MaintenancePlanInput,
+    type ServiceTypeValue
+} from '../types/index.js'
 import { Button } from './ui/button.js'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card.js'
 import { DatePicker } from './ui/date-picker.js'
 import { Input } from './ui/input.js'
 import { InputGroup, InputGroupAddon, InputGroupInput } from './ui/input-group.js'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select.js'
 import { Textarea } from './ui/textarea.js'
 
 interface Props {
@@ -17,24 +25,24 @@ interface Props {
 }
 
 type FormState = {
+    serviceType: ServiceTypeValue | ''
     title: string
     description: string
     intervalMonths: string
     intervalMileage: string
     lastCompletedDate: string
     lastCompletedMileage: string
-    items: string[]
 }
 
 function toFormState(initial?: MaintenancePlan): FormState {
     return {
+        serviceType: initial?.serviceType ?? '',
         title: initial?.title ?? '',
         description: initial?.description ?? '',
         intervalMonths: initial?.intervalMonths != null ? String(initial.intervalMonths) : '',
         intervalMileage: initial?.intervalMileage != null ? String(initial.intervalMileage) : '',
         lastCompletedDate: initial?.lastCompletedDate ?? '',
-        lastCompletedMileage: initial?.lastCompletedMileage != null ? String(initial.lastCompletedMileage) : '',
-        items: initial?.items.map(item => item.name) ?? ['']
+        lastCompletedMileage: initial?.lastCompletedMileage != null ? String(initial.lastCompletedMileage) : ''
     }
 }
 
@@ -49,41 +57,59 @@ export default function MaintenancePlanForm({ initial, onSubmit, onCancel, onDel
         setForm(previous => ({ ...previous, [field]: value }))
     }
 
-    const updateItem = (index: number, value: string) => {
+    const handleServiceTypeChange = (value: string) => {
+        if (!isServiceTypeValue(value)) {
+            return
+        }
+
         setForm(previous => ({
             ...previous,
-            items: previous.items.map((item, itemIndex) => (itemIndex === index ? value : item))
+            serviceType: value,
+            title: getServiceTypeLabel(value)
         }))
     }
 
-    const addItem = () => {
-        setForm(previous => ({ ...previous, items: [...previous.items, ''] }))
-    }
+    const validate = () => {
+        if (!form.serviceType) {
+            return 'Service type is required'
+        }
 
-    const removeItem = (index: number) => {
-        setForm(previous => {
-            const nextItems = previous.items.filter((_, itemIndex) => itemIndex !== index)
-            return {
-                ...previous,
-                items: nextItems.length > 0 ? nextItems : ['']
-            }
-        })
+        if (!form.title.trim()) {
+            return 'Plan title is required'
+        }
+
+        return ''
     }
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault()
         setError('')
+
+        const serviceType = form.serviceType
+
+        const validationError = validate()
+
+        if (validationError) {
+            setError(validationError)
+            return
+        }
+
+        if (!serviceType) {
+            setError('Service type is required')
+            return
+        }
+
         setIsSaving(true)
 
         try {
             await onSubmit({
+                serviceType,
                 title: form.title.trim(),
                 description: form.description.trim() || undefined,
                 intervalMonths: form.intervalMonths ? Number(form.intervalMonths) : undefined,
                 intervalMileage: form.intervalMileage ? Number(form.intervalMileage) : undefined,
                 lastCompletedDate: form.lastCompletedDate || undefined,
-                lastCompletedMileage: form.lastCompletedMileage ? Number(form.lastCompletedMileage) : undefined,
-                items: form.items.map(item => item.trim()).filter(item => item.length > 0)
+                lastCompletedMileage: form.lastCompletedMileage ? Number(form.lastCompletedMileage) : undefined
             })
         } catch (submitError) {
             setError(submitError instanceof Error ? submitError.message : 'Something went wrong')
@@ -114,8 +140,8 @@ export default function MaintenancePlanForm({ initial, onSubmit, onCancel, onDel
             <CardHeader>
                 <CardTitle>{initial ? 'Edit Maintenance Plan' : 'Add Maintenance Plan'}</CardTitle>
                 <CardDescription>
-                    Define recurring work by time, mileage, or both, and bundle multiple maintenance items into one
-                    plan.
+                    Define one recurring service by time, mileage, or both, and keep its cadence tied to a single
+                    service type.
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -127,12 +153,28 @@ export default function MaintenancePlanForm({ initial, onSubmit, onCancel, onDel
                     ) : null}
 
                     <div className='grid gap-4 md:grid-cols-2'>
+                        <div className='flex flex-col gap-2 md:col-span-2'>
+                            <label className='text-sm font-medium text-foreground'>Service Type *</label>
+                            <Select value={form.serviceType} onValueChange={handleServiceTypeChange}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder='Select a service type' />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {SERVICE_TYPES.map(serviceType => (
+                                        <SelectItem key={serviceType.value} value={serviceType.value}>
+                                            {serviceType.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
                         <div className='flex flex-col gap-2'>
                             <label className='text-sm font-medium text-foreground'>Plan Title *</label>
                             <Input
                                 value={form.title}
                                 onChange={event => update('title', event.target.value)}
-                                placeholder='Quarterly servicing'
+                                placeholder='Auto-filled from service type'
                                 required
                             />
                         </div>
@@ -154,7 +196,7 @@ export default function MaintenancePlanForm({ initial, onSubmit, onCancel, onDel
                         <Textarea
                             value={form.description}
                             onChange={event => update('description', event.target.value)}
-                            placeholder='Optional notes about the cadence, bundled service visit, or preferred shop.'
+                            placeholder='Optional notes about the cadence, parts, or preferred shop.'
                             rows={3}
                         />
                     </div>
@@ -207,49 +249,6 @@ export default function MaintenancePlanForm({ initial, onSubmit, onCancel, onDel
                                 <Milestone className='text-muted-foreground' />
                             </InputGroupAddon>
                         </InputGroup>
-                    </div>
-
-                    <div className='flex flex-col gap-3'>
-                        <div className='flex items-center justify-between gap-3'>
-                            <div>
-                                <p className='text-sm font-medium text-foreground'>Bundled Maintenance Items *</p>
-                                <p className='text-sm text-muted-foreground'>
-                                    Add each item included in this recurring plan.
-                                </p>
-                            </div>
-                            <Button type='button' variant='outline' size='sm' onClick={addItem}>
-                                <Plus data-icon='inline-start' />
-                                Add Item
-                            </Button>
-                        </div>
-
-                        <div className='flex flex-col gap-3'>
-                            {form.items.map((item, index) => (
-                                <div key={`${index}-${item}`} className='flex items-center gap-2'>
-                                    <div className='flex-1'>
-                                        <InputGroup>
-                                            <InputGroupInput
-                                                value={item}
-                                                onChange={event => updateItem(index, event.target.value)}
-                                                placeholder={index === 0 ? 'Oil change' : 'Cabin filter'}
-                                            />
-                                            <InputGroupAddon>
-                                                <Wrench className='text-muted-foreground' />
-                                            </InputGroupAddon>
-                                        </InputGroup>
-                                    </div>
-                                    <Button
-                                        type='button'
-                                        variant='ghost'
-                                        size='icon'
-                                        onClick={() => removeItem(index)}
-                                        aria-label={`Remove maintenance item ${index + 1}`}
-                                    >
-                                        <Trash2 />
-                                    </Button>
-                                </div>
-                            ))}
-                        </div>
                     </div>
 
                     <CardFooter className='justify-between px-0 pb-0'>

@@ -3,8 +3,8 @@ import { CircleDollarSign, Gauge, Wrench } from 'lucide-react'
 
 import {
     SERVICE_TYPES,
+    getServiceTypeLabel,
     type MaintenancePlan,
-    type MaintenancePlanItem,
     type ServiceRecordInput,
     type ServiceTypeValue,
     type Vehicle
@@ -38,55 +38,13 @@ type FormState = {
 interface Props {
     open: boolean
     plan: MaintenancePlan
-    item: MaintenancePlanItem
     vehicle: Vehicle
     onOpenChange: (open: boolean) => void
     onSubmit: (data: ServiceRecordInput) => Promise<void>
 }
 
-const serviceTypeKeywords: Array<{ serviceType: ServiceTypeValue; keywords: string[] }> = [
-    { serviceType: 'oil_change', keywords: ['oil change', 'oil service', 'engine oil'] },
-    { serviceType: 'tire_rotation', keywords: ['tire rotation', 'tyre rotation', 'rotate tires', 'rotate tyres'] },
-    { serviceType: 'brake_service', keywords: ['brake', 'brakes', 'brake service', 'brake pads'] },
-    { serviceType: 'tire_replacement', keywords: ['tire replacement', 'tyre replacement', 'new tires', 'new tyres'] },
-    { serviceType: 'battery', keywords: ['battery', 'battery replacement'] },
-    { serviceType: 'air_filter', keywords: ['air filter', 'engine air filter'] },
-    { serviceType: 'cabin_filter', keywords: ['cabin filter', 'cabin air filter'] },
-    { serviceType: 'transmission', keywords: ['transmission', 'gearbox'] },
-    { serviceType: 'coolant', keywords: ['coolant', 'coolant flush', 'radiator fluid'] },
-    { serviceType: 'spark_plugs', keywords: ['spark plugs', 'spark plug'] },
-    { serviceType: 'timing_belt', keywords: ['timing belt', 'timing chain'] },
-    { serviceType: 'wiper_blades', keywords: ['wiper blades', 'wipers', 'windscreen wipers'] },
-    { serviceType: 'inspection', keywords: ['inspection', 'checkup', 'check-up'] }
-]
-
 function normalizeText(value: string) {
     return value.trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ')
-}
-
-function inferServiceType(itemName: string): ServiceTypeValue {
-    const normalizedItemName = normalizeText(itemName)
-
-    for (const serviceType of SERVICE_TYPES) {
-        const normalizedValue = normalizeText(serviceType.value)
-        const normalizedLabel = normalizeText(serviceType.label)
-
-        if (
-            normalizedItemName === normalizedValue ||
-            normalizedItemName === normalizedLabel ||
-            normalizedItemName.includes(normalizedLabel)
-        ) {
-            return serviceType.value
-        }
-    }
-
-    for (const entry of serviceTypeKeywords) {
-        if (entry.keywords.some(keyword => normalizedItemName.includes(normalizeText(keyword)))) {
-            return entry.serviceType
-        }
-    }
-
-    return 'other'
 }
 
 function formatPlanCadence(plan: MaintenancePlan) {
@@ -103,44 +61,41 @@ function formatPlanCadence(plan: MaintenancePlan) {
     return parts.join(' or ')
 }
 
-function buildDefaultDescription(plan: MaintenancePlan, item: MaintenancePlanItem) {
-    const trimmedItemName = item.name.trim()
+function buildDefaultDescription(plan: MaintenancePlan) {
+    const serviceLabel = getServiceTypeLabel(plan.serviceType)
     const trimmedPlanTitle = plan.title.trim()
 
-    if (!trimmedItemName) {
-        return trimmedPlanTitle || 'Maintenance service'
+    if (trimmedPlanTitle && normalizeText(trimmedPlanTitle) !== normalizeText(serviceLabel)) {
+        return trimmedPlanTitle
     }
 
-    if (plan.items.length > 1 && normalizeText(trimmedItemName) !== normalizeText(trimmedPlanTitle)) {
-        return `${trimmedItemName} for ${trimmedPlanTitle}`
-    }
-
-    return trimmedItemName
+    return serviceLabel
 }
 
-function ensureItemNameInDescription(itemName: string, description: string) {
-    const trimmedItemName = itemName.trim()
+function ensurePlanTitleInDescription(plan: MaintenancePlan, description: string) {
+    const serviceLabel = getServiceTypeLabel(plan.serviceType)
+    const planTitle = plan.title.trim()
     const trimmedDescription = description.trim()
 
-    if (!trimmedItemName) {
-        return trimmedDescription
+    if (!planTitle || normalizeText(planTitle) === normalizeText(serviceLabel)) {
+        return trimmedDescription || serviceLabel
     }
 
     if (!trimmedDescription) {
-        return trimmedItemName
+        return planTitle
     }
 
-    if (normalizeText(trimmedDescription).includes(normalizeText(trimmedItemName))) {
+    if (normalizeText(trimmedDescription).includes(normalizeText(planTitle))) {
         return trimmedDescription
     }
 
-    return `${trimmedItemName}: ${trimmedDescription}`
+    return `${planTitle}: ${trimmedDescription}`
 }
 
-function createDefaultFormState(plan: MaintenancePlan, item: MaintenancePlanItem, vehicle: Vehicle): FormState {
+function createDefaultFormState(plan: MaintenancePlan, vehicle: Vehicle): FormState {
     return {
-        service_type: inferServiceType(item.name),
-        description: buildDefaultDescription(plan, item),
+        service_type: plan.serviceType,
+        description: buildDefaultDescription(plan),
         date: new Date().toISOString().slice(0, 10),
         mileage: vehicle.mileage != null ? String(vehicle.mileage) : '',
         cost: '',
@@ -148,16 +103,16 @@ function createDefaultFormState(plan: MaintenancePlan, item: MaintenancePlanItem
     }
 }
 
-export default function MaintenanceItemCompletionDialog({ open, plan, item, vehicle, onOpenChange, onSubmit }: Props) {
-    const [form, setForm] = useState<FormState>(() => createDefaultFormState(plan, item, vehicle))
+export default function MaintenanceItemCompletionDialog({ open, plan, vehicle, onOpenChange, onSubmit }: Props) {
+    const [form, setForm] = useState<FormState>(() => createDefaultFormState(plan, vehicle))
     const [error, setError] = useState('')
     const [isSaving, setIsSaving] = useState(false)
     const today = new Date()
 
     useEffect(() => {
-        setForm(createDefaultFormState(plan, item, vehicle))
+        setForm(createDefaultFormState(plan, vehicle))
         setError('')
-    }, [item, plan, vehicle])
+    }, [plan, vehicle])
 
     const update = <K extends keyof FormState>(field: K, value: FormState[K]) => {
         setForm(previous => ({ ...previous, [field]: value }))
@@ -167,7 +122,7 @@ export default function MaintenanceItemCompletionDialog({ open, plan, item, vehi
         event.preventDefault()
         setError('')
 
-        const description = ensureItemNameInDescription(item.name, form.description)
+        const description = ensurePlanTitleInDescription(plan, form.description)
 
         if (!form.date) {
             setError('Date is required')
@@ -187,7 +142,6 @@ export default function MaintenanceItemCompletionDialog({ open, plan, item, vehi
                 description,
                 date: form.date,
                 maintenance_plan_id: plan.id,
-                maintenance_plan_item_id: item.id,
                 mileage: form.mileage ? Number(form.mileage) : undefined,
                 cost: form.cost ? Number(form.cost) : undefined,
                 notes: form.notes.trim() || undefined
@@ -203,9 +157,9 @@ export default function MaintenanceItemCompletionDialog({ open, plan, item, vehi
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className='max-w-2xl'>
                 <DialogHeader>
-                    <DialogTitle>Mark Maintenance Item Complete</DialogTitle>
+                    <DialogTitle>Mark Maintenance Plan Complete</DialogTitle>
                     <DialogDescription>
-                        Log {item.name} as a completed service record. Defaults are pulled from the selected plan and
+                        Log this recurring service as a completed record. Defaults are pulled from the selected plan and
                         current vehicle mileage when available.
                     </DialogDescription>
                 </DialogHeader>
@@ -219,7 +173,7 @@ export default function MaintenanceItemCompletionDialog({ open, plan, item, vehi
 
                     <div className='flex flex-col gap-3 rounded-xl border bg-accent/20 p-4'>
                         <div className='flex flex-wrap items-center gap-2'>
-                            <Badge variant='secondary'>{item.name}</Badge>
+                            <Badge variant='secondary'>{getServiceTypeLabel(plan.serviceType)}</Badge>
                             <p className='text-sm font-medium text-foreground'>{plan.title}</p>
                         </div>
 

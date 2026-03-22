@@ -1,5 +1,5 @@
 import {
-    SERVICE_TYPES,
+    getServiceTypeLabel,
     type MaintenancePlan,
     type ServiceRecord as ApiServiceRecord,
     type Vehicle
@@ -22,19 +22,14 @@ export type EvaluatedMaintenancePlan = {
     id: string
     title: string
     description?: string
-    items: string[]
     interval: string
     due: string
     lastCompleted: string
     status: ServiceStatus
 }
 
-const serviceLabelByValue = new Map<string, string>(
-    SERVICE_TYPES.map(serviceType => [serviceType.value, serviceType.label])
-)
-
 export function getServiceLabel(serviceType: string) {
-    return serviceLabelByValue.get(serviceType) ?? serviceType
+    return getServiceTypeLabel(serviceType)
 }
 
 export function getServiceCategory(serviceType: string) {
@@ -213,7 +208,6 @@ export function evaluateMaintenancePlans(
             id: String(plan.id),
             title: plan.title,
             description: plan.description ?? undefined,
-            items: plan.items.map(item => item.name),
             interval: formatInterval(plan.intervalMonths, plan.intervalMileage),
             due: getMaintenancePlanDue(plan, vehicle, now),
             lastCompleted: getMaintenancePlanLastCompleted(plan),

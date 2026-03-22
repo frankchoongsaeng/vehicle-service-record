@@ -4,18 +4,19 @@ import { prisma } from '../db.js'
 import { createLogger } from '../logging/logger.js'
 import { asyncHandler } from '../middleware/asyncHandler.js'
 import { requireAuth } from '../middleware/auth.js'
+import { getServiceTypeLabel, isServiceTypeValue, type ServiceTypeValue } from '../types/serviceTypes.js'
 
 const router = Router({ mergeParams: true })
 const maintenancePlansLogger = createLogger({ component: 'maintenance-plan-routes' })
 
 type MaintenancePlanPayload = {
+    serviceType: ServiceTypeValue
     title: string
     description?: string
     intervalMonths?: number
     intervalMileage?: number
     lastCompletedDate?: string
     lastCompletedMileage?: number
-    items: string[]
 }
 
 function isIsoDate(value: string) {
@@ -52,15 +53,17 @@ function normalizeOptionalDate(value: unknown): string | null {
 
 function normalizeMaintenancePlanPayload(body: unknown): { data?: MaintenancePlanPayload; error?: string } {
     const raw = (body ?? {}) as Record<string, unknown>
+    const serviceType = typeof raw.serviceType === 'string' ? raw.serviceType.trim() : ''
     const title = typeof raw.title === 'string' ? raw.title.trim() : ''
     const description = typeof raw.description === 'string' ? raw.description.trim() : ''
     const intervalMonths = normalizeOptionalPositiveInteger(raw.intervalMonths)
     const intervalMileage = normalizeOptionalPositiveInteger(raw.intervalMileage)
     const lastCompletedMileage = normalizeOptionalPositiveInteger(raw.lastCompletedMileage)
     const lastCompletedDate = normalizeOptionalDate(raw.lastCompletedDate)
-    const items = Array.isArray(raw.items)
-        ? raw.items.map(item => (typeof item === 'string' ? item.trim() : '')).filter(item => item.length > 0)
-        : []
+
+    if (!isServiceTypeValue(serviceType)) {
+        return { error: 'serviceType is required and must be valid' }
+    }
 
     if (!title) {
         return { error: 'title is required' }
@@ -82,19 +85,15 @@ function normalizeMaintenancePlanPayload(body: unknown): { data?: MaintenancePla
         return { error: 'lastCompletedDate must be a valid YYYY-MM-DD value when provided' }
     }
 
-    if (items.length === 0) {
-        return { error: 'At least one maintenance item is required' }
-    }
-
     return {
         data: {
+            serviceType,
             title,
             description: description || undefined,
             intervalMonths: intervalMonths ?? undefined,
             intervalMileage: intervalMileage ?? undefined,
             lastCompletedDate: lastCompletedDate ?? undefined,
-            lastCompletedMileage: lastCompletedMileage ?? undefined,
-            items
+            lastCompletedMileage: lastCompletedMileage ?? undefined
         }
     }
 }
@@ -102,6 +101,7 @@ function normalizeMaintenancePlanPayload(body: unknown): { data?: MaintenancePla
 function serializeMaintenancePlan(plan: {
     id: number
     vehicle_id: number
+    service_type: string
     title: string
     description: string | null
     interval_months: number | null
@@ -120,6 +120,7 @@ function serializeMaintenancePlan(plan: {
     return {
         id: plan.id,
         vehicleId: plan.vehicle_id,
+        serviceType: plan.service_type,
         title: plan.title,
         description: plan.description,
         intervalMonths: plan.interval_months,
@@ -266,6 +267,7 @@ router.post(
             data: {
                 user_id: authUser.id,
                 vehicle_id: vehicleId,
+                service_type: data.serviceType,
                 title: data.title,
                 description: data.description ?? null,
                 interval_months: data.intervalMonths ?? null,
@@ -273,7 +275,7 @@ router.post(
                 last_completed_date: data.lastCompletedDate ?? null,
                 last_completed_mileage: data.lastCompletedMileage ?? null,
                 items: {
-                    create: data.items.map(item => ({ name: item }))
+                    create: [{ name: getServiceTypeLabel(data.serviceType) }]
                 }
             },
             include: {
@@ -345,6 +347,7 @@ router.put(
             return transaction.maintenancePlan.update({
                 where: { id: planId },
                 data: {
+                    service_type: data.serviceType,
                     title: data.title,
                     description: data.description ?? null,
                     interval_months: data.intervalMonths ?? null,
@@ -352,7 +355,7 @@ router.put(
                     last_completed_date: data.lastCompletedDate ?? null,
                     last_completed_mileage: data.lastCompletedMileage ?? null,
                     items: {
-                        create: data.items.map(item => ({ name: item }))
+                        create: [{ name: getServiceTypeLabel(data.serviceType) }]
                     }
                 },
                 include: {

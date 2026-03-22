@@ -172,10 +172,6 @@ export default function RecordsRoute() {
             next.delete('category')
         }
 
-        if (next.get('completePlan') && !next.get('plan')) {
-            next.set('plan', next.get('completePlan')!)
-        }
-
         const queryString = next.toString()
         return `/garage/${vehicleId}/records${queryString ? `?${queryString}` : ''}`
     }
@@ -545,7 +541,6 @@ export default function RecordsRoute() {
                                                                 navigate(
                                                                     buildRecordsUrl({
                                                                         view: 'plans',
-                                                                        plan: String(plan.id),
                                                                         completePlan: String(plan.id)
                                                                     })
                                                                 )
@@ -648,14 +643,7 @@ export default function RecordsRoute() {
                                 return
                             }
 
-                            navigate(
-                                buildRecordsUrl({
-                                    view: 'plans',
-                                    plan: String(completionPlan.id),
-                                    completePlan: null
-                                }),
-                                { replace: true }
-                            )
+                            navigate(buildRecordsUrl({ view: 'plans', completePlan: null }), { replace: true })
                         }}
                         onSubmit={data => handleCompletePlanItem(completionPlan.id, data)}
                     />

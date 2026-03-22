@@ -18,6 +18,7 @@ interface Props {
 export default function ServiceRecordForm({ initial, onSubmit, onCancel }: Props) {
     const [form, setForm] = useState<ServiceRecordInput>({
         service_type: initial?.service_type ?? 'oil_change',
+        workshop: initial?.workshop ?? '',
         description: initial?.description ?? '',
         date: initial?.date ?? new Date().toISOString().slice(0, 10),
         mileage: initial?.mileage ?? undefined,
@@ -44,6 +45,7 @@ export default function ServiceRecordForm({ initial, onSubmit, onCancel }: Props
         try {
             await onSubmit({
                 ...form,
+                workshop: form.workshop?.trim() || undefined,
                 mileage: form.mileage ? Number(form.mileage) : undefined,
                 cost: form.cost ? Number(form.cost) : undefined,
                 notes: form.notes || undefined
@@ -110,6 +112,16 @@ export default function ServiceRecordForm({ initial, onSubmit, onCancel }: Props
                             onChange={e => set('description', e.target.value)}
                             placeholder='e.g. Full synthetic 5W-30 oil change + filter'
                             required
+                        />
+                    </div>
+
+                    <div className='space-y-2'>
+                        <label className='text-sm font-medium text-foreground'>Workshop</label>
+                        <Input
+                            type='text'
+                            value={form.workshop ?? ''}
+                            onChange={e => set('workshop', e.target.value)}
+                            placeholder='e.g. Northside Auto Care'
                         />
                     </div>
 

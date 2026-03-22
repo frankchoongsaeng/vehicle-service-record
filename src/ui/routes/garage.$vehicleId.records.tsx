@@ -458,7 +458,7 @@ export default function RecordsRoute() {
                                             {!isDetailOpen && <TableHead>Workshop</TableHead>}
                                             <TableHead className='text-right'>Cost</TableHead>
                                             <TableHead>Status</TableHead>
-                                            <TableHead className='w-[1%] text-right'>Edit</TableHead>
+                                            <TableHead className='w-[1%] text-right' />
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>

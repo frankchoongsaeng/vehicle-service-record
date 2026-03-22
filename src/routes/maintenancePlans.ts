@@ -4,7 +4,7 @@ import { prisma } from '../db.js'
 import { createLogger } from '../logging/logger.js'
 import { asyncHandler } from '../middleware/asyncHandler.js'
 import { requireAuth } from '../middleware/auth.js'
-import { getServiceTypeLabel, isServiceTypeValue, type ServiceTypeValue } from '../types/serviceTypes.js'
+import { isServiceTypeValue, type ServiceTypeValue } from '../types/serviceTypes.js'
 
 const router = Router({ mergeParams: true })
 const maintenancePlansLogger = createLogger({ component: 'maintenance-plan-routes' })
@@ -110,12 +110,6 @@ function serializeMaintenancePlan(plan: {
     last_completed_mileage: number | null
     created_at: Date
     updated_at: Date
-    items: Array<{
-        id: number
-        name: string
-        created_at: Date
-        updated_at: Date
-    }>
 }) {
     return {
         id: plan.id,
@@ -127,12 +121,6 @@ function serializeMaintenancePlan(plan: {
         intervalMileage: plan.interval_mileage,
         lastCompletedDate: plan.last_completed_date,
         lastCompletedMileage: plan.last_completed_mileage,
-        items: plan.items.map(item => ({
-            id: item.id,
-            name: item.name,
-            created_at: item.created_at,
-            updated_at: item.updated_at
-        })),
         created_at: plan.created_at,
         updated_at: plan.updated_at
     }
@@ -171,11 +159,6 @@ router.get(
                 user_id: authUser.id,
                 vehicle_id: vehicleId
             },
-            include: {
-                items: {
-                    orderBy: [{ created_at: 'asc' }, { id: 'asc' }]
-                }
-            },
             orderBy: [{ updated_at: 'desc' }, { id: 'desc' }]
         })
 
@@ -202,11 +185,6 @@ router.get(
                 id: planId,
                 user_id: authUser.id,
                 vehicle_id: vehicleId
-            },
-            include: {
-                items: {
-                    orderBy: [{ created_at: 'asc' }, { id: 'asc' }]
-                }
             }
         })
 
@@ -273,15 +251,7 @@ router.post(
                 interval_months: data.intervalMonths ?? null,
                 interval_mileage: data.intervalMileage ?? null,
                 last_completed_date: data.lastCompletedDate ?? null,
-                last_completed_mileage: data.lastCompletedMileage ?? null,
-                items: {
-                    create: [{ name: getServiceTypeLabel(data.serviceType) }]
-                }
-            },
-            include: {
-                items: {
-                    orderBy: [{ created_at: 'asc' }, { id: 'asc' }]
-                }
+                last_completed_mileage: data.lastCompletedMileage ?? null
             }
         })
 
@@ -337,33 +307,17 @@ router.put(
             return
         }
 
-        const updatedPlan = await prisma.$transaction(async transaction => {
-            await transaction.maintenancePlanItem.deleteMany({
-                where: {
-                    maintenance_plan_id: planId
-                }
-            })
-
-            return transaction.maintenancePlan.update({
-                where: { id: planId },
-                data: {
-                    service_type: data.serviceType,
-                    title: data.title,
-                    description: data.description ?? null,
-                    interval_months: data.intervalMonths ?? null,
-                    interval_mileage: data.intervalMileage ?? null,
-                    last_completed_date: data.lastCompletedDate ?? null,
-                    last_completed_mileage: data.lastCompletedMileage ?? null,
-                    items: {
-                        create: [{ name: getServiceTypeLabel(data.serviceType) }]
-                    }
-                },
-                include: {
-                    items: {
-                        orderBy: [{ created_at: 'asc' }, { id: 'asc' }]
-                    }
-                }
-            })
+        const updatedPlan = await prisma.maintenancePlan.update({
+            where: { id: planId },
+            data: {
+                service_type: data.serviceType,
+                title: data.title,
+                description: data.description ?? null,
+                interval_months: data.intervalMonths ?? null,
+                interval_mileage: data.intervalMileage ?? null,
+                last_completed_date: data.lastCompletedDate ?? null,
+                last_completed_mileage: data.lastCompletedMileage ?? null
+            }
         })
 
         maintenancePlansLogger.info('maintenance_plans.updated', {

@@ -11,7 +11,6 @@ const recordsLogger = createLogger({ component: 'service-record-routes' })
 
 type ServiceRecordWriteInput = {
     maintenance_plan_id?: number | null
-    maintenance_plan_item_id?: number | null
     service_type: string
     description: string
     date: string
@@ -47,14 +46,10 @@ function getRecordMatchKeys(record: ServiceRecordWriteInput) {
     return keys
 }
 
-function getPlanMatchKeys(plan: { service_type: string; items: Array<{ name: string }> }) {
+function getPlanMatchKeys(plan: { service_type: string }) {
     const keys = new Set<string>()
 
-    for (const candidate of [
-        plan.service_type,
-        getServiceTypeLabel(plan.service_type),
-        ...plan.items.map(item => item.name)
-    ]) {
+    for (const candidate of [plan.service_type, getServiceTypeLabel(plan.service_type)]) {
         const normalized = normalizeMatchText(candidate)
 
         if (normalized) {
@@ -118,12 +113,7 @@ async function recomputeMaintenancePlanBaselines(
                 id: true,
                 service_type: true,
                 last_completed_date: true,
-                last_completed_mileage: true,
-                items: {
-                    select: {
-                        name: true
-                    }
-                }
+                last_completed_mileage: true
             }
         }),
         transaction.serviceRecord.findMany({
@@ -275,17 +265,15 @@ router.post(
     '/',
     asyncHandler(async (req: Request, res: Response) => {
         const authUser = req.authUser!
-        const { maintenance_plan_id, maintenance_plan_item_id, service_type, description, date, mileage, cost, notes } =
-            req.body as {
-                maintenance_plan_id?: number
-                maintenance_plan_item_id?: number
-                service_type: string
-                description: string
-                date: string
-                mileage?: number
-                cost?: number
-                notes?: string
-            }
+        const { maintenance_plan_id, service_type, description, date, mileage, cost, notes } = req.body as {
+            maintenance_plan_id?: number
+            service_type: string
+            description: string
+            date: string
+            mileage?: number
+            cost?: number
+            notes?: string
+        }
 
         if (!service_type || !description || !date) {
             recordsLogger.warn('records.create_invalid_payload', {
@@ -316,7 +304,6 @@ router.post(
         }
 
         let linkedPlan: { id: number } | null = null
-        let linkedPlanItem: { id: number; maintenance_plan_id: number } | null = null
 
         if (maintenance_plan_id != null) {
             linkedPlan = await prisma.maintenancePlan.findFirst({
@@ -340,57 +327,12 @@ router.post(
             }
         }
 
-        if (maintenance_plan_item_id != null) {
-            linkedPlanItem = await prisma.maintenancePlanItem.findFirst({
-                where: {
-                    id: Number(maintenance_plan_item_id),
-                    maintenance_plan: {
-                        user_id: authUser.id,
-                        vehicle_id: vehicleId
-                    }
-                },
-                select: {
-                    id: true,
-                    maintenance_plan_id: true
-                }
-            })
-
-            if (!linkedPlanItem) {
-                recordsLogger.warn('records.create_invalid_plan_item_link', {
-                    requestId: req.requestId,
-                    userId: authUser.id,
-                    vehicleId,
-                    maintenancePlanItemId: maintenance_plan_item_id
-                })
-                res.status(400).json({ error: 'maintenance_plan_item_id must reference an item on this vehicle' })
-                return
-            }
-
-            if (linkedPlan && linkedPlanItem.maintenance_plan_id !== linkedPlan.id) {
-                recordsLogger.warn('records.create_mismatched_plan_link', {
-                    requestId: req.requestId,
-                    userId: authUser.id,
-                    vehicleId,
-                    maintenancePlanId: linkedPlan.id,
-                    maintenancePlanItemId: linkedPlanItem.id,
-                    itemPlanId: linkedPlanItem.maintenance_plan_id
-                })
-                res.status(400).json({ error: 'maintenance_plan_item_id must belong to maintenance_plan_id' })
-                return
-            }
-
-            if (!linkedPlan) {
-                linkedPlan = { id: linkedPlanItem.maintenance_plan_id }
-            }
-        }
-
         const { created, recomputedPlanCount } = await prisma.$transaction(async transaction => {
             const created = await transaction.serviceRecord.create({
                 data: {
                     user_id: authUser.id,
                     vehicle_id: vehicleId,
                     maintenance_plan_id: linkedPlan?.id ?? null,
-                    maintenance_plan_item_id: linkedPlanItem?.id ?? null,
                     service_type,
                     description,
                     date,
@@ -411,7 +353,6 @@ router.post(
             vehicleId,
             recordId: created.id,
             maintenancePlanId: created.maintenance_plan_id,
-            maintenancePlanItemId: created.maintenance_plan_item_id,
             serviceType: created.service_type,
             date: created.date,
             recomputedPlanCount

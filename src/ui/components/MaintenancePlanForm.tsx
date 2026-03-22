@@ -123,6 +123,14 @@ export default function MaintenancePlanForm({ initial, onSubmit, onCancel, onDel
             return
         }
 
+        const confirmationMessage = initial?.title
+            ? `Delete the maintenance plan "${initial.title}"? This cannot be undone.`
+            : 'Delete this maintenance plan? This cannot be undone.'
+
+        if (!window.confirm(confirmationMessage)) {
+            return
+        }
+
         setError('')
         setIsDeleting(true)
 

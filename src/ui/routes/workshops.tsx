@@ -2,7 +2,7 @@
 
 import type { LoaderFunctionArgs, MetaFunction } from '@remix-run/node'
 import { useLoaderData, useLocation, useNavigate, useSearchParams } from '@remix-run/react'
-import { Building2, MapPinned, Pencil, Phone, Plus, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 
 import * as api from '../api/client.js'
@@ -14,6 +14,7 @@ import { PageHeader } from '../components/PageHeader.js'
 import { Button } from '../components/ui/button.js'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card.js'
 import { Input } from '../components/ui/input.js'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table.js'
 import { Textarea } from '../components/ui/textarea.js'
 import { fetchApiData } from '../lib/maintenance.js'
 import type { Workshop, WorkshopInput } from '../types/index.js'
@@ -345,6 +346,7 @@ export default function WorkshopsRoute() {
                     eyebrow='Directory'
                     title='Manage workshops'
                     description='Keep a reusable list of service shops and mechanics with the contact details you need.'
+                    cardClassName='border-none bg-transparent shadow-none'
                     actions={
                         <Button onClick={() => setViewAndSyncUrl({ type: 'create' })}>
                             <Plus data-icon='inline-start' />
@@ -353,7 +355,7 @@ export default function WorkshopsRoute() {
                     }
                 />
 
-                <div className='grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]'>
+                <div className={view.type === 'list' ? 'grid gap-6' : 'grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]'}>
                     <section className='flex flex-col gap-4'>
                         {workshops.length === 0 ? (
                             <Card>
@@ -371,104 +373,115 @@ export default function WorkshopsRoute() {
                                 </CardFooter>
                             </Card>
                         ) : (
-                            workshops.map(workshop => {
-                                const isActive = activeWorkshop?.id === workshop.id
-
-                                return (
-                                    <Card
-                                        key={workshop.id}
-                                        className={isActive ? 'border-primary/40 bg-primary/5' : ''}
-                                    >
-                                        <CardHeader>
-                                            <div className='flex items-start justify-between gap-4'>
-                                                <div className='flex min-w-0 flex-col gap-1'>
-                                                    <CardTitle className='flex items-center gap-2'>
-                                                        <Building2 className='size-4 text-muted-foreground' />
-                                                        <span className='truncate'>{workshop.name}</span>
-                                                    </CardTitle>
-                                                    <CardDescription>
-                                                        Updated {formatLastUpdated(workshop.updated_at)}
-                                                    </CardDescription>
-                                                </div>
-                                                <div className='flex shrink-0 gap-2'>
-                                                    <Button
-                                                        type='button'
-                                                        variant='outline'
-                                                        size='sm'
-                                                        onClick={() => setViewAndSyncUrl({ type: 'edit', workshop })}
-                                                    >
-                                                        <Pencil data-icon='inline-start' />
-                                                        Edit
-                                                    </Button>
-                                                    <Button
-                                                        type='button'
-                                                        variant='outline'
-                                                        size='sm'
-                                                        onClick={() => handleDeleteWorkshop(workshop)}
-                                                    >
-                                                        <Trash2 data-icon='inline-start' />
-                                                        Delete
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        </CardHeader>
-                                        <CardContent className='flex flex-col gap-4'>
-                                            <div className='flex items-start gap-3 text-sm text-muted-foreground'>
-                                                <MapPinned className='mt-0.5 size-4 shrink-0' />
-                                                <span>{workshop.address?.trim() || 'No address saved'}</span>
-                                            </div>
-                                            <div className='flex items-start gap-3 text-sm text-muted-foreground'>
-                                                <Phone className='mt-0.5 size-4 shrink-0' />
-                                                <span>{workshop.phone?.trim() || 'No phone number saved'}</span>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                )
-                            })
-                        )}
-                    </section>
-
-                    <section>
-                        {view.type === 'create' ? (
-                            <WorkshopForm
-                                key='create-workshop-form'
-                                submitting={submitting}
-                                error={error}
-                                onSubmit={handleCreateWorkshop}
-                                onCancel={() => {
-                                    setError('')
-                                    setViewAndSyncUrl({ type: 'list' })
-                                }}
-                            />
-                        ) : view.type === 'edit' ? (
-                            <WorkshopForm
-                                key={`edit-workshop-${view.workshop.id}`}
-                                initial={view.workshop}
-                                submitting={submitting}
-                                error={error}
-                                onSubmit={handleUpdateWorkshop}
-                                onCancel={() => {
-                                    setError('')
-                                    setViewAndSyncUrl({ type: 'list' })
-                                }}
-                            />
-                        ) : (
                             <Card>
                                 <CardHeader>
-                                    <CardTitle>Workshop details</CardTitle>
+                                    <CardTitle>Workshop directory</CardTitle>
                                     <CardDescription>
-                                        Select a workshop to edit it, or create a new one from here.
+                                        Review your saved service locations and manage them with the row actions.
                                     </CardDescription>
                                 </CardHeader>
-                                <CardFooter>
-                                    <Button onClick={() => setViewAndSyncUrl({ type: 'create' })}>
-                                        <Plus data-icon='inline-start' />
-                                        Add Workshop
-                                    </Button>
-                                </CardFooter>
+                                <CardContent>
+                                    <div className='mb-4 flex items-center justify-between gap-3 text-sm text-muted-foreground'>
+                                        <span>
+                                            {workshops.length} workshop{workshops.length === 1 ? '' : 's'} saved
+                                        </span>
+                                        <span>Use Edit to open a workshop in the details panel.</span>
+                                    </div>
+
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Name</TableHead>
+                                                <TableHead>Address</TableHead>
+                                                <TableHead>Phone</TableHead>
+                                                <TableHead>Updated</TableHead>
+                                                <TableHead className='text-right' />
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {workshops.map(workshop => {
+                                                const isActive = activeWorkshop?.id === workshop.id
+
+                                                return (
+                                                    <TableRow
+                                                        key={workshop.id}
+                                                        className={isActive ? 'bg-muted/50' : ''}
+                                                        data-state={isActive ? 'selected' : undefined}
+                                                    >
+                                                        <TableCell className='font-medium text-foreground'>
+                                                            {workshop.name}
+                                                        </TableCell>
+                                                        <TableCell className='max-w-64 truncate text-muted-foreground'>
+                                                            {workshop.address?.trim() || 'No address saved'}
+                                                        </TableCell>
+                                                        <TableCell className='text-muted-foreground'>
+                                                            {workshop.phone?.trim() || 'No phone number saved'}
+                                                        </TableCell>
+                                                        <TableCell className='text-muted-foreground'>
+                                                            {formatLastUpdated(workshop.updated_at)}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className='flex justify-end gap-2'>
+                                                                <Button
+                                                                    type='button'
+                                                                    variant='outline'
+                                                                    size='sm'
+                                                                    onClick={() =>
+                                                                        setViewAndSyncUrl({ type: 'edit', workshop })
+                                                                    }
+                                                                >
+                                                                    <Pencil data-icon='inline-start' />
+                                                                    Edit
+                                                                </Button>
+                                                                <Button
+                                                                    type='button'
+                                                                    variant='outline'
+                                                                    size='sm'
+                                                                    onClick={() => handleDeleteWorkshop(workshop)}
+                                                                >
+                                                                    <Trash2 data-icon='inline-start' />
+                                                                    Delete
+                                                                </Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )
+                                            })}
+                                        </TableBody>
+                                    </Table>
+                                </CardContent>
                             </Card>
                         )}
                     </section>
+
+                    {view.type !== 'list' && (
+                        <section>
+                            {view.type === 'create' ? (
+                                <WorkshopForm
+                                    key='create-workshop-form'
+                                    submitting={submitting}
+                                    error={error}
+                                    onSubmit={handleCreateWorkshop}
+                                    onCancel={() => {
+                                        setError('')
+                                        setViewAndSyncUrl({ type: 'list' })
+                                    }}
+                                />
+                            ) : (
+                                <WorkshopForm
+                                    key={`edit-workshop-${view.workshop.id}`}
+                                    initial={view.workshop}
+                                    submitting={submitting}
+                                    error={error}
+                                    onSubmit={handleUpdateWorkshop}
+                                    onCancel={() => {
+                                        setError('')
+                                        setViewAndSyncUrl({ type: 'list' })
+                                    }}
+                                />
+                            )}
+                        </section>
+                    )}
                 </div>
             </div>
         </AuthenticatedShell>

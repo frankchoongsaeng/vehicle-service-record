@@ -2,6 +2,8 @@ import type {
     AuthUser,
     LoginInput,
     SignupInput,
+    Workshop,
+    WorkshopInput,
     Vehicle,
     VinLookupResult,
     VehicleInput,
@@ -132,6 +134,24 @@ export const signup = async (input: SignupInput): Promise<AuthUser> => {
 }
 
 export const logout = (): Promise<void> => request('/auth/logout', { method: 'POST' })
+
+// ── Workshops ───────────────────────────────────────────────────────────────
+
+export const getWorkshops = (): Promise<Workshop[]> => request('/workshops')
+
+export const createWorkshop = (input: WorkshopInput): Promise<Workshop> =>
+    request('/workshops', {
+        method: 'POST',
+        body: JSON.stringify(input)
+    })
+
+export const updateWorkshop = (id: number, input: WorkshopInput): Promise<Workshop> =>
+    request(`/workshops/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(input)
+    })
+
+export const deleteWorkshop = (id: number): Promise<void> => request(`/workshops/${id}`, { method: 'DELETE' })
 
 // ── Vehicles ────────────────────────────────────────────────────────────────
 

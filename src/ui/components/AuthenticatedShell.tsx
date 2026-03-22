@@ -74,9 +74,11 @@ export function AuthenticatedShell({
                                                 Manage Garage
                                             </NavLink>
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem disabled>
-                                            <BriefcaseBusiness />
-                                            Manage Workshops
+                                        <DropdownMenuItem asChild>
+                                            <NavLink to='/workshops'>
+                                                <BriefcaseBusiness />
+                                                Manage Workshops
+                                            </NavLink>
                                         </DropdownMenuItem>
                                     </DropdownMenuGroup>
                                 </DropdownMenuContent>

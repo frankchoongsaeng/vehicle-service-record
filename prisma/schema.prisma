@@ -17,6 +17,7 @@ model User {
     vehicles          Vehicle[]
     service_records   ServiceRecord[]
     maintenance_plans MaintenancePlan[]
+    workshops         Workshop[]
 
     @@map("users")
 }
@@ -134,4 +135,20 @@ model MaintenancePlan {
     @@index([vehicle_id])
     @@index([user_id, vehicle_id])
     @@map("maintenance_plans")
+}
+
+model Workshop {
+    id         Int      @id @default(autoincrement())
+    user_id    String
+    name       String
+    address    String?
+    phone      String?
+    created_at DateTime @default(now())
+    updated_at DateTime @updatedAt
+
+    user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+    @@index([user_id])
+    @@index([user_id, name])
+    @@map("workshops")
 }

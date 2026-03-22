@@ -7,6 +7,7 @@ import authRouter from './routes/auth.js'
 import maintenancePlansRouter from './routes/maintenancePlans.js'
 import vehiclesRouter from './routes/vehicles.js'
 import recordsRouter from './routes/records.js'
+import workshopsRouter from './routes/workshops.js'
 import { attachAuthUser } from './middleware/auth.js'
 import { logger } from './logging/logger.js'
 import { errorLoggingMiddleware, requestLoggingMiddleware } from './middleware/requestLogging.js'
@@ -54,6 +55,7 @@ app.use('/api', apiLimiter)
 // Routes
 app.use('/api/auth', authRouter)
 app.use('/api/vehicles', vehiclesRouter)
+app.use('/api/workshops', workshopsRouter)
 app.use('/api/vehicles/:vehicleId/maintenance-plans', maintenancePlansRouter)
 app.use('/api/vehicles/:vehicleId/records', recordsRouter)
 

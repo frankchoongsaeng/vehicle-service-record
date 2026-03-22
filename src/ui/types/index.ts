@@ -92,6 +92,21 @@ export interface SignupInput {
     password: string
 }
 
+export interface Workshop {
+    id: number
+    name: string
+    address?: string | null
+    phone?: string | null
+    created_at: string
+    updated_at: string
+}
+
+export interface WorkshopInput {
+    name: string
+    address?: string
+    phone?: string
+}
+
 export interface ServiceRecord {
     id: number
     vehicle_id: number

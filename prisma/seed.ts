@@ -307,22 +307,42 @@ async function main() {
     const user = await prisma.user.upsert({
         where: { email },
         update: {
-            password_hash: hashPassword(password)
+            password_hash: hashPassword(password),
+            first_name: 'Demo',
+            last_name: 'Driver',
+            country: 'United States',
+            preferred_currency: 'USD',
+            profile_image_url:
+                'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=256&q=80'
         },
         create: {
             email,
-            password_hash: hashPassword(password)
+            password_hash: hashPassword(password),
+            first_name: 'Demo',
+            last_name: 'Driver',
+            country: 'United States',
+            preferred_currency: 'USD',
+            profile_image_url:
+                'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=256&q=80'
         }
     })
 
     const secondaryUser = await prisma.user.upsert({
         where: { email: secondaryEmail },
         update: {
-            password_hash: hashPassword(secondaryPassword)
+            password_hash: hashPassword(secondaryPassword),
+            first_name: 'Hidden',
+            last_name: 'Owner',
+            country: 'Canada',
+            preferred_currency: 'CAD'
         },
         create: {
             email: secondaryEmail,
-            password_hash: hashPassword(secondaryPassword)
+            password_hash: hashPassword(secondaryPassword),
+            first_name: 'Hidden',
+            last_name: 'Owner',
+            country: 'Canada',
+            preferred_currency: 'CAD'
         }
     })
 

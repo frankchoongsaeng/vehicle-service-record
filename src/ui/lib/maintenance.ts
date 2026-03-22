@@ -11,6 +11,8 @@ import type {
     TimelineEvent,
     UpcomingItem
 } from '../components/dashboard/types.js'
+import type { AuthUser } from '../types/index.js'
+import { DEFAULT_PREFERRED_CURRENCY, formatCurrencyAmount, type PreferredCurrencyCode } from './currency.js'
 
 type UpcomingCandidate = UpcomingItem & { urgency: number }
 type PlanThresholdMetrics = {
@@ -62,8 +64,11 @@ export function formatMileage(value: number | null | undefined) {
     return value == null ? 'Not recorded' : `${value.toLocaleString()} mi`
 }
 
-export function formatCurrency(value: number | null | undefined) {
-    return value == null ? 'N/A' : `$${value.toFixed(2)}`
+export function formatCurrency(
+    value: number | null | undefined,
+    currency: PreferredCurrencyCode = DEFAULT_PREFERRED_CURRENCY
+) {
+    return formatCurrencyAmount(value, currency)
 }
 
 export function formatDate(date: string) {
@@ -264,7 +269,17 @@ export async function fetchApiData<T>(request: Request, path: string): Promise<T
     return (await response.json()) as T
 }
 
-export function buildDisplayServiceRecords(records: ApiServiceRecord[], now: Date): ServiceRecord[] {
+export async function fetchAuthenticatedUser(request: Request): Promise<AuthUser> {
+    const response = await fetchApiData<{ user: AuthUser }>(request, '/api/auth/session')
+
+    return response.user
+}
+
+export function buildDisplayServiceRecords(
+    records: ApiServiceRecord[],
+    now: Date,
+    currency: PreferredCurrencyCode = DEFAULT_PREFERRED_CURRENCY
+): ServiceRecord[] {
     return [...records]
         .sort((left, right) => right.date.localeCompare(left.date) || right.id - left.id)
         .map(record => ({
@@ -274,7 +289,7 @@ export function buildDisplayServiceRecords(records: ApiServiceRecord[], now: Dat
             service: getServiceLabel(record.service_type),
             workshop: record.workshop?.trim() || 'Not specified',
             category: getServiceCategory(record.service_type),
-            cost: formatCurrency(record.cost),
+            cost: formatCurrency(record.cost, currency),
             status: getRecordStatus(record, now),
             detail: record.description,
             notes: record.notes ?? undefined
@@ -344,7 +359,8 @@ export function buildSummaryStats(
     vehicle: Vehicle,
     records: ApiServiceRecord[],
     plans: MaintenancePlan[],
-    now: Date
+    now: Date,
+    currency: PreferredCurrencyCode = DEFAULT_PREFERRED_CURRENCY
 ): SummaryStat[] {
     const completedRecords = records
         .filter(record => getRecordStatus(record, now) === 'Completed')
@@ -364,7 +380,7 @@ export function buildSummaryStats(
         },
         {
             title: 'Total Maintenance Cost',
-            value: formatCurrency(totalMaintenanceCost),
+            value: formatCurrency(totalMaintenanceCost, currency),
             hint: `${completedRecords.length} completed record${completedRecords.length === 1 ? '' : 's'}`
         },
         {

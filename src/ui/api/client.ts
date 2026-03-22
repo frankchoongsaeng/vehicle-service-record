@@ -2,6 +2,7 @@ import type {
     AuthUser,
     LoginInput,
     SignupInput,
+    UserSettingsInput,
     Workshop,
     WorkshopInput,
     Vehicle,
@@ -134,6 +135,15 @@ export const signup = async (input: SignupInput): Promise<AuthUser> => {
 }
 
 export const logout = (): Promise<void> => request('/auth/logout', { method: 'POST' })
+
+export const updateSettings = async (input: UserSettingsInput): Promise<AuthUser> => {
+    const data = await request<{ user: AuthUser }>('/settings', {
+        method: 'PUT',
+        body: JSON.stringify(input)
+    })
+
+    return data.user
+}
 
 // ── Workshops ───────────────────────────────────────────────────────────────
 

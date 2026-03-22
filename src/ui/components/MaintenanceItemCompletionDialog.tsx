@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { CircleDollarSign, Gauge, Wrench } from 'lucide-react'
 
+import { useAuth } from '../auth/useAuth.js'
+import { DEFAULT_PREFERRED_CURRENCY } from '../lib/currency.js'
 import {
     SERVICE_TYPES,
     getServiceTypeLabel,
@@ -104,10 +106,12 @@ function createDefaultFormState(plan: MaintenancePlan, vehicle: Vehicle): FormSt
 }
 
 export default function MaintenanceItemCompletionDialog({ open, plan, vehicle, onOpenChange, onSubmit }: Props) {
+    const auth = useAuth()
     const [form, setForm] = useState<FormState>(() => createDefaultFormState(plan, vehicle))
     const [error, setError] = useState('')
     const [isSaving, setIsSaving] = useState(false)
     const today = new Date()
+    const preferredCurrency = auth.user?.preferredCurrency ?? DEFAULT_PREFERRED_CURRENCY
 
     useEffect(() => {
         setForm(createDefaultFormState(plan, vehicle))
@@ -256,7 +260,7 @@ export default function MaintenanceItemCompletionDialog({ open, plan, vehicle, o
                         </div>
 
                         <div className='flex flex-col gap-2'>
-                            <label className='text-sm font-medium text-foreground'>Price / Cost</label>
+                            <label className='text-sm font-medium text-foreground'>{`Price / Cost (${preferredCurrency})`}</label>
                             <InputGroup>
                                 <InputGroupInput
                                     type='number'

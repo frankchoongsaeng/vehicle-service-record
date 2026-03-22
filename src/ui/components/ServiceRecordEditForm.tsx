@@ -1,5 +1,7 @@
 import { useId, useMemo, useState } from 'react'
 
+import { useAuth } from '../auth/useAuth.js'
+import { DEFAULT_PREFERRED_CURRENCY } from '../lib/currency.js'
 import type { ServiceRecord, ServiceRecordUpdateInput, Workshop } from '../types/index.js'
 import { Button } from './ui/button.js'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card.js'
@@ -14,6 +16,7 @@ interface Props {
 }
 
 export default function ServiceRecordEditForm({ initial, availableWorkshops = [], onSubmit, onCancel }: Props) {
+    const auth = useAuth()
     const workshopListId = useId()
     const [form, setForm] = useState<ServiceRecordUpdateInput>({
         workshop: initial.workshop ?? '',
@@ -30,6 +33,7 @@ export default function ServiceRecordEditForm({ initial, availableWorkshops = []
                 .map(workshop => workshop.name),
         [availableWorkshops]
     )
+    const preferredCurrency = auth.user?.preferredCurrency ?? DEFAULT_PREFERRED_CURRENCY
 
     const set = <K extends keyof ServiceRecordUpdateInput>(field: K, value: ServiceRecordUpdateInput[K]) =>
         setForm(prev => ({ ...prev, [field]: value }))
@@ -104,7 +108,7 @@ export default function ServiceRecordEditForm({ initial, availableWorkshops = []
                     </div>
 
                     <div className='space-y-2'>
-                        <label className='text-sm font-medium text-foreground'>Cost ($)</label>
+                        <label className='text-sm font-medium text-foreground'>{`Cost (${preferredCurrency})`}</label>
                         <Input
                             type='number'
                             value={form.cost ?? ''}

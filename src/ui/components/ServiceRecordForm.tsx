@@ -1,5 +1,7 @@
 import { useId, useMemo, useState } from 'react'
 
+import { useAuth } from '../auth/useAuth.js'
+import { DEFAULT_PREFERRED_CURRENCY } from '../lib/currency.js'
 import { Button } from './ui/button.js'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card.js'
 import { DatePicker } from './ui/date-picker.js'
@@ -17,6 +19,7 @@ interface Props {
 }
 
 export default function ServiceRecordForm({ initial, availableWorkshops = [], onSubmit, onCancel }: Props) {
+    const auth = useAuth()
     const workshopListId = useId()
     const [form, setForm] = useState<ServiceRecordInput>({
         service_type: initial?.service_type ?? 'oil_change',
@@ -30,6 +33,7 @@ export default function ServiceRecordForm({ initial, availableWorkshops = [], on
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
     const today = new Date()
+    const preferredCurrency = auth.user?.preferredCurrency ?? DEFAULT_PREFERRED_CURRENCY
     const workshopSuggestions = useMemo(
         () =>
             [...availableWorkshops]
@@ -156,7 +160,7 @@ export default function ServiceRecordForm({ initial, availableWorkshops = [], on
                             />
                         </div>
                         <div className='space-y-2'>
-                            <label className='text-sm font-medium text-foreground'>Cost ($)</label>
+                            <label className='text-sm font-medium text-foreground'>{`Cost (${preferredCurrency})`}</label>
                             <Input
                                 type='number'
                                 value={form.cost ?? ''}

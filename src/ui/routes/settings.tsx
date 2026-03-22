@@ -1,0 +1,355 @@
+/* eslint-disable react-refresh/only-export-components */
+
+import type { MetaFunction } from '@remix-run/node'
+import { Link, useLocation, useNavigate, useSearchParams } from '@remix-run/react'
+import { Globe, Settings2, UserRound } from 'lucide-react'
+import { useEffect, useState } from 'react'
+
+import * as api from '../api/client.js'
+import { ApiError } from '../api/client.js'
+import { useAuth } from '../auth/useAuth.js'
+import { getUserDisplayName, getUserInitials } from '../lib/account.js'
+import { getCurrencyLabel } from '../lib/currency.js'
+import { AuthenticatedShell } from '../components/AuthenticatedShell.js'
+import BrandedLoadingScreen from '../components/BrandedLoadingScreen.js'
+import { PageHeader } from '../components/PageHeader.js'
+import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar.js'
+import { Button } from '../components/ui/button.js'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card.js'
+import { Input } from '../components/ui/input.js'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select.js'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs.js'
+import { PREFERRED_CURRENCIES, type PreferredCurrencyCode } from '../../types/userSettings.js'
+
+export const meta: MetaFunction = () => {
+    return [{ title: 'Settings | Duralog' }, { name: 'description', content: 'Manage account and preferences.' }]
+}
+
+type SettingsTab = 'account' | 'preferences'
+
+const settingsTabs: ReadonlySet<SettingsTab> = new Set(['account', 'preferences'])
+
+function resolveSettingsTab(value: string | null): SettingsTab {
+    return value && settingsTabs.has(value as SettingsTab) ? (value as SettingsTab) : 'account'
+}
+
+export default function SettingsRoute() {
+    const auth = useAuth()
+    const location = useLocation()
+    const navigate = useNavigate()
+    const [searchParams, setSearchParams] = useSearchParams()
+    const activeTab = resolveSettingsTab(searchParams.get('tab'))
+
+    const [firstName, setFirstName] = useState('')
+    const [lastName, setLastName] = useState('')
+    const [country, setCountry] = useState('')
+    const [profileImageUrl, setProfileImageUrl] = useState('')
+    const [preferredCurrency, setPreferredCurrency] = useState<PreferredCurrencyCode>('USD')
+    const [accountError, setAccountError] = useState('')
+    const [preferencesError, setPreferencesError] = useState('')
+    const [accountSaved, setAccountSaved] = useState('')
+    const [preferencesSaved, setPreferencesSaved] = useState('')
+    const [savingAccount, setSavingAccount] = useState(false)
+    const [savingPreferences, setSavingPreferences] = useState(false)
+
+    useEffect(() => {
+        if (auth.status !== 'unauthenticated') {
+            return
+        }
+
+        const redirectTo = `${location.pathname}${location.search}${location.hash}` || '/settings'
+        navigate(`/login?redirectTo=${encodeURIComponent(redirectTo)}`, { replace: true })
+    }, [auth.status, location.hash, location.pathname, location.search, navigate])
+
+    useEffect(() => {
+        if (!auth.user) {
+            return
+        }
+
+        setFirstName(auth.user.firstName ?? '')
+        setLastName(auth.user.lastName ?? '')
+        setCountry(auth.user.country ?? '')
+        setProfileImageUrl(auth.user.profileImageUrl ?? '')
+        setPreferredCurrency(auth.user.preferredCurrency)
+    }, [auth.user])
+
+    const syncTab = (nextTab: SettingsTab) => {
+        const nextParams = new URLSearchParams(searchParams)
+
+        if (nextTab === 'account') {
+            nextParams.delete('tab')
+        } else {
+            nextParams.set('tab', nextTab)
+        }
+
+        setSearchParams(nextParams, { replace: true })
+    }
+
+    const handleSaveAccount = async () => {
+        setSavingAccount(true)
+        setAccountError('')
+        setAccountSaved('')
+
+        try {
+            const updatedUser = await api.updateSettings({
+                firstName,
+                lastName,
+                country,
+                profileImageUrl
+            })
+
+            auth.replaceUser(updatedUser)
+            setAccountSaved('Account settings saved.')
+        } catch (error) {
+            if (error instanceof ApiError || error instanceof Error) {
+                setAccountError(error.message)
+            } else {
+                setAccountError('Unable to save account settings right now.')
+            }
+        } finally {
+            setSavingAccount(false)
+        }
+    }
+
+    const handleSavePreferences = async () => {
+        setSavingPreferences(true)
+        setPreferencesError('')
+        setPreferencesSaved('')
+
+        try {
+            const updatedUser = await api.updateSettings({ preferredCurrency })
+            auth.replaceUser(updatedUser)
+            setPreferencesSaved('Preferences saved.')
+        } catch (error) {
+            if (error instanceof ApiError || error instanceof Error) {
+                setPreferencesError(error.message)
+            } else {
+                setPreferencesError('Unable to save preferences right now.')
+            }
+        } finally {
+            setSavingPreferences(false)
+        }
+    }
+
+    if (auth.status === 'loading') {
+        return <BrandedLoadingScreen message='Checking your session…' />
+    }
+
+    if (!auth.user) {
+        return <div className='grid min-h-screen place-items-center text-muted-foreground'>Redirecting to login…</div>
+    }
+
+    const displayName = getUserDisplayName(auth.user)
+    const initials = getUserInitials(auth.user)
+    const profilePreview = profileImageUrl.trim() || undefined
+
+    return (
+        <AuthenticatedShell currentUser={auth.user} onLogout={auth.logout}>
+            <div className='space-y-6'>
+                <PageHeader
+                    eyebrow='Settings'
+                    title='Manage your account'
+                    description='Update the profile details and preferences that follow you through the app.'
+                    variant='plain'
+                    actions={
+                        <Button asChild variant='outline'>
+                            <Link to='/garage'>Back to Garage</Link>
+                        </Button>
+                    }
+                />
+
+                <Tabs
+                    value={activeTab}
+                    onValueChange={value => syncTab(resolveSettingsTab(value))}
+                    className='flex flex-col gap-6'
+                >
+                    <TabsList>
+                        <TabsTrigger value='account'>Account</TabsTrigger>
+                        <TabsTrigger value='preferences'>Preferences</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value='account'>
+                        <div className='grid gap-6 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]'>
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Profile Preview</CardTitle>
+                                    <CardDescription>
+                                        The avatar shown in the header uses these account details.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className='flex flex-col items-start gap-4'>
+                                    <Avatar className='size-24 border border-border'>
+                                        <AvatarImage src={profilePreview} alt={displayName} />
+                                        <AvatarFallback className='text-xl font-semibold'>{initials}</AvatarFallback>
+                                    </Avatar>
+                                    <div className='flex flex-col gap-1'>
+                                        <p className='text-lg font-semibold text-foreground'>{displayName}</p>
+                                        <p className='text-sm text-muted-foreground'>{auth.user.email}</p>
+                                        <p className='text-sm text-muted-foreground'>
+                                            {country.trim() ? country.trim() : 'Country not set'}
+                                        </p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Account</CardTitle>
+                                    <CardDescription>
+                                        Set the personal details used in your profile menu and account views.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className='flex flex-col gap-4'>
+                                    {accountError ? (
+                                        <p className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'>
+                                            {accountError}
+                                        </p>
+                                    ) : null}
+                                    {accountSaved ? (
+                                        <p className='rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground'>
+                                            {accountSaved}
+                                        </p>
+                                    ) : null}
+
+                                    <div className='grid gap-4 md:grid-cols-2'>
+                                        <div className='flex flex-col gap-2'>
+                                            <label
+                                                htmlFor='settings-first-name'
+                                                className='text-sm font-medium text-foreground'
+                                            >
+                                                First name
+                                            </label>
+                                            <Input
+                                                id='settings-first-name'
+                                                value={firstName}
+                                                onChange={event => setFirstName(event.target.value)}
+                                                placeholder='e.g. Alex'
+                                            />
+                                        </div>
+                                        <div className='flex flex-col gap-2'>
+                                            <label
+                                                htmlFor='settings-last-name'
+                                                className='text-sm font-medium text-foreground'
+                                            >
+                                                Last name
+                                            </label>
+                                            <Input
+                                                id='settings-last-name'
+                                                value={lastName}
+                                                onChange={event => setLastName(event.target.value)}
+                                                placeholder='e.g. Driver'
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className='flex flex-col gap-2'>
+                                        <label
+                                            htmlFor='settings-country'
+                                            className='text-sm font-medium text-foreground'
+                                        >
+                                            Country
+                                        </label>
+                                        <Input
+                                            id='settings-country'
+                                            value={country}
+                                            onChange={event => setCountry(event.target.value)}
+                                            placeholder='e.g. United States'
+                                        />
+                                    </div>
+
+                                    <div className='flex flex-col gap-2'>
+                                        <label
+                                            htmlFor='settings-profile-image-url'
+                                            className='text-sm font-medium text-foreground'
+                                        >
+                                            Profile image URL
+                                        </label>
+                                        <Input
+                                            id='settings-profile-image-url'
+                                            type='url'
+                                            value={profileImageUrl}
+                                            onChange={event => setProfileImageUrl(event.target.value)}
+                                            placeholder='https://example.com/avatar.jpg'
+                                        />
+                                        <p className='text-xs text-muted-foreground'>
+                                            Use a direct http or https image URL.
+                                        </p>
+                                    </div>
+
+                                    <div className='flex justify-end'>
+                                        <Button type='button' onClick={handleSaveAccount} disabled={savingAccount}>
+                                            <UserRound data-icon='inline-start' />
+                                            {savingAccount ? 'Saving…' : 'Save Account'}
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value='preferences'>
+                        <Card className='max-w-2xl'>
+                            <CardHeader>
+                                <CardTitle>Preferences</CardTitle>
+                                <CardDescription>
+                                    Choose the currency label and formatting used when recording and displaying amounts.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className='flex flex-col gap-4'>
+                                {preferencesError ? (
+                                    <p className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'>
+                                        {preferencesError}
+                                    </p>
+                                ) : null}
+                                {preferencesSaved ? (
+                                    <p className='rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground'>
+                                        {preferencesSaved}
+                                    </p>
+                                ) : null}
+
+                                <div className='flex flex-col gap-2'>
+                                    <label
+                                        htmlFor='settings-preferred-currency'
+                                        className='text-sm font-medium text-foreground'
+                                    >
+                                        Preferred currency
+                                    </label>
+                                    <Select
+                                        value={preferredCurrency}
+                                        onValueChange={value => setPreferredCurrency(value as PreferredCurrencyCode)}
+                                    >
+                                        <SelectTrigger id='settings-preferred-currency'>
+                                            <SelectValue placeholder='Select a currency' />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {PREFERRED_CURRENCIES.map(currency => (
+                                                <SelectItem key={currency.value} value={currency.value}>
+                                                    {getCurrencyLabel(currency.value)}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className='rounded-xl border bg-accent/20 p-4 text-sm text-muted-foreground'>
+                                    <p className='font-medium text-foreground'>Current preference</p>
+                                    <p className='mt-1 flex items-center gap-2'>
+                                        <Globe className='h-4 w-4' />
+                                        {getCurrencyLabel(preferredCurrency)}
+                                    </p>
+                                </div>
+
+                                <div className='flex justify-end'>
+                                    <Button type='button' onClick={handleSavePreferences} disabled={savingPreferences}>
+                                        <Settings2 data-icon='inline-start' />
+                                        {savingPreferences ? 'Saving…' : 'Save Preferences'}
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                </Tabs>
+            </div>
+        </AuthenticatedShell>
+    )
+}

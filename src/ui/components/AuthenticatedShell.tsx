@@ -3,8 +3,9 @@ import { BriefcaseBusiness, CarFront, LogOut, Menu, Moon, Plus, Settings, Sun, U
 import { useState } from 'react'
 
 import type { AuthUser } from '../types/index.js'
+import { getUserDisplayName, getUserInitials } from '../lib/account.js'
 import { useTheme } from '../theme/theme.js'
-import { Avatar, AvatarFallback } from './ui/avatar.js'
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar.js'
 import { Button } from './ui/button.js'
 import {
     DropdownMenu,
@@ -34,14 +35,8 @@ export function AuthenticatedShell({
 }: AuthenticatedShellProps) {
     const [loggingOut, setLoggingOut] = useState(false)
     const { theme, toggleTheme } = useTheme()
-    const profileInitials = currentUser.email
-        .split('@')[0]
-        .split(/[^a-zA-Z0-9]+/)
-        .filter(Boolean)
-        .slice(0, 2)
-        .map(segment => segment[0]?.toUpperCase() ?? '')
-        .join('')
-        .slice(0, 2)
+    const profileInitials = getUserInitials(currentUser)
+    const displayName = getUserDisplayName(currentUser)
 
     const handleLogout = async () => {
         try {
@@ -127,6 +122,7 @@ export function AuthenticatedShell({
                                         aria-label='Open profile menu'
                                         className='size-11 cursor-pointer border border-border transition-colors hover:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
                                     >
+                                        <AvatarImage src={currentUser.profileImageUrl ?? undefined} alt={displayName} />
                                         <AvatarFallback className='bg-muted text-sm font-semibold text-foreground'>
                                             {profileInitials || (
                                                 <UserCircle2 className='size-6 text-muted-foreground' />
@@ -136,6 +132,9 @@ export function AuthenticatedShell({
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align='end' sideOffset={8}>
                                     <DropdownMenuLabel className='flex flex-col gap-0.5'>
+                                        <span className='truncate text-sm font-semibold text-foreground'>
+                                            {displayName}
+                                        </span>
                                         <span className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
                                             Signed in as
                                         </span>
@@ -145,9 +144,11 @@ export function AuthenticatedShell({
                                     </DropdownMenuLabel>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuGroup>
-                                        <DropdownMenuItem>
-                                            <Settings />
-                                            Settings
+                                        <DropdownMenuItem asChild>
+                                            <NavLink to='/settings'>
+                                                <Settings />
+                                                Settings
+                                            </NavLink>
                                         </DropdownMenuItem>
                                         <DropdownMenuItem onClick={handleLogout} disabled={loggingOut}>
                                             <LogOut />

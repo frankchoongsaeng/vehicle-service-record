@@ -4,6 +4,7 @@ import {
     isServiceTypeValue,
     type ServiceTypeValue
 } from '../../types/serviceTypes.js'
+import type { PreferredCurrencyCode } from '../../types/userSettings.js'
 
 export { SERVICE_TYPES, getServiceTypeLabel, isServiceTypeValue }
 export type { ServiceTypeValue }
@@ -80,6 +81,19 @@ export interface VinLookupResult {
 export interface AuthUser {
     id: string
     email: string
+    firstName?: string | null
+    lastName?: string | null
+    country?: string | null
+    profileImageUrl?: string | null
+    preferredCurrency: PreferredCurrencyCode
+}
+
+export interface UserSettingsInput {
+    firstName?: string
+    lastName?: string
+    country?: string
+    profileImageUrl?: string
+    preferredCurrency?: PreferredCurrencyCode
 }
 
 export interface LoginInput {

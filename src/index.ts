@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit'
 import { createRequestHandler } from '@remix-run/express'
 import authRouter from './routes/auth.js'
 import maintenancePlansRouter from './routes/maintenancePlans.js'
+import settingsRouter from './routes/settings.js'
 import vehiclesRouter from './routes/vehicles.js'
 import recordsRouter from './routes/records.js'
 import workshopsRouter from './routes/workshops.js'
@@ -54,6 +55,7 @@ app.use('/api', apiLimiter)
 
 // Routes
 app.use('/api/auth', authRouter)
+app.use('/api/settings', settingsRouter)
 app.use('/api/vehicles', vehiclesRouter)
 app.use('/api/workshops', workshopsRouter)
 app.use('/api/vehicles/:vehicleId/maintenance-plans', maintenancePlansRouter)

@@ -12,6 +12,7 @@ type AuthContextValue = {
     signup: (input: SignupInput) => Promise<AuthUser>
     logout: () => Promise<void>
     refreshSession: () => Promise<AuthUser | null>
+    replaceUser: (user: AuthUser) => void
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -67,6 +68,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setStatus('unauthenticated')
     }
 
+    function replaceUser(nextUser: AuthUser): void {
+        setUser(nextUser)
+        setBootstrapError(null)
+        setStatus('authenticated')
+    }
+
     useEffect(() => {
         let cancelled = false
 
@@ -109,7 +116,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             login,
             signup,
             logout,
-            refreshSession
+            refreshSession,
+            replaceUser
         }),
         [bootstrapError, status, user]
     )

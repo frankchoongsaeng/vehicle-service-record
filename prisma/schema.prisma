@@ -8,11 +8,16 @@ datasource db {
 }
 
 model User {
-    id            String   @id @default(cuid())
-    email         String   @unique
-    password_hash String
-    created_at    DateTime @default(now())
-    updated_at    DateTime @updatedAt
+    id                 String   @id @default(cuid())
+    email              String   @unique
+    password_hash      String
+    first_name         String?
+    last_name          String?
+    country            String?
+    profile_image_url  String?
+    preferred_currency String   @default("USD")
+    created_at         DateTime @default(now())
+    updated_at         DateTime @updatedAt
 
     vehicles          Vehicle[]
     service_records   ServiceRecord[]

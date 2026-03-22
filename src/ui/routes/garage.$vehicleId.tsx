@@ -17,7 +17,13 @@ import { VehicleSnapshotCard } from '../components/dashboard/VehicleSnapshotCard
 import { useAuth } from '../auth/useAuth'
 import { fallbackVehicleTypeImage, getVehicleTypeImage } from '../lib/vehicleTypes.js'
 import type { MaintenancePlan, ServiceRecord as ApiServiceRecord, Vehicle } from '../types/index.js'
-import { buildSummaryStats, buildTimeline, buildUpcomingItems, fetchApiData } from '../lib/maintenance.js'
+import {
+    buildSummaryStats,
+    buildTimeline,
+    buildUpcomingItems,
+    fetchApiData,
+    fetchAuthenticatedUser
+} from '../lib/maintenance.js'
 
 export const meta: MetaFunction = () => {
     return [
@@ -47,10 +53,11 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
         throw new Response('Not found', { status: 404 })
     }
 
-    const [vehicle, records, plans] = await Promise.all([
+    const [vehicle, records, plans, authUser] = await Promise.all([
         fetchApiData<Vehicle>(request, `/api/vehicles/${vehicleId}`),
         fetchApiData<ApiServiceRecord[]>(request, `/api/vehicles/${vehicleId}/records`),
-        fetchApiData<MaintenancePlan[]>(request, `/api/vehicles/${vehicleId}/maintenance-plans`)
+        fetchApiData<MaintenancePlan[]>(request, `/api/vehicles/${vehicleId}/maintenance-plans`),
+        fetchAuthenticatedUser(request)
     ])
 
     const now = new Date()
@@ -58,7 +65,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
     const vehicleImageFallback = getVehicleTypeImage(vehicle.vehicleType)
     const vehicleImageSrc = vehicle.imageUrl ?? vehicleImageFallback
     const upcomingItems = buildUpcomingItems(vehicle, plans, now)
-    const summaryStats: SummaryStat[] = buildSummaryStats(vehicle, records, plans, now)
+    const summaryStats: SummaryStat[] = buildSummaryStats(vehicle, records, plans, now, authUser.preferredCurrency)
 
     const snapshot: SnapshotField[] = [
         { label: 'Vehicle Type', value: vehicle.vehicleType || 'Not recorded' },

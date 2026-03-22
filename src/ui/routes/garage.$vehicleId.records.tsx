@@ -34,6 +34,7 @@ import {
     buildDisplayServiceRecords,
     evaluateMaintenancePlans,
     fetchApiData,
+    fetchAuthenticatedUser,
     getServiceLabel
 } from '../lib/maintenance.js'
 import { cn } from '../lib/utils'
@@ -59,14 +60,15 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
         throw new Response('Not found', { status: 404 })
     }
 
-    const [vehicle, rawRecords, plans, workshops] = await Promise.all([
+    const [vehicle, rawRecords, plans, workshops, authUser] = await Promise.all([
         fetchApiData<Vehicle>(request, `/api/vehicles/${vehicleId}`),
         fetchApiData<ApiServiceRecord[]>(request, `/api/vehicles/${vehicleId}/records`),
         fetchApiData<MaintenancePlan[]>(request, `/api/vehicles/${vehicleId}/maintenance-plans`),
-        fetchApiData<Workshop[]>(request, '/api/workshops')
+        fetchApiData<Workshop[]>(request, '/api/workshops'),
+        fetchAuthenticatedUser(request)
     ])
 
-    const records = buildDisplayServiceRecords(rawRecords, new Date())
+    const records = buildDisplayServiceRecords(rawRecords, new Date(), authUser.preferredCurrency)
     const vehicleLabel = `${vehicle.year} ${vehicle.make} ${vehicle.model}`
     const vehicleImageFallback = getVehicleTypeImage(vehicle.vehicleType)
     const vehicleImageSrc = vehicle.imageUrl ?? vehicleImageFallback

@@ -1,5 +1,7 @@
 import { ArrowLeft, Pencil, Plus, Trash2 } from 'lucide-react'
 
+import { useAuth } from '../auth/useAuth.js'
+import { DEFAULT_PREFERRED_CURRENCY, formatCurrencyAmount } from '../lib/currency.js'
 import { Badge } from './ui/badge.js'
 import { Button } from './ui/button.js'
 import { Card, CardContent } from './ui/card.js'
@@ -35,6 +37,9 @@ const SERVICE_ICONS: Record<string, string> = {
 }
 
 export default function ServiceRecordList({ vehicle, records, onAdd, onEdit, onDelete, onBack }: Props) {
+    const auth = useAuth()
+    const preferredCurrency = auth.user?.preferredCurrency ?? DEFAULT_PREFERRED_CURRENCY
+
     return (
         <div className='space-y-5'>
             <header className='flex flex-wrap items-start justify-between gap-3'>
@@ -98,7 +103,9 @@ export default function ServiceRecordList({ vehicle, records, onAdd, onEdit, onD
                                             <Badge variant='secondary'>Mileage: {r.mileage.toLocaleString()} mi</Badge>
                                         )}
                                         {r.cost != null && (
-                                            <Badge variant='secondary'>Cost: ${r.cost.toFixed(2)}</Badge>
+                                            <Badge variant='secondary'>
+                                                Cost: {formatCurrencyAmount(r.cost, preferredCurrency)}
+                                            </Badge>
                                         )}
                                     </div>
 

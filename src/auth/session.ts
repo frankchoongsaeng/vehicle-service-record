@@ -2,6 +2,7 @@ import type { Request } from 'express'
 import { prisma } from '../db.js'
 import { createLogger } from '../logging/logger.js'
 import { verifyOpenAuthToken } from '../openauth/token.js'
+import { authUserSelect, serializeAuthUser } from './authUser.js'
 import type { AuthUser } from '../types/auth.js'
 import { readSessionToken } from './cookie.js'
 
@@ -24,10 +25,7 @@ export async function getAuthenticatedUser(request: Request): Promise<AuthUser |
 
     const user = await prisma.user.findUnique({
         where: { id: claims.sub },
-        select: {
-            id: true,
-            email: true
-        }
+        select: authUserSelect
     })
 
     if (!user) {
@@ -45,5 +43,5 @@ export async function getAuthenticatedUser(request: Request): Promise<AuthUser |
         path: request.originalUrl
     })
 
-    return user
+    return serializeAuthUser(user)
 }

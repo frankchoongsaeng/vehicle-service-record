@@ -6,6 +6,7 @@ import { asyncHandler } from '../middleware/asyncHandler.js'
 import { hashPassword, verifyPassword } from '../openauth/password.js'
 import { issueOpenAuthToken } from '../openauth/token.js'
 import { clearSessionCookie, serializeSessionCookie } from '../auth/cookie.js'
+import { authUserSelect, serializeAuthUser } from '../auth/authUser.js'
 import { requireAuth } from '../middleware/auth.js'
 
 const router = Router()
@@ -49,7 +50,11 @@ router.post(
         })
 
         const user = await prisma.user.findUnique({
-            where: { email: credentials.email }
+            where: { email: credentials.email },
+            select: {
+                ...authUserSelect,
+                password_hash: true
+            }
         })
 
         if (!user || !verifyPassword(credentials.password, user.password_hash)) {
@@ -69,10 +74,7 @@ router.post(
             email: user.email
         })
         res.json({
-            user: {
-                id: user.id,
-                email: user.email
-            }
+            user: serializeAuthUser(user)
         })
     })
 )
@@ -135,10 +137,7 @@ router.post(
                     email: credentials.email,
                     password_hash: hashPassword(credentials.password)
                 },
-                select: {
-                    id: true,
-                    email: true
-                }
+                select: authUserSelect
             })
 
             const token = issueOpenAuthToken({ id: user.id, email: user.email })
@@ -148,7 +147,7 @@ router.post(
                 userId: user.id,
                 email: user.email
             })
-            res.status(201).json({ user })
+            res.status(201).json({ user: serializeAuthUser(user) })
         } catch (error) {
             if (
                 error instanceof Prisma.PrismaClientKnownRequestError &&

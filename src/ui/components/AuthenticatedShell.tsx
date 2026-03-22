@@ -54,7 +54,7 @@ export function AuthenticatedShell({
 
     return (
         <div className='min-h-screen bg-background'>
-            <div className='border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80'>
+            <div className='sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80'>
                 <div className='mx-auto flex w-full max-w-screen-2xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8'>
                     <div className='grid grid-cols-3 items-center gap-3'>
                         <div className='flex min-w-0 items-center justify-start gap-2'>

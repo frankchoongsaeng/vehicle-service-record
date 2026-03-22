@@ -54,8 +54,8 @@ export function AuthenticatedShell({
         <div className='min-h-screen bg-background'>
             <div className='border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80'>
                 <div className='mx-auto flex w-full max-w-screen-2xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8'>
-                    <div className='grid grid-cols-[auto_1fr_auto] items-center gap-3'>
-                        <div className='flex items-center gap-2 justify-self-start'>
+                    <div className='grid grid-cols-3 items-center gap-3'>
+                        <div className='flex min-w-0 items-center justify-start gap-2'>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant='ghost' size='icon' aria-label='Open navigation menu'>
@@ -92,16 +92,18 @@ export function AuthenticatedShell({
                             </Button>
                         </div>
 
-                        <NavLink to='/garage' className='mx-auto flex items-center gap-3'>
-                            <div className='shrink-0'>
-                                <Logo className='h-10 w-10 text-foreground' />
-                            </div>
-                            <div>
-                                <p className='text-lg font-semibold tracking-tight text-foreground'>Duralog</p>
-                            </div>
-                        </NavLink>
+                        <div className='flex min-w-0 justify-center'>
+                            <NavLink to='/garage' className='flex items-center gap-3'>
+                                <div className='shrink-0'>
+                                    <Logo className='h-10 w-10 text-foreground' />
+                                </div>
+                                <div>
+                                    <p className='text-lg font-semibold tracking-tight text-foreground'>Duralog</p>
+                                </div>
+                            </NavLink>
+                        </div>
 
-                        <div className='flex items-center justify-self-end'>
+                        <div className='flex min-w-0 items-center justify-end'>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Avatar

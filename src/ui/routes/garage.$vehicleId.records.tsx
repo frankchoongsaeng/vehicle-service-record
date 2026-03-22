@@ -8,7 +8,9 @@ import {
     LayoutPanelLeft,
     ListFilter,
     Plus,
+    RotateCw,
     Search,
+    TriangleAlert,
     Wrench
 } from 'lucide-react'
 import { useEffect, useMemo } from 'react'
@@ -511,19 +513,15 @@ export default function RecordsRoute() {
                                             <div
                                                 key={plan.id}
                                                 className={cn(
-                                                    'flex flex-col gap-4 rounded-xl border p-4 text-left',
+                                                    'flex flex-col gap-3 rounded-xl border p-4 text-left',
                                                     isSelected && 'border-primary/40 bg-primary/5'
                                                 )}
                                             >
                                                 <div className='flex flex-wrap items-start justify-between gap-3'>
                                                     <div className='flex flex-col gap-1'>
                                                         <p className='font-semibold text-foreground'>{summary.title}</p>
-                                                        <p className='text-sm text-muted-foreground'>
-                                                            {summary.interval}
-                                                        </p>
                                                     </div>
-                                                    <div className='flex items-center gap-2'>
-                                                        <StatusBadge status={summary.status} />
+                                                    <div className='flex flex-wrap items-center gap-2'>
                                                         <Button
                                                             type='button'
                                                             variant='outline'
@@ -539,40 +537,61 @@ export default function RecordsRoute() {
                                                         >
                                                             Edit Plan
                                                         </Button>
+                                                        <Button
+                                                            type='button'
+                                                            variant='outline'
+                                                            size='sm'
+                                                            onClick={() => {
+                                                                navigate(
+                                                                    buildRecordsUrl({
+                                                                        view: 'plans',
+                                                                        plan: String(plan.id),
+                                                                        completePlan: String(plan.id)
+                                                                    })
+                                                                )
+                                                            }}
+                                                        >
+                                                            <CheckCircle2 data-icon='inline-start' />
+                                                            Mark Complete
+                                                        </Button>
                                                     </div>
                                                 </div>
 
                                                 {summary.description ? (
-                                                    <p className='text-sm text-muted-foreground'>
+                                                    <p className='text-sm leading-6 text-muted-foreground'>
                                                         {summary.description}
                                                     </p>
                                                 ) : null}
 
-                                                <div className='flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed p-3'>
-                                                    <Badge variant='secondary'>
+                                                <div className='flex flex-wrap items-center gap-2'>
+                                                    <Badge
+                                                        variant={
+                                                            summary.status === 'Overdue'
+                                                                ? 'destructive'
+                                                                : summary.status === 'Upcoming'
+                                                                ? 'secondary'
+                                                                : summary.status === 'Planned'
+                                                                ? 'outline'
+                                                                : 'default'
+                                                        }
+                                                        className='gap-1 [&>svg]:size-3'
+                                                    >
+                                                        {summary.status === 'Overdue' ? <TriangleAlert /> : null}
+                                                        {summary.status === 'Overdue'
+                                                            ? summary.due.replace(/^Overdue by (.+)$/, '$1 overdue')
+                                                            : summary.status}
+                                                    </Badge>
+                                                    <Badge variant='secondary' className='gap-1 [&>svg]:size-3'>
+                                                        <Wrench />
                                                         {getServiceLabel(plan.serviceType)}
                                                     </Badge>
-                                                    <Button
-                                                        type='button'
-                                                        variant='outline'
-                                                        size='sm'
-                                                        onClick={() => {
-                                                            navigate(
-                                                                buildRecordsUrl({
-                                                                    view: 'plans',
-                                                                    plan: String(plan.id),
-                                                                    completePlan: String(plan.id)
-                                                                })
-                                                            )
-                                                        }}
-                                                    >
-                                                        <CheckCircle2 data-icon='inline-start' />
-                                                        Mark Complete
-                                                    </Button>
+                                                    <Badge variant='secondary' className='gap-1 [&>svg]:size-3'>
+                                                        <RotateCw />
+                                                        {summary.interval}
+                                                    </Badge>
                                                 </div>
 
-                                                <div className='grid gap-3 text-sm text-muted-foreground sm:grid-cols-2'>
-                                                    <p>{summary.due}</p>
+                                                <div className='pt-1 text-sm text-muted-foreground'>
                                                     <p>{summary.lastCompleted}</p>
                                                 </div>
                                             </div>

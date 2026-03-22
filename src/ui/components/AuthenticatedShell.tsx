@@ -1,8 +1,9 @@
 import { NavLink } from '@remix-run/react'
-import { BriefcaseBusiness, CarFront, LogOut, Menu, Plus, Settings, UserCircle2 } from 'lucide-react'
+import { BriefcaseBusiness, CarFront, LogOut, Menu, Moon, Plus, Settings, Sun, UserCircle2 } from 'lucide-react'
 import { useState } from 'react'
 
 import type { AuthUser } from '../types/index.js'
+import { useTheme } from '../theme/theme.js'
 import { Avatar, AvatarFallback } from './ui/avatar.js'
 import { Button } from './ui/button.js'
 import {
@@ -32,6 +33,7 @@ export function AuthenticatedShell({
     children
 }: AuthenticatedShellProps) {
     const [loggingOut, setLoggingOut] = useState(false)
+    const { theme, toggleTheme } = useTheme()
     const profileInitials = currentUser.email
         .split('@')[0]
         .split(/[^a-zA-Z0-9]+/)
@@ -94,8 +96,8 @@ export function AuthenticatedShell({
 
                         <div className='flex min-w-0 justify-center'>
                             <NavLink to='/garage' className='flex items-center gap-3'>
-                                <div className='shrink-0'>
-                                    <Logo className='h-10 w-10 text-foreground' />
+                                <div className='shrink-0 text-foreground'>
+                                    <Logo className='h-10 w-10' darkMode={theme === 'dark'} />
                                 </div>
                                 <div>
                                     <p className='text-lg font-semibold tracking-tight text-foreground'>Duralog</p>
@@ -103,7 +105,20 @@ export function AuthenticatedShell({
                             </NavLink>
                         </div>
 
-                        <div className='flex min-w-0 items-center justify-end'>
+                        <div className='flex min-w-0 items-center justify-end gap-2'>
+                            <Button
+                                type='button'
+                                variant='ghost'
+                                size='icon'
+                                className='relative'
+                                aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                                aria-pressed={theme === 'dark'}
+                                title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                                onClick={toggleTheme}
+                            >
+                                <Sun className='scale-100 rotate-0 transition-transform dark:scale-0 dark:-rotate-90' />
+                                <Moon className='absolute scale-0 rotate-90 transition-transform dark:scale-100 dark:rotate-0' />
+                            </Button>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Avatar

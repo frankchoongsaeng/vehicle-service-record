@@ -177,8 +177,8 @@ body {
     margin: 0;
     min-height: 100%;
     font-family: 'IBM Plex Sans', 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-    color: rgb(15 23 42);
-    background-color: rgb(248 250 252);
+    color: var(--foreground);
+    background-color: var(--background);
 }
 
 .duralog-mascot {

@@ -2,8 +2,8 @@
 
 import type { MetaFunction } from '@remix-run/node'
 import { Link, useLocation, useNavigate, useSearchParams } from '@remix-run/react'
-import { Globe, Settings2, UserRound } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Globe, Settings2, Upload, UserRound, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 
 import * as api from '../api/client.js'
 import { ApiError } from '../api/client.js'
@@ -19,7 +19,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Input } from '../components/ui/input.js'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select.js'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs.js'
-import { PREFERRED_CURRENCIES, type PreferredCurrencyCode } from '../../types/userSettings.js'
+import {
+    PREFERRED_CURRENCIES,
+    PROFILE_IMAGE_MAX_BYTES,
+    PROFILE_IMAGE_MIME_TYPES,
+    type PreferredCurrencyCode
+} from '../../types/userSettings.js'
 
 export const meta: MetaFunction = () => {
     return [{ title: 'Settings | Duralog' }, { name: 'description', content: 'Manage account and preferences.' }]
@@ -51,6 +56,9 @@ export default function SettingsRoute() {
     const [preferencesSaved, setPreferencesSaved] = useState('')
     const [savingAccount, setSavingAccount] = useState(false)
     const [savingPreferences, setSavingPreferences] = useState(false)
+    const [uploadingImage, setUploadingImage] = useState(false)
+    const [removingImage, setRemovingImage] = useState(false)
+    const fileInputRef = useRef<HTMLInputElement | null>(null)
 
     useEffect(() => {
         if (auth.status !== 'unauthenticated') {
@@ -94,8 +102,7 @@ export default function SettingsRoute() {
             const updatedUser = await api.updateSettings({
                 firstName,
                 lastName,
-                country,
-                profileImageUrl
+                country
             })
 
             auth.replaceUser(updatedUser)
@@ -128,6 +135,72 @@ export default function SettingsRoute() {
             }
         } finally {
             setSavingPreferences(false)
+        }
+    }
+
+    const handleChoosePhoto = () => {
+        fileInputRef.current?.click()
+    }
+
+    const handleFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0]
+
+        if (!file) {
+            return
+        }
+
+        setAccountError('')
+        setAccountSaved('')
+
+        if (!PROFILE_IMAGE_MIME_TYPES.includes(file.type as (typeof PROFILE_IMAGE_MIME_TYPES)[number])) {
+            setAccountError('Profile image must be a JPG, PNG, WebP, or GIF file.')
+            event.target.value = ''
+            return
+        }
+
+        if (file.size > PROFILE_IMAGE_MAX_BYTES) {
+            setAccountError('Profile image must be 5 MB or smaller.')
+            event.target.value = ''
+            return
+        }
+
+        setUploadingImage(true)
+
+        try {
+            const updatedUser = await api.uploadProfileImage(file)
+            auth.replaceUser(updatedUser)
+            setProfileImageUrl(updatedUser.profileImageUrl ?? '')
+            setAccountSaved('Profile image uploaded.')
+        } catch (error) {
+            if (error instanceof ApiError || error instanceof Error) {
+                setAccountError(error.message)
+            } else {
+                setAccountError('Unable to upload the profile image right now.')
+            }
+        } finally {
+            setUploadingImage(false)
+            event.target.value = ''
+        }
+    }
+
+    const handleRemovePhoto = async () => {
+        setRemovingImage(true)
+        setAccountError('')
+        setAccountSaved('')
+
+        try {
+            const updatedUser = await api.removeProfileImage()
+            auth.replaceUser(updatedUser)
+            setProfileImageUrl('')
+            setAccountSaved('Profile image removed.')
+        } catch (error) {
+            if (error instanceof ApiError || error instanceof Error) {
+                setAccountError(error.message)
+            } else {
+                setAccountError('Unable to remove the profile image right now.')
+            }
+        } finally {
+            setRemovingImage(false)
         }
     }
 
@@ -258,21 +331,40 @@ export default function SettingsRoute() {
                                     </div>
 
                                     <div className='flex flex-col gap-2'>
-                                        <label
-                                            htmlFor='settings-profile-image-url'
-                                            className='text-sm font-medium text-foreground'
-                                        >
-                                            Profile image URL
-                                        </label>
+                                        <label className='text-sm font-medium text-foreground'>Profile image</label>
                                         <Input
-                                            id='settings-profile-image-url'
-                                            type='url'
-                                            value={profileImageUrl}
-                                            onChange={event => setProfileImageUrl(event.target.value)}
-                                            placeholder='https://example.com/avatar.jpg'
+                                            ref={fileInputRef}
+                                            type='file'
+                                            accept={PROFILE_IMAGE_MIME_TYPES.join(',')}
+                                            className='hidden'
+                                            onChange={handleFileSelected}
                                         />
+                                        <div className='flex flex-wrap gap-2'>
+                                            <Button
+                                                type='button'
+                                                variant='outline'
+                                                onClick={handleChoosePhoto}
+                                                disabled={uploadingImage || removingImage}
+                                            >
+                                                <Upload data-icon='inline-start' />
+                                                {uploadingImage
+                                                    ? 'Uploading…'
+                                                    : profilePreview
+                                                    ? 'Replace Photo'
+                                                    : 'Upload Photo'}
+                                            </Button>
+                                            <Button
+                                                type='button'
+                                                variant='outline'
+                                                onClick={handleRemovePhoto}
+                                                disabled={!profilePreview || uploadingImage || removingImage}
+                                            >
+                                                <X data-icon='inline-start' />
+                                                {removingImage ? 'Removing…' : 'Remove Photo'}
+                                            </Button>
+                                        </div>
                                         <p className='text-xs text-muted-foreground'>
-                                            Use a direct http or https image URL.
+                                            JPG, PNG, WebP, or GIF up to 5 MB.
                                         </p>
                                     </div>
 

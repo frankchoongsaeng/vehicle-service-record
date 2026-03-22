@@ -1,11 +1,18 @@
-import { Router, Request, Response } from 'express'
+import { randomUUID } from 'node:crypto'
+import { raw, Router, Request, Response } from 'express'
 
 import { authUserSelect, serializeAuthUser } from '../auth/authUser.js'
 import { prisma } from '../db.js'
 import { createLogger } from '../logging/logger.js'
 import { asyncHandler } from '../middleware/asyncHandler.js'
 import { requireAuth } from '../middleware/auth.js'
-import { isPreferredCurrencyCode } from '../types/userSettings.js'
+import { uploadBufferImage } from '../services/imageUpload.js'
+import {
+    isPreferredCurrencyCode,
+    isProfileImageMimeType,
+    PROFILE_IMAGE_MAX_BYTES,
+    PROFILE_IMAGE_MIME_TYPES
+} from '../types/userSettings.js'
 
 const router = Router()
 const settingsLogger = createLogger({ component: 'settings-routes' })
@@ -62,7 +69,98 @@ function normalizeProfileImageUrl(value: unknown): string | null {
     return normalized
 }
 
+function isStorageConfigurationError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : ''
+
+    return message.includes('BUNNY_STORAGE_') || message.includes('BUNNY_PUBLIC_BASE_URL')
+}
+
 router.use(requireAuth)
+
+router.post(
+    '/profile-image',
+    raw({ type: [...PROFILE_IMAGE_MIME_TYPES], limit: PROFILE_IMAGE_MAX_BYTES }),
+    asyncHandler(async (req: Request, res: Response) => {
+        const authUser = req.authUser!
+        const contentTypeHeader = req.headers['content-type']
+        const contentType = typeof contentTypeHeader === 'string' ? contentTypeHeader.split(';', 1)[0].trim() : ''
+
+        if (!contentType || !isProfileImageMimeType(contentType)) {
+            res.status(415).json({ error: 'Profile image must be a JPG, PNG, WebP, or GIF file.' })
+            return
+        }
+
+        const body = req.body
+
+        if (!Buffer.isBuffer(body) || body.byteLength === 0) {
+            res.status(400).json({ error: 'Profile image upload is empty.' })
+            return
+        }
+
+        try {
+            const version = randomUUID()
+            const storageKey = `profile-images/${authUser.id}/avatar`
+            const uploadedImageUrl = await uploadBufferImage({
+                storageKey,
+                contentType,
+                data: body
+            })
+            const profileImageUrl = `${uploadedImageUrl}?v=${version}`
+
+            const user = await prisma.user.update({
+                where: { id: authUser.id },
+                data: {
+                    profile_image_url: profileImageUrl
+                },
+                select: authUserSelect
+            })
+
+            settingsLogger.info('settings.profile_image_uploaded', {
+                requestId: req.requestId,
+                userId: authUser.id,
+                contentType,
+                size: body.byteLength
+            })
+
+            res.status(201).json({ user: serializeAuthUser(user) })
+        } catch (error) {
+            settingsLogger.error('settings.profile_image_upload_failed', {
+                requestId: req.requestId,
+                userId: authUser.id,
+                contentType,
+                error
+            })
+
+            if (isStorageConfigurationError(error)) {
+                res.status(503).json({ error: 'Profile image uploads are not configured on this server.' })
+                return
+            }
+
+            res.status(502).json({ error: 'Unable to upload the profile image right now.' })
+        }
+    })
+)
+
+router.delete(
+    '/profile-image',
+    asyncHandler(async (req: Request, res: Response) => {
+        const authUser = req.authUser!
+        const user = await prisma.user.update({
+            where: { id: authUser.id },
+            data: {
+                profile_image_url: null
+            },
+            select: authUserSelect
+        })
+
+        settingsLogger.info('settings.profile_image_removed', {
+            requestId: req.requestId,
+            userId: authUser.id
+        })
+
+        res.json({ user: serializeAuthUser(user) })
+    })
+)
 
 router.get(
     '/',

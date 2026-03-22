@@ -145,6 +145,50 @@ export const updateSettings = async (input: UserSettingsInput): Promise<AuthUser
     return data.user
 }
 
+export const uploadProfileImage = async (file: File): Promise<AuthUser> => {
+    const requestId = createRequestId()
+    const res = await fetch(`${BASE}/settings/profile-image`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+            [REQUEST_ID_HEADER]: requestId,
+            'Content-Type': file.type || 'application/octet-stream'
+        },
+        body: file
+    })
+
+    const responseRequestId = getResponseRequestId(res, requestId)
+    logApiEvent('debug', 'request.completed', {
+        requestId: responseRequestId,
+        method: 'POST',
+        path: '/settings/profile-image',
+        status: res.status
+    })
+
+    const data = await res.json()
+
+    if (!res.ok) {
+        logApiEvent('warn', 'request.failed', {
+            requestId: responseRequestId,
+            method: 'POST',
+            path: '/settings/profile-image',
+            status: res.status,
+            error: data.error ?? 'Request failed'
+        })
+        throw new ApiError(data.error ?? 'Request failed', res.status, responseRequestId)
+    }
+
+    return (data as { user: AuthUser }).user
+}
+
+export const removeProfileImage = async (): Promise<AuthUser> => {
+    const data = await request<{ user: AuthUser }>('/settings/profile-image', {
+        method: 'DELETE'
+    })
+
+    return data.user
+}
+
 // ── Workshops ───────────────────────────────────────────────────────────────
 
 export const getWorkshops = (): Promise<Workshop[]> => request('/workshops')

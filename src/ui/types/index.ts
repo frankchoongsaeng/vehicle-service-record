@@ -96,6 +96,10 @@ export interface UserSettingsInput {
     preferredCurrency?: PreferredCurrencyCode
 }
 
+export interface ProfileImageUploadResult {
+    user: AuthUser
+}
+
 export interface LoginInput {
     email: string
     password: string

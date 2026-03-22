@@ -11,8 +11,18 @@ export type PreferredCurrencyCode = (typeof PREFERRED_CURRENCIES)[number]['value
 
 export const DEFAULT_PREFERRED_CURRENCY: PreferredCurrencyCode = 'USD'
 
+export const PROFILE_IMAGE_MAX_BYTES = 5 * 1024 * 1024
+
+export const PROFILE_IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'] as const
+
+export type ProfileImageMimeType = (typeof PROFILE_IMAGE_MIME_TYPES)[number]
+
 export function isPreferredCurrencyCode(value: string): value is PreferredCurrencyCode {
     return PREFERRED_CURRENCIES.some(currency => currency.value === value)
+}
+
+export function isProfileImageMimeType(value: string): value is ProfileImageMimeType {
+    return PROFILE_IMAGE_MIME_TYPES.some(contentType => contentType === value)
 }
 
 export function getPreferredCurrencyDefinition(currency: PreferredCurrencyCode) {

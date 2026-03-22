@@ -42,6 +42,12 @@ interface UploadGeneratedImageInput {
     contentType?: string
 }
 
+interface UploadBufferImageInput {
+    storageKey: string
+    contentType: string
+    data: Uint8Array
+}
+
 function getPublicBaseUrl(): string | null {
     const baseUrl = process.env.BUNNY_PUBLIC_BASE_URL?.trim()
 
@@ -112,4 +118,36 @@ export async function uploadGeneratedImage({
         filename,
         storageKey: remotePath
     })
+}
+
+export async function uploadBufferImage({ storageKey, contentType, data }: UploadBufferImageInput): Promise<string> {
+    const storageZone = getStorageZone()
+    const remotePath = normalizeRemotePath(storageKey)
+
+    imageUploadLogger.info('uploaded_image.upload_started', {
+        storageKey: remotePath,
+        contentType,
+        size: data.byteLength
+    })
+
+    const stream = Readable.from(data)
+    const webStream = Readable.toWeb(stream) as NodeReadableStream<Uint8Array>
+
+    await BunnyStorageSDK.file.upload(storageZone, remotePath, webStream, {
+        contentType
+    })
+
+    imageUploadLogger.info('uploaded_image.upload_completed', {
+        storageKey: remotePath,
+        contentType,
+        size: data.byteLength
+    })
+
+    const publicUrl = resolveUploadedImageUrl(storageKey)
+
+    if (!publicUrl) {
+        throw new Error('BUNNY_PUBLIC_BASE_URL is not configured')
+    }
+
+    return publicUrl
 }

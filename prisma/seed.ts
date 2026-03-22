@@ -76,6 +76,7 @@ const demoServiceRecords = [
     {
         vehicleKey: 'rav4',
         service_type: 'oil_change',
+        workshop: 'Northside Auto Care',
         description: 'Full synthetic oil change and OEM oil filter replacement.',
         date: '2026-03-02',
         mileage: 48210,
@@ -85,6 +86,7 @@ const demoServiceRecords = [
     {
         vehicleKey: 'rav4',
         service_type: 'tire_rotation',
+        workshop: 'Northside Auto Care',
         description: 'Cross rotation with pressure adjustment and tread measurement.',
         date: '2026-01-21',
         mileage: 46890,
@@ -94,6 +96,7 @@ const demoServiceRecords = [
     {
         vehicleKey: 'rav4',
         service_type: 'inspection',
+        workshop: 'Metro State Inspection Center',
         description: 'Annual state safety inspection completed with no findings.',
         date: '2025-11-15',
         mileage: 45102,
@@ -103,6 +106,7 @@ const demoServiceRecords = [
     {
         vehicleKey: 'mazda3',
         service_type: 'brake_service',
+        workshop: 'Precision Brake & Tire',
         description: 'Front pads and rotors replaced; caliper slide pins lubricated.',
         date: '2026-02-14',
         mileage: 72885,
@@ -112,6 +116,7 @@ const demoServiceRecords = [
     {
         vehicleKey: 'mazda3',
         service_type: 'tire_replacement',
+        workshop: 'Precision Brake & Tire',
         description: 'Installed four Michelin CrossClimate 2 tires and balanced all wheels.',
         date: '2025-12-03',
         mileage: 70155,
@@ -121,6 +126,7 @@ const demoServiceRecords = [
     {
         vehicleKey: 'mazda3',
         service_type: 'battery',
+        workshop: 'Battery Express Mobile Service',
         description: 'Battery replacement after slow winter crank and low reserve test.',
         date: '2025-01-12',
         mileage: 64580,
@@ -130,6 +136,7 @@ const demoServiceRecords = [
     {
         vehicleKey: 'mazda3',
         service_type: 'air_filter',
+        workshop: 'Northside Auto Care',
         description: 'Engine air filter replaced during routine service.',
         date: '2025-08-19',
         mileage: 68970,
@@ -139,6 +146,7 @@ const demoServiceRecords = [
     {
         vehicleKey: 'mazda3',
         service_type: 'cabin_filter',
+        workshop: 'Northside Auto Care',
         description: 'Cabin air filter replaced to address reduced HVAC airflow.',
         date: '2025-08-19',
         mileage: 68970,
@@ -148,6 +156,7 @@ const demoServiceRecords = [
     {
         vehicleKey: 'porsche',
         service_type: 'transmission',
+        workshop: 'Heritage Performance Works',
         description: 'Manual gearbox fluid replaced with fresh synthetic gear oil.',
         date: '2025-10-30',
         mileage: 80110,
@@ -157,6 +166,7 @@ const demoServiceRecords = [
     {
         vehicleKey: 'porsche',
         service_type: 'coolant',
+        workshop: 'Heritage Performance Works',
         description: 'Cooling system flushed and refilled, expansion cap replaced.',
         date: '2024-07-18',
         mileage: 77240,
@@ -166,6 +176,7 @@ const demoServiceRecords = [
     {
         vehicleKey: 'porsche',
         service_type: 'spark_plugs',
+        workshop: 'Heritage Performance Works',
         description: 'Spark plugs replaced during major interval service.',
         date: '2024-07-18',
         mileage: 77240,
@@ -175,6 +186,7 @@ const demoServiceRecords = [
     {
         vehicleKey: 'porsche',
         service_type: 'timing_belt',
+        workshop: 'Heritage Performance Works',
         description: 'Timing chain inspection and tensioner service performed by specialist.',
         date: '2023-05-06',
         mileage: 74110,
@@ -184,6 +196,7 @@ const demoServiceRecords = [
     {
         vehicleKey: 'porsche',
         service_type: 'wiper_blades',
+        workshop: 'Northside Auto Care',
         description: 'Front wiper blades replaced before rainy season.',
         date: '2025-09-08',
         mileage: 79720,
@@ -193,6 +206,7 @@ const demoServiceRecords = [
     {
         vehicleKey: 'porsche',
         service_type: 'other',
+        workshop: 'Studio Gloss Detailing',
         description: 'Paint protection detail and leather conditioning package.',
         date: '2026-02-08',
         mileage: null,
@@ -201,36 +215,69 @@ const demoServiceRecords = [
     }
 ] as const
 
+const demoWorkshops = [
+    {
+        name: 'Northside Auto Care',
+        address: '1842 Northview Blvd\nRaleigh, NC 27609',
+        phone: '(919) 555-0142'
+    },
+    {
+        name: 'Precision Brake & Tire',
+        address: '650 Commerce Park Dr\nCary, NC 27511',
+        phone: '(919) 555-0118'
+    },
+    {
+        name: 'Heritage Performance Works',
+        address: '27 Collector Way\nApex, NC 27523',
+        phone: '(919) 555-0199'
+    },
+    {
+        name: 'Metro State Inspection Center',
+        address: '900 Capital Access Rd\nRaleigh, NC 27603',
+        phone: '(919) 555-0170'
+    },
+    {
+        name: 'Battery Express Mobile Service',
+        address: 'Mobile service across Wake County',
+        phone: '(919) 555-0126'
+    },
+    {
+        name: 'Studio Gloss Detailing',
+        address: '118 Artisan Row\nDurham, NC 27701',
+        phone: '(984) 555-0104'
+    }
+] as const
+
 const demoMaintenancePlans = [
     {
         vehicleKey: 'rav4',
+        service_type: 'oil_change',
         title: 'Quarterly servicing',
         description: 'Routine three-month service bundle for the daily driver.',
         interval_months: 3,
         interval_mileage: 3000,
         last_completed_date: '2026-03-02',
-        last_completed_mileage: 48210,
-        items: ['Air filter', 'Oil change', 'Oil filter', 'Cabin filter']
+        last_completed_mileage: 48210
     },
     {
         vehicleKey: 'mazda3',
+        service_type: 'tire_rotation',
         title: 'Seasonal tire and filter review',
         description: 'Check commuter wear items before each season change.',
         interval_months: 6,
         interval_mileage: 6000,
         last_completed_date: '2025-08-19',
-        last_completed_mileage: 68970,
-        items: ['Tire rotation', 'Air filter', 'Cabin filter', 'Brake inspection']
+        last_completed_mileage: 68970
     },
     {
         vehicleKey: 'porsche',
+        service_type: 'inspection',
         title: 'Annual specialist inspection',
         description: 'Yearly mechanical and fluids review with the specialist shop.',
         interval_months: 12,
         interval_mileage: 5000,
         last_completed_date: '2025-10-30',
-        last_completed_mileage: 80110,
-        items: ['Inspection', 'Transmission fluid service', 'Coolant check', 'Spark plugs review']
+        last_completed_mileage: 80110
     }
 ] as const
 
@@ -280,6 +327,7 @@ async function main() {
     })
 
     await prisma.serviceRecord.deleteMany({ where: { user_id: { in: [user.id, secondaryUser.id] } } })
+    await prisma.workshop.deleteMany({ where: { user_id: { in: [user.id, secondaryUser.id] } } })
     await prisma.vehicle.deleteMany({ where: { user_id: { in: [user.id, secondaryUser.id] } } })
 
     const createdVehicles = new Map<string, number>()
@@ -307,6 +355,15 @@ async function main() {
         }
     })
 
+    await prisma.workshop.createMany({
+        data: demoWorkshops.map(workshop => ({
+            user_id: user.id,
+            name: workshop.name,
+            address: workshop.address,
+            phone: workshop.phone
+        }))
+    })
+
     for (const record of demoServiceRecords) {
         const vehicleId = createdVehicles.get(record.vehicleKey)
 
@@ -319,6 +376,7 @@ async function main() {
                 user_id: user.id,
                 vehicle_id: vehicleId,
                 service_type: record.service_type,
+                workshop: record.workshop,
                 description: record.description,
                 date: record.date,
                 mileage: record.mileage ?? null,
@@ -339,15 +397,13 @@ async function main() {
             data: {
                 user_id: user.id,
                 vehicle_id: vehicleId,
+                service_type: plan.service_type,
                 title: plan.title,
                 description: plan.description,
                 interval_months: plan.interval_months,
                 interval_mileage: plan.interval_mileage,
                 last_completed_date: plan.last_completed_date,
-                last_completed_mileage: plan.last_completed_mileage,
-                items: {
-                    create: plan.items.map(item => ({ name: item }))
-                }
+                last_completed_mileage: plan.last_completed_mileage
             }
         })
     }
@@ -357,6 +413,7 @@ async function main() {
     console.log(
         `Seeded ${demoVehicles.length} demo vehicles and ${demoServiceRecords.length} service records for ${email}`
     )
+    console.log(`Seeded ${demoWorkshops.length} workshops for ${email}`)
     console.log(`Seeded ${demoMaintenancePlans.length} maintenance plans for ${email}`)
     console.log(`Seeded secondary user for auth isolation: ${secondaryEmail}`)
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 
 import { Button } from './ui/button.js'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card.js'
@@ -6,16 +6,18 @@ import { DatePicker } from './ui/date-picker.js'
 import { Input } from './ui/input.js'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select.js'
 import { Textarea } from './ui/textarea.js'
-import type { ServiceRecord, ServiceRecordInput } from '../types/index.js'
+import type { ServiceRecord, ServiceRecordInput, Workshop } from '../types/index.js'
 import { SERVICE_TYPES } from '../types/index.js'
 
 interface Props {
     initial?: ServiceRecord
+    availableWorkshops?: Workshop[]
     onSubmit: (data: ServiceRecordInput) => Promise<void>
     onCancel: () => void
 }
 
-export default function ServiceRecordForm({ initial, onSubmit, onCancel }: Props) {
+export default function ServiceRecordForm({ initial, availableWorkshops = [], onSubmit, onCancel }: Props) {
+    const workshopListId = useId()
     const [form, setForm] = useState<ServiceRecordInput>({
         service_type: initial?.service_type ?? 'oil_change',
         workshop: initial?.workshop ?? '',
@@ -28,6 +30,13 @@ export default function ServiceRecordForm({ initial, onSubmit, onCancel }: Props
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
     const today = new Date()
+    const workshopSuggestions = useMemo(
+        () =>
+            [...availableWorkshops]
+                .sort((left, right) => left.name.localeCompare(right.name) || right.id - left.id)
+                .map(workshop => workshop.name),
+        [availableWorkshops]
+    )
 
     const set = <K extends keyof ServiceRecordInput>(field: K, value: ServiceRecordInput[K]) =>
         setForm(prev => ({ ...prev, [field]: value }))
@@ -119,10 +128,20 @@ export default function ServiceRecordForm({ initial, onSubmit, onCancel }: Props
                         <label className='text-sm font-medium text-foreground'>Workshop</label>
                         <Input
                             type='text'
+                            list={workshopListId}
                             value={form.workshop ?? ''}
                             onChange={e => set('workshop', e.target.value)}
                             placeholder='e.g. Northside Auto Care'
                         />
+                        <p className='text-xs text-muted-foreground'>
+                            Choose a saved workshop or type a new one to create it automatically when the record is
+                            saved.
+                        </p>
+                        <datalist id={workshopListId}>
+                            {workshopSuggestions.map(workshopName => (
+                                <option key={workshopName} value={workshopName} />
+                            ))}
+                        </datalist>
                     </div>
 
                     <div className='grid gap-4 md:grid-cols-2'>

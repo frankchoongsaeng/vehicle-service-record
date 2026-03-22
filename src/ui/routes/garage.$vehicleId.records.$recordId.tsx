@@ -5,13 +5,14 @@ import * as api from '../api/client.js'
 import ServiceRecordEditForm from '../components/ServiceRecordEditForm.js'
 import ServiceRecordForm from '../components/ServiceRecordForm.js'
 import { StatusBadge } from '../components/dashboard/StatusBadge'
-import type { ServiceRecord as ApiServiceRecord } from '../types/index.js'
+import type { ServiceRecord as ApiServiceRecord, Workshop } from '../types/index.js'
 import type { ServiceRecord } from '../components/dashboard/types'
 
 interface OutletContext {
     records: ServiceRecord[]
     rawRecords: ApiServiceRecord[]
     vehicleId: string | undefined
+    workshops: Workshop[]
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
@@ -28,7 +29,7 @@ export default function RecordDetailRoute() {
     const navigate = useNavigate()
     const revalidator = useRevalidator()
     const [searchParams] = useSearchParams()
-    const { records, rawRecords } = useOutletContext<OutletContext>()
+    const { records, rawRecords, workshops } = useOutletContext<OutletContext>()
     const record = records.find(r => r.id === recordId)
     const rawRecord = rawRecords.find(r => String(r.id) === recordId)
     const isEditMode = searchParams.get('mode') === 'edit'
@@ -45,6 +46,7 @@ export default function RecordDetailRoute() {
         return (
             <aside className='sticky top-6 max-h-[calc(100vh-6rem)] overflow-y-auto rounded-xl'>
                 <ServiceRecordForm
+                    availableWorkshops={workshops}
                     onSubmit={async data => {
                         const createdRecord = await api.createRecord(Number(vehicleId), data)
                         revalidator.revalidate()
@@ -79,6 +81,7 @@ export default function RecordDetailRoute() {
             <aside className='sticky top-6 max-h-[calc(100vh-6rem)] overflow-y-auto rounded-xl'>
                 <ServiceRecordEditForm
                     initial={rawRecord}
+                    availableWorkshops={workshops}
                     onSubmit={async data => {
                         await api.updateRecord(Number(vehicleId), Number(recordId), data)
                         revalidator.revalidate()

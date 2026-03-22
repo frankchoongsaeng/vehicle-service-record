@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 
-import type { ServiceRecord, ServiceRecordUpdateInput } from '../types/index.js'
+import type { ServiceRecord, ServiceRecordUpdateInput, Workshop } from '../types/index.js'
 import { Button } from './ui/button.js'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card.js'
 import { Input } from './ui/input.js'
@@ -8,11 +8,13 @@ import { Textarea } from './ui/textarea.js'
 
 interface Props {
     initial: ServiceRecord
+    availableWorkshops?: Workshop[]
     onSubmit: (data: ServiceRecordUpdateInput) => Promise<void>
     onCancel: () => void
 }
 
-export default function ServiceRecordEditForm({ initial, onSubmit, onCancel }: Props) {
+export default function ServiceRecordEditForm({ initial, availableWorkshops = [], onSubmit, onCancel }: Props) {
+    const workshopListId = useId()
     const [form, setForm] = useState<ServiceRecordUpdateInput>({
         workshop: initial.workshop ?? '',
         description: initial.description,
@@ -21,6 +23,13 @@ export default function ServiceRecordEditForm({ initial, onSubmit, onCancel }: P
     })
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
+    const workshopSuggestions = useMemo(
+        () =>
+            [...availableWorkshops]
+                .sort((left, right) => left.name.localeCompare(right.name) || right.id - left.id)
+                .map(workshop => workshop.name),
+        [availableWorkshops]
+    )
 
     const set = <K extends keyof ServiceRecordUpdateInput>(field: K, value: ServiceRecordUpdateInput[K]) =>
         setForm(prev => ({ ...prev, [field]: value }))
@@ -67,10 +76,20 @@ export default function ServiceRecordEditForm({ initial, onSubmit, onCancel }: P
                         <label className='text-sm font-medium text-foreground'>Workshop</label>
                         <Input
                             type='text'
+                            list={workshopListId}
                             value={form.workshop ?? ''}
                             onChange={event => set('workshop', event.target.value)}
                             placeholder='e.g. Northside Auto Care'
                         />
+                        <p className='text-xs text-muted-foreground'>
+                            Pick a saved workshop or type a new one. New workshop names are added automatically when you
+                            save the record.
+                        </p>
+                        <datalist id={workshopListId}>
+                            {workshopSuggestions.map(workshopName => (
+                                <option key={workshopName} value={workshopName} />
+                            ))}
+                        </datalist>
                     </div>
 
                     <div className='space-y-2'>

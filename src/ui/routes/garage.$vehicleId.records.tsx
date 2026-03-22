@@ -44,7 +44,8 @@ import type {
     MaintenancePlanInput,
     ServiceRecord as ApiServiceRecord,
     ServiceRecordInput,
-    Vehicle
+    Vehicle,
+    Workshop
 } from '../types/index.js'
 
 export const meta: MetaFunction = () => [{ title: 'Service Records — Duralog' }]
@@ -58,10 +59,11 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
         throw new Response('Not found', { status: 404 })
     }
 
-    const [vehicle, rawRecords, plans] = await Promise.all([
+    const [vehicle, rawRecords, plans, workshops] = await Promise.all([
         fetchApiData<Vehicle>(request, `/api/vehicles/${vehicleId}`),
         fetchApiData<ApiServiceRecord[]>(request, `/api/vehicles/${vehicleId}/records`),
-        fetchApiData<MaintenancePlan[]>(request, `/api/vehicles/${vehicleId}/maintenance-plans`)
+        fetchApiData<MaintenancePlan[]>(request, `/api/vehicles/${vehicleId}/maintenance-plans`),
+        fetchApiData<Workshop[]>(request, '/api/workshops')
     ])
 
     const records = buildDisplayServiceRecords(rawRecords, new Date())
@@ -75,6 +77,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
         records,
         rawRecords,
         plans,
+        workshops,
         vehicleLabel,
         vehicleImageFallback,
         vehicleImageSrc
@@ -84,8 +87,17 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
 const statusFilters: Array<ServiceStatus | 'All'> = ['All', 'Completed', 'Upcoming', 'Planned', 'Overdue']
 
 export default function RecordsRoute() {
-    const { vehicle, vehicleId, records, rawRecords, plans, vehicleLabel, vehicleImageFallback, vehicleImageSrc } =
-        useLoaderData<typeof loader>()
+    const {
+        vehicle,
+        vehicleId,
+        records,
+        rawRecords,
+        plans,
+        workshops,
+        vehicleLabel,
+        vehicleImageFallback,
+        vehicleImageSrc
+    } = useLoaderData<typeof loader>()
     const { recordId } = useParams()
     const auth = useAuth()
     const navigate = useNavigate()
@@ -514,7 +526,7 @@ export default function RecordsRoute() {
                             </CardContent>
                         </Card>
 
-                        <Outlet context={{ records, rawRecords, vehicleId }} />
+                        <Outlet context={{ records, rawRecords, vehicleId, workshops }} />
                     </div>
                 ) : (
                     <div className={cn('grid gap-6', isPlanPanelOpen && 'xl:grid-cols-[minmax(0,1fr)_420px]')}>

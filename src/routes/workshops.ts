@@ -4,6 +4,7 @@ import { prisma } from '../db.js'
 import { createLogger } from '../logging/logger.js'
 import { asyncHandler } from '../middleware/asyncHandler.js'
 import { requireAuth } from '../middleware/auth.js'
+import { normalizeOptionalString } from './workshopDirectory.js'
 
 const router = Router()
 const workshopsLogger = createLogger({ component: 'workshop-routes' })
@@ -12,15 +13,6 @@ type WorkshopPayload = {
     name: string
     address?: string
     phone?: string
-}
-
-function normalizeOptionalString(value: unknown): string | undefined {
-    if (typeof value !== 'string') {
-        return undefined
-    }
-
-    const normalized = value.trim()
-    return normalized.length > 0 ? normalized : undefined
 }
 
 function normalizeWorkshopPayload(body: unknown): { data?: WorkshopPayload; error?: string } {

@@ -10,6 +10,7 @@ Duralog is a web app to track maintenance and service history for your vehicles 
 - **Manage workshop contacts** — keep a reusable directory of workshop names, addresses, and phone numbers
 - **Cross-device access** — data is stored on the backend server, accessible from any device
 - **Comprehensive seed data** — demo vehicles and service records cover dashboards, filters, empty states, and auth isolation checks
+- **Workshop-ready development data** — seeded workshops populate the workshop directory and service-record suggestions immediately
 
 ## Tech Stack
 
@@ -99,6 +100,7 @@ The seed also creates:
 
 - 4 demo vehicles with varied profile completeness
 - 14 service records spanning all supported service types
+- 6 demo workshops used by the seeded service records
 - one vehicle with no service history for empty-state testing
 - a second user, `hidden@example.com`, for auth-scoping checks
 

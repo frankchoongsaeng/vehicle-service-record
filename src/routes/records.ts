@@ -5,6 +5,7 @@ import { createLogger } from '../logging/logger.js'
 import { asyncHandler } from '../middleware/asyncHandler.js'
 import { requireAuth } from '../middleware/auth.js'
 import { getServiceTypeLabel } from '../types/serviceTypes.js'
+import { ensureWorkshopExists } from './workshopDirectory.js'
 
 const router = Router({ mergeParams: true })
 const recordsLogger = createLogger({ component: 'service-record-routes' })
@@ -331,13 +332,15 @@ router.post(
         }
 
         const { created, recomputedPlanCount } = await prisma.$transaction(async transaction => {
+            const canonicalWorkshopName = await ensureWorkshopExists(transaction, authUser.id, workshop)
+
             const created = await transaction.serviceRecord.create({
                 data: {
                     user_id: authUser.id,
                     vehicle_id: vehicleId,
                     maintenance_plan_id: linkedPlan?.id ?? null,
                     service_type,
-                    workshop: workshop?.trim() || null,
+                    workshop: canonicalWorkshopName,
                     description,
                     date,
                     mileage: mileage ?? null,
@@ -431,10 +434,12 @@ router.put(
         }
 
         const { updated, recomputedPlanCount } = await prisma.$transaction(async transaction => {
+            const canonicalWorkshopName = await ensureWorkshopExists(transaction, authUser.id, workshop)
+
             const updated = await transaction.serviceRecord.update({
                 where: { id: recordId },
                 data: {
-                    workshop: workshop?.trim() || null,
+                    workshop: canonicalWorkshopName,
                     description: description.trim(),
                     cost: cost ?? null,
                     notes: notes || null

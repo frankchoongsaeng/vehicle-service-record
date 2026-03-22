@@ -274,7 +274,7 @@ export default function RecordsRoute() {
                     <Button asChild variant={activeView === 'history' ? 'secondary' : 'outline'}>
                         <Link to={buildRecordsUrl({ view: null, plan: null })}>
                             <ClipboardList data-icon='inline-start' />
-                            History
+                            Service Records
                         </Link>
                     </Button>
                     <Button asChild variant={activeView === 'plans' ? 'secondary' : 'outline'}>
@@ -366,7 +366,7 @@ export default function RecordsRoute() {
                                         </Link>
                                     </Button>
                                 </div>
-                                <div className='grid gap-3 sm:grid-cols-[1fr_180px_180px]'>
+                                <div className='grid gap-3 sm:grid-cols-[1fr_220px_200px]'>
                                     <InputGroup>
                                         <InputGroupInput
                                             value={query}
@@ -383,9 +383,17 @@ export default function RecordsRoute() {
                                         value={safeCategory}
                                         onValueChange={value => updateFilter('category', value)}
                                     >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder='Category' />
-                                        </SelectTrigger>
+                                        <div className='flex items-center gap-2'>
+                                            <label
+                                                htmlFor='records-category-filter'
+                                                className='shrink-0 text-sm font-medium text-foreground'
+                                            >
+                                                Category
+                                            </label>
+                                            <SelectTrigger id='records-category-filter'>
+                                                <SelectValue placeholder='Category' />
+                                            </SelectTrigger>
+                                        </div>
                                         <SelectContent>
                                             {categories.map(item => (
                                                 <SelectItem key={item} value={item}>
@@ -396,9 +404,17 @@ export default function RecordsRoute() {
                                     </Select>
 
                                     <Select value={safeStatus} onValueChange={value => updateFilter('status', value)}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder='Status' />
-                                        </SelectTrigger>
+                                        <div className='flex items-center gap-2'>
+                                            <label
+                                                htmlFor='records-status-filter'
+                                                className='shrink-0 text-sm font-medium text-foreground'
+                                            >
+                                                Status
+                                            </label>
+                                            <SelectTrigger id='records-status-filter'>
+                                                <SelectValue placeholder='Status' />
+                                            </SelectTrigger>
+                                        </div>
                                         <SelectContent>
                                             {statusFilters.map(item => (
                                                 <SelectItem key={item} value={item}>

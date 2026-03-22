@@ -4,6 +4,7 @@ import { CalendarClock, Milestone, Plus, Trash2, Wrench } from 'lucide-react'
 import type { MaintenancePlan, MaintenancePlanInput } from '../types/index.js'
 import { Button } from './ui/button.js'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card.js'
+import { DatePicker } from './ui/date-picker.js'
 import { Input } from './ui/input.js'
 import { InputGroup, InputGroupAddon, InputGroupInput } from './ui/input-group.js'
 import { Textarea } from './ui/textarea.js'
@@ -42,6 +43,7 @@ export default function MaintenancePlanForm({ initial, onSubmit, onCancel, onDel
     const [error, setError] = useState('')
     const [isSaving, setIsSaving] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
+    const today = new Date()
 
     const update = <K extends keyof FormState>(field: K, value: FormState[K]) => {
         setForm(previous => ({ ...previous, [field]: value }))
@@ -137,16 +139,13 @@ export default function MaintenancePlanForm({ initial, onSubmit, onCancel, onDel
 
                         <div className='flex flex-col gap-2'>
                             <label className='text-sm font-medium text-foreground'>Last Completed Date</label>
-                            <InputGroup>
-                                <InputGroupInput
-                                    type='date'
-                                    value={form.lastCompletedDate}
-                                    onChange={event => update('lastCompletedDate', event.target.value)}
-                                />
-                                <InputGroupAddon>
-                                    <CalendarClock className='text-muted-foreground' />
-                                </InputGroupAddon>
-                            </InputGroup>
+                            <DatePicker
+                                value={form.lastCompletedDate}
+                                onChange={value => update('lastCompletedDate', value)}
+                                placeholder='Pick a completion date'
+                                minDate='1900-01-01'
+                                maxDate={today}
+                            />
                         </div>
                     </div>
 

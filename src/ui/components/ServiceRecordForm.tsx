@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import { Button } from './ui/button.js'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card.js'
+import { DatePicker } from './ui/date-picker.js'
 import { Input } from './ui/input.js'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select.js'
 import { Textarea } from './ui/textarea.js'
@@ -25,6 +26,7 @@ export default function ServiceRecordForm({ initial, onSubmit, onCancel }: Props
     })
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
+    const today = new Date()
 
     const set = <K extends keyof ServiceRecordInput>(field: K, value: ServiceRecordInput[K]) =>
         setForm(prev => ({ ...prev, [field]: value }))
@@ -32,6 +34,12 @@ export default function ServiceRecordForm({ initial, onSubmit, onCancel }: Props
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setError('')
+
+        if (!form.date) {
+            setError('Date is required')
+            return
+        }
+
         setLoading(true)
         try {
             await onSubmit({
@@ -84,7 +92,13 @@ export default function ServiceRecordForm({ initial, onSubmit, onCancel }: Props
 
                         <div className='space-y-2'>
                             <label className='text-sm font-medium text-foreground'>Date *</label>
-                            <Input type='date' value={form.date} onChange={e => set('date', e.target.value)} required />
+                            <DatePicker
+                                value={form.date}
+                                onChange={value => set('date', value)}
+                                required
+                                minDate='1900-01-01'
+                                maxDate={today}
+                            />
                         </div>
                     </div>
 

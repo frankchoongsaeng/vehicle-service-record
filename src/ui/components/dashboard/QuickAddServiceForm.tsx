@@ -1,9 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js'
+import { DatePicker } from '../ui/date-picker.js'
 import { Input } from '../ui/input.js'
 import { Textarea } from '../ui/textarea.js'
 import { Button } from '../ui/button.js'
 
 export function QuickAddServiceForm() {
+    const today = new Date()
+
     return (
         <Card>
             <CardHeader className='space-y-2'>
@@ -30,7 +33,7 @@ export function QuickAddServiceForm() {
                             <label className='text-sm font-medium text-foreground' htmlFor='serviceDate'>
                                 Date
                             </label>
-                            <Input id='serviceDate' type='date' />
+                            <DatePicker id='serviceDate' name='serviceDate' minDate='1900-01-01' maxDate={today} />
                         </div>
                     </div>
 

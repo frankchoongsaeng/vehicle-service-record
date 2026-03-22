@@ -1,11 +1,20 @@
 import { NavLink, useLocation, useSearchParams } from '@remix-run/react'
-import { LogOut, Menu, Plus, CarFront, X } from 'lucide-react'
+import { CarFront, LogOut, Menu, Plus, Settings, UserCircle2, X } from 'lucide-react'
 import { useState } from 'react'
 
 import { cn } from '../lib/utils.js'
 import type { AuthUser } from '../types/index.js'
+import { Avatar, AvatarFallback } from './ui/avatar.js'
 import { Button } from './ui/button.js'
-import { Card } from './ui/card.js'
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuGroup,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger
+} from './ui/dropdown-menu.js'
 import Logo from './ui/logo.js'
 
 type AuthenticatedShellProps = {
@@ -36,6 +45,14 @@ export function AuthenticatedShell({
     const location = useLocation()
     const [searchParams, setSearchParams] = useSearchParams()
     const isMenuOpen = searchParams.get('navMenu') === 'open'
+    const profileInitials = currentUser.email
+        .split('@')[0]
+        .split(/[^a-zA-Z0-9]+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(segment => segment[0]?.toUpperCase() ?? '')
+        .join('')
+        .slice(0, 2)
 
     const toggleMenu = () => {
         const nextParams = new URLSearchParams(searchParams)
@@ -99,17 +116,42 @@ export function AuthenticatedShell({
                             </div>
                         </NavLink>
 
-                        <div className='flex flex-wrap items-center justify-self-end gap-2 sm:gap-3'>
-                            <Card className='hidden rounded-full px-3 py-2 shadow-none md:block'>
-                                <p className='text-sm text-muted-foreground'>
-                                    Signed in as{' '}
-                                    <span className='font-medium text-foreground'>{currentUser.email}</span>
-                                </p>
-                            </Card>
-                            <Button variant='outline' onClick={handleLogout} disabled={loggingOut}>
-                                <LogOut className='h-4 w-4' />
-                                {loggingOut ? 'Signing out…' : 'Sign out'}
-                            </Button>
+                        <div className='flex items-center justify-self-end'>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Avatar
+                                        aria-label='Open profile menu'
+                                        className='size-11 cursor-pointer border border-border transition-colors hover:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+                                    >
+                                        <AvatarFallback className='bg-muted text-sm font-semibold text-foreground'>
+                                            {profileInitials || (
+                                                <UserCircle2 className='size-6 text-muted-foreground' />
+                                            )}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align='end' sideOffset={8}>
+                                    <DropdownMenuLabel className='flex flex-col gap-0.5'>
+                                        <span className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
+                                            Signed in as
+                                        </span>
+                                        <span className='truncate text-sm font-semibold text-foreground'>
+                                            {currentUser.email}
+                                        </span>
+                                    </DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuGroup>
+                                        <DropdownMenuItem>
+                                            <Settings />
+                                            Settings
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={handleLogout} disabled={loggingOut}>
+                                            <LogOut />
+                                            {loggingOut ? 'Signing out…' : 'Sign out'}
+                                        </DropdownMenuItem>
+                                    </DropdownMenuGroup>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
                     </div>
 

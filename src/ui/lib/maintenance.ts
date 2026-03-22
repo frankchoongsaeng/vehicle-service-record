@@ -272,7 +272,7 @@ export function buildDisplayServiceRecords(records: ApiServiceRecord[], now: Dat
             date: formatDate(record.date),
             mileage: formatMileage(record.mileage),
             service: getServiceLabel(record.service_type),
-            workshop: 'Logged in Duralog',
+            workshop: record.workshop?.trim() || 'Not specified',
             category: getServiceCategory(record.service_type),
             cost: formatCurrency(record.cost),
             status: getRecordStatus(record, now),

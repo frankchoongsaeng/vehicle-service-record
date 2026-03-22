@@ -97,6 +97,7 @@ export interface ServiceRecord {
     vehicle_id: number
     maintenance_plan_id?: number | null
     service_type: ServiceTypeValue
+    workshop?: string | null
     description: string
     date: string
     mileage?: number | null
@@ -111,7 +112,15 @@ export interface ServiceRecordInput {
     description: string
     date: string
     maintenance_plan_id?: number
+    workshop?: string
     mileage?: number
+    cost?: number
+    notes?: string
+}
+
+export interface ServiceRecordUpdateInput {
+    workshop?: string
+    description: string
     cost?: number
     notes?: string
 }

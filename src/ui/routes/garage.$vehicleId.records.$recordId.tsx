@@ -1,13 +1,16 @@
-import { Link, useNavigate, useOutletContext, useParams, useRevalidator } from '@remix-run/react'
+import { Link, useNavigate, useOutletContext, useParams, useRevalidator, useSearchParams } from '@remix-run/react'
 import { X } from 'lucide-react'
 
 import * as api from '../api/client.js'
+import ServiceRecordEditForm from '../components/ServiceRecordEditForm.js'
 import ServiceRecordForm from '../components/ServiceRecordForm.js'
 import { StatusBadge } from '../components/dashboard/StatusBadge'
+import type { ServiceRecord as ApiServiceRecord } from '../types/index.js'
 import type { ServiceRecord } from '../components/dashboard/types'
 
 interface OutletContext {
     records: ServiceRecord[]
+    rawRecords: ApiServiceRecord[]
     vehicleId: string | undefined
 }
 
@@ -24,8 +27,19 @@ export default function RecordDetailRoute() {
     const { vehicleId, recordId } = useParams()
     const navigate = useNavigate()
     const revalidator = useRevalidator()
-    const { records } = useOutletContext<OutletContext>()
+    const [searchParams] = useSearchParams()
+    const { records, rawRecords } = useOutletContext<OutletContext>()
     const record = records.find(r => r.id === recordId)
+    const rawRecord = rawRecords.find(r => String(r.id) === recordId)
+    const isEditMode = searchParams.get('mode') === 'edit'
+    const buildDetailUrl = () => {
+        const next = new URLSearchParams(searchParams)
+
+        next.delete('mode')
+
+        const queryString = next.toString()
+        return `/garage/${vehicleId}/records/${recordId}${queryString ? `?${queryString}` : ''}`
+    }
 
     if (recordId === 'new' && vehicleId) {
         return (
@@ -56,6 +70,22 @@ export default function RecordDetailRoute() {
                     </Link>
                 </div>
                 <p className='p-4 text-sm text-muted-foreground'>Record not found.</p>
+            </aside>
+        )
+    }
+
+    if (isEditMode && vehicleId && recordId && rawRecord) {
+        return (
+            <aside className='sticky top-6 max-h-[calc(100vh-6rem)] overflow-y-auto rounded-xl'>
+                <ServiceRecordEditForm
+                    initial={rawRecord}
+                    onSubmit={async data => {
+                        await api.updateRecord(Number(vehicleId), Number(recordId), data)
+                        revalidator.revalidate()
+                        navigate(buildDetailUrl(), { replace: true })
+                    }}
+                    onCancel={() => navigate(buildDetailUrl(), { replace: true })}
+                />
             </aside>
         )
     }

@@ -9,6 +9,8 @@ import { getServiceTypeLabel } from '../types/serviceTypes.js'
 const router = Router({ mergeParams: true })
 const recordsLogger = createLogger({ component: 'service-record-routes' })
 
+const limitedRecordUpdateFields = ['workshop', 'description', 'cost', 'notes'] as const
+
 type ServiceRecordWriteInput = {
     maintenance_plan_id?: number | null
     service_type: string
@@ -265,9 +267,10 @@ router.post(
     '/',
     asyncHandler(async (req: Request, res: Response) => {
         const authUser = req.authUser!
-        const { maintenance_plan_id, service_type, description, date, mileage, cost, notes } = req.body as {
+        const { maintenance_plan_id, service_type, workshop, description, date, mileage, cost, notes } = req.body as {
             maintenance_plan_id?: number
             service_type: string
+            workshop?: string
             description: string
             date: string
             mileage?: number
@@ -334,6 +337,7 @@ router.post(
                     vehicle_id: vehicleId,
                     maintenance_plan_id: linkedPlan?.id ?? null,
                     service_type,
+                    workshop: workshop?.trim() || null,
                     description,
                     date,
                     mileage: mileage ?? null,
@@ -367,24 +371,42 @@ router.put(
     '/:id',
     asyncHandler(async (req: Request, res: Response) => {
         const authUser = req.authUser!
-        const { service_type, description, date, mileage, cost, notes } = req.body as {
-            service_type: string
+        const body = (req.body ?? {}) as Record<string, unknown>
+        const bodyKeys = Object.keys(body)
+        const disallowedKeys = bodyKeys.filter(
+            key => !limitedRecordUpdateFields.includes(key as (typeof limitedRecordUpdateFields)[number])
+        )
+
+        if (disallowedKeys.length > 0) {
+            recordsLogger.warn('records.update_disallowed_fields', {
+                requestId: req.requestId,
+                userId: authUser.id,
+                vehicleId: Number(req.params.vehicleId),
+                recordId: Number(req.params.id),
+                disallowedKeys
+            })
+            res.status(400).json({
+                error: 'Only workshop, description, cost, and notes can be updated for a service record'
+            })
+            return
+        }
+
+        const { workshop, description, cost, notes } = body as {
+            workshop?: string
             description: string
-            date: string
-            mileage?: number
             cost?: number
             notes?: string
         }
 
-        if (!service_type || !description || !date) {
+        if (typeof description !== 'string' || description.trim().length === 0) {
             recordsLogger.warn('records.update_invalid_payload', {
                 requestId: req.requestId,
                 userId: authUser.id,
                 vehicleId: Number(req.params.vehicleId),
                 recordId: Number(req.params.id),
-                bodyKeys: Object.keys((req.body ?? {}) as Record<string, unknown>)
+                bodyKeys
             })
-            res.status(400).json({ error: 'service_type, description, and date are required' })
+            res.status(400).json({ error: 'description is required' })
             return
         }
 
@@ -412,10 +434,8 @@ router.put(
             const updated = await transaction.serviceRecord.update({
                 where: { id: recordId },
                 data: {
-                    service_type,
-                    description,
-                    date,
-                    mileage: mileage ?? null,
+                    workshop: workshop?.trim() || null,
+                    description: description.trim(),
                     cost: cost ?? null,
                     notes: notes || null
                 }
@@ -431,8 +451,7 @@ router.put(
             userId: authUser.id,
             vehicleId,
             recordId: updated.id,
-            serviceType: updated.service_type,
-            date: updated.date,
+            workshop: updated.workshop,
             recomputedPlanCount
         })
 

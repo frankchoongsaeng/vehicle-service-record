@@ -92,6 +92,7 @@ model ServiceRecord {
     vehicle_id          Int
     maintenance_plan_id Int?
     service_type        String
+    workshop            String?
     description         String
     date                String
     mileage             Int?

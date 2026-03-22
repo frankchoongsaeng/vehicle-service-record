@@ -7,6 +7,7 @@ import {
     ClipboardList,
     LayoutPanelLeft,
     ListFilter,
+    Pencil,
     Plus,
     RotateCw,
     Search,
@@ -72,6 +73,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
         vehicle,
         vehicleId: String(vehicleId),
         records,
+        rawRecords,
         plans,
         vehicleLabel,
         vehicleImageFallback,
@@ -82,7 +84,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
 const statusFilters: Array<ServiceStatus | 'All'> = ['All', 'Completed', 'Upcoming', 'Planned', 'Overdue']
 
 export default function RecordsRoute() {
-    const { vehicle, vehicleId, records, plans, vehicleLabel, vehicleImageFallback, vehicleImageSrc } =
+    const { vehicle, vehicleId, records, rawRecords, plans, vehicleLabel, vehicleImageFallback, vehicleImageSrc } =
         useLoaderData<typeof loader>()
     const { recordId } = useParams()
     const auth = useAuth()
@@ -164,6 +166,7 @@ export default function RecordsRoute() {
             next.delete('view')
             next.delete('plan')
             next.delete('completePlan')
+            next.delete('mode')
         }
 
         if (nextView === 'plans') {
@@ -174,6 +177,25 @@ export default function RecordsRoute() {
 
         const queryString = next.toString()
         return `/garage/${vehicleId}/records${queryString ? `?${queryString}` : ''}`
+    }
+
+    const buildRecordUrl = (id: string, updates: Record<string, string | null | undefined> = {}) => {
+        const next = new URLSearchParams(searchParams)
+
+        next.delete('view')
+        next.delete('plan')
+        next.delete('completePlan')
+
+        for (const [key, value] of Object.entries(updates)) {
+            if (!value) {
+                next.delete(key)
+            } else {
+                next.set(key, value)
+            }
+        }
+
+        const queryString = next.toString()
+        return `/garage/${vehicleId}/records/${id}${queryString ? `?${queryString}` : ''}`
     }
 
     const updateFilter = (key: 'q' | 'status' | 'category', value: string) => {
@@ -187,7 +209,7 @@ export default function RecordsRoute() {
     }
 
     const handleRowClick = (id: string) => {
-        navigate(recordId === id ? `/garage/${vehicleId}/records` : `/garage/${vehicleId}/records/${id}`)
+        navigate(recordId === id ? buildRecordsUrl({ mode: null }) : buildRecordUrl(id))
     }
 
     const handleCreatePlan = async (data: MaintenancePlanInput) => {
@@ -436,6 +458,7 @@ export default function RecordsRoute() {
                                             {!isDetailOpen && <TableHead>Workshop</TableHead>}
                                             <TableHead className='text-right'>Cost</TableHead>
                                             <TableHead>Status</TableHead>
+                                            <TableHead className='w-[1%] text-right'>Edit</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -460,12 +483,26 @@ export default function RecordsRoute() {
                                                 <TableCell>
                                                     <StatusBadge status={record.status} />
                                                 </TableCell>
+                                                <TableCell className='text-right'>
+                                                    <Button
+                                                        type='button'
+                                                        variant='ghost'
+                                                        size='icon'
+                                                        aria-label={`Edit ${record.service}`}
+                                                        onClick={event => {
+                                                            event.stopPropagation()
+                                                            navigate(buildRecordUrl(record.id, { mode: 'edit' }))
+                                                        }}
+                                                    >
+                                                        <Pencil />
+                                                    </Button>
+                                                </TableCell>
                                             </TableRow>
                                         ))}
                                         {filteredRecords.length === 0 ? (
                                             <TableRow>
                                                 <TableCell
-                                                    colSpan={isDetailOpen ? 5 : 6}
+                                                    colSpan={isDetailOpen ? 6 : 7}
                                                     className='py-8 text-center text-sm text-muted-foreground'
                                                 >
                                                     No records match the selected filters.
@@ -477,7 +514,7 @@ export default function RecordsRoute() {
                             </CardContent>
                         </Card>
 
-                        <Outlet context={{ records, vehicleId }} />
+                        <Outlet context={{ records, rawRecords, vehicleId }} />
                     </div>
                 ) : (
                     <div className={cn('grid gap-6', isPlanPanelOpen && 'xl:grid-cols-[minmax(0,1fr)_420px]')}>

@@ -7,6 +7,7 @@ import type {
     VehicleInput,
     ServiceRecord,
     ServiceRecordInput,
+    ServiceRecordUpdateInput,
     MaintenancePlan,
     MaintenancePlanInput
 } from '../types/index.js'
@@ -162,7 +163,11 @@ export const createRecord = (vehicleId: number, input: ServiceRecordInput): Prom
         body: JSON.stringify(input)
     })
 
-export const updateRecord = (vehicleId: number, recordId: number, input: ServiceRecordInput): Promise<ServiceRecord> =>
+export const updateRecord = (
+    vehicleId: number,
+    recordId: number,
+    input: ServiceRecordUpdateInput
+): Promise<ServiceRecord> =>
     request(`/vehicles/${vehicleId}/records/${recordId}`, {
         method: 'PUT',
         body: JSON.stringify(input)

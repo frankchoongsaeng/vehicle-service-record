@@ -1,6 +1,6 @@
 import type { MetaFunction } from '@remix-run/node'
 import { Link, useLocation, useNavigate, useSearchParams } from '@remix-run/react'
-import { Globe, Settings2, Upload, UserRound, X } from 'lucide-react'
+import { BellRing, Globe, Settings2, Upload, UserRound, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import * as api from '../api/client.js'
@@ -47,6 +47,10 @@ export default function SettingsRoute() {
     const [country, setCountry] = useState('')
     const [profileImageUrl, setProfileImageUrl] = useState('')
     const [preferredCurrency, setPreferredCurrency] = useState<PreferredCurrencyCode>('USD')
+    const [reminderEmailEnabled, setReminderEmailEnabled] = useState(true)
+    const [reminderDigestEnabled, setReminderDigestEnabled] = useState(true)
+    const [reminderDaysThreshold, setReminderDaysThreshold] = useState('')
+    const [reminderMileageThreshold, setReminderMileageThreshold] = useState('')
     const [accountError, setAccountError] = useState('')
     const [preferencesError, setPreferencesError] = useState('')
     const [accountSaved, setAccountSaved] = useState('')
@@ -76,6 +80,45 @@ export default function SettingsRoute() {
         setCountry(auth.user.country ?? '')
         setProfileImageUrl(auth.user.profileImageUrl ?? '')
         setPreferredCurrency(auth.user.preferredCurrency)
+    }, [auth.user])
+
+    useEffect(() => {
+        if (!auth.user) {
+            return
+        }
+
+        let active = true
+
+        api.getReminderPreferences()
+            .then(preferences => {
+                if (!active) {
+                    return
+                }
+
+                setReminderEmailEnabled(preferences.reminderEmailEnabled)
+                setReminderDigestEnabled(preferences.reminderDigestEnabled)
+                setReminderDaysThreshold(
+                    preferences.rule?.daysThreshold != null ? String(preferences.rule.daysThreshold) : ''
+                )
+                setReminderMileageThreshold(
+                    preferences.rule?.mileageThreshold != null ? String(preferences.rule.mileageThreshold) : ''
+                )
+            })
+            .catch(error => {
+                if (!active) {
+                    return
+                }
+
+                setPreferencesError(
+                    error instanceof ApiError || error instanceof Error
+                        ? error.message
+                        : 'Unable to load reminder preferences right now.'
+                )
+            })
+
+        return () => {
+            active = false
+        }
     }, [auth.user])
 
     const syncTab = (nextTab: SettingsTab) => {
@@ -121,7 +164,34 @@ export default function SettingsRoute() {
         setPreferencesSaved('')
 
         try {
-            const updatedUser = await api.updateSettings({ preferredCurrency })
+            const trimmedDaysThreshold = reminderDaysThreshold.trim()
+            const trimmedMileageThreshold = reminderMileageThreshold.trim()
+            const reminderRule =
+                reminderEmailEnabled && reminderDigestEnabled
+                    ? {
+                          daysThreshold: trimmedDaysThreshold ? Number(trimmedDaysThreshold) : undefined,
+                          mileageThreshold: trimmedMileageThreshold ? Number(trimmedMileageThreshold) : undefined
+                      }
+                    : null
+
+            if (
+                reminderEmailEnabled &&
+                reminderDigestEnabled &&
+                !reminderRule?.daysThreshold &&
+                !reminderRule?.mileageThreshold
+            ) {
+                setPreferencesError('Set a days threshold, mileage threshold, or both for reminder digests.')
+                return
+            }
+
+            const [updatedUser] = await Promise.all([
+                api.updateSettings({ preferredCurrency }),
+                api.updateReminderPreferences({
+                    reminderEmailEnabled,
+                    reminderDigestEnabled,
+                    rule: reminderRule
+                })
+            ])
             auth.replaceUser(updatedUser)
             setPreferencesSaved('Preferences saved.')
         } catch (error) {
@@ -414,6 +484,92 @@ export default function SettingsRoute() {
                                 <p className='flex items-center gap-2'>
                                     <Globe />
                                     {getCurrencyLabel(preferredCurrency)}
+                                </p>
+                            </div>
+
+                            <div className='rounded-xl border bg-muted/40 p-4'>
+                                <div className='flex flex-col gap-2'>
+                                    <p className='text-sm font-medium text-foreground'>Reminder digest defaults</p>
+                                    <p className='text-sm text-muted-foreground'>
+                                        Daily maintenance digests are sent by email first. SMS and WhatsApp can be added
+                                        later without changing the underlying reminder rules.
+                                    </p>
+                                </div>
+
+                                <div className='mt-4 grid gap-4 md:grid-cols-2'>
+                                    <div className='flex flex-col gap-2'>
+                                        <label className='text-sm font-medium text-foreground'>Email reminders</label>
+                                        <Select
+                                            value={reminderEmailEnabled ? 'enabled' : 'disabled'}
+                                            onValueChange={value => setReminderEmailEnabled(value === 'enabled')}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder='Select reminder status' />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value='enabled'>Enabled</SelectItem>
+                                                <SelectItem value='disabled'>Disabled</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className='flex flex-col gap-2'>
+                                        <label className='text-sm font-medium text-foreground'>Daily digest</label>
+                                        <Select
+                                            value={reminderDigestEnabled ? 'enabled' : 'disabled'}
+                                            onValueChange={value => setReminderDigestEnabled(value === 'enabled')}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder='Select digest status' />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value='enabled'>Enabled</SelectItem>
+                                                <SelectItem value='disabled'>Disabled</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className='flex flex-col gap-2'>
+                                        <label
+                                            htmlFor='settings-reminder-days'
+                                            className='text-sm font-medium text-foreground'
+                                        >
+                                            Days threshold
+                                        </label>
+                                        <Input
+                                            id='settings-reminder-days'
+                                            type='number'
+                                            min='1'
+                                            value={reminderDaysThreshold}
+                                            onChange={event => setReminderDaysThreshold(event.target.value)}
+                                            placeholder='e.g. 14'
+                                            disabled={!reminderEmailEnabled || !reminderDigestEnabled}
+                                        />
+                                    </div>
+
+                                    <div className='flex flex-col gap-2'>
+                                        <label
+                                            htmlFor='settings-reminder-mileage'
+                                            className='text-sm font-medium text-foreground'
+                                        >
+                                            Mileage threshold
+                                        </label>
+                                        <Input
+                                            id='settings-reminder-mileage'
+                                            type='number'
+                                            min='1'
+                                            value={reminderMileageThreshold}
+                                            onChange={event => setReminderMileageThreshold(event.target.value)}
+                                            placeholder='e.g. 750'
+                                            disabled={!reminderEmailEnabled || !reminderDigestEnabled}
+                                        />
+                                    </div>
+                                </div>
+
+                                <p className='mt-3 flex items-center gap-2 text-sm text-muted-foreground'>
+                                    <BellRing className='h-4 w-4' />
+                                    Trigger digests when maintenance is due within the thresholds above or already
+                                    overdue.
                                 </p>
                             </div>
 

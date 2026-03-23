@@ -12,8 +12,78 @@ import { lookupVin, VinLookupError } from '../vehicles/vinLookup.js'
 const router = Router()
 const vehiclesLogger = createLogger({ component: 'vehicle-routes' })
 
+type ReminderRulePayload = {
+    daysThreshold?: unknown
+    mileageThreshold?: unknown
+}
+
 function shouldScheduleVehicleImage(color?: string | null): boolean {
     return Boolean(color?.trim())
+}
+
+function normalizeOptionalThreshold(value: unknown, field: string): number | null {
+    if (value == null || value === '') {
+        return null
+    }
+
+    const normalized = Number(value)
+
+    if (!Number.isInteger(normalized) || normalized <= 0) {
+        throw new Error(`${field} must be a positive whole number when provided`)
+    }
+
+    return normalized
+}
+
+function normalizeReminderRule(value: unknown) {
+    if (value == null) {
+        return null
+    }
+
+    const raw = value as ReminderRulePayload
+    const daysThreshold = normalizeOptionalThreshold(raw.daysThreshold, 'reminderRule.daysThreshold')
+    const mileageThreshold = normalizeOptionalThreshold(raw.mileageThreshold, 'reminderRule.mileageThreshold')
+
+    if (daysThreshold == null && mileageThreshold == null) {
+        throw new Error('A custom reminder rule requires at least one threshold')
+    }
+
+    return {
+        daysThreshold,
+        mileageThreshold
+    }
+}
+
+type ReminderRuleClient = Pick<typeof prisma, 'reminderRule'>
+
+async function replaceVehicleReminderRule(
+    client: ReminderRuleClient,
+    userId: string,
+    vehicleId: number,
+    reminderMode: string,
+    reminderRule: { daysThreshold: number | null; mileageThreshold: number | null } | null
+) {
+    await client.reminderRule.deleteMany({
+        where: {
+            user_id: userId,
+            vehicle_id: vehicleId,
+            channel: 'email'
+        }
+    })
+
+    if (reminderMode !== 'custom' || !reminderRule) {
+        return
+    }
+
+    await client.reminderRule.create({
+        data: {
+            user_id: userId,
+            vehicle_id: vehicleId,
+            channel: 'email',
+            days_threshold: reminderRule.daysThreshold,
+            mileage_threshold: reminderRule.mileageThreshold
+        }
+    })
 }
 
 function getVehicleImageUrl(
@@ -47,6 +117,7 @@ function serializeVehicle(vehicle: {
     purchase_mileage: number | null
     mileage: number | null
     distance_unit: string
+    reminder_mode: string
     color: string | null
     notes: string | null
     created_at: Date
@@ -88,6 +159,7 @@ function serializeVehicle(vehicle: {
         purchaseMileage: vehicle.purchase_mileage,
         mileage: vehicle.mileage,
         distanceUnit: isDistanceUnit(vehicle.distance_unit) ? vehicle.distance_unit : DEFAULT_DISTANCE_UNIT,
+        reminderMode: vehicle.reminder_mode,
         color: vehicle.color,
         notes: vehicle.notes,
         created_at: vehicle.created_at,
@@ -292,6 +364,8 @@ router.post(
             purchaseMileage?: number
             mileage?: number
             distanceUnit?: string
+            reminderMode?: string
+            reminderRule?: ReminderRulePayload | null
             color?: string
             notes?: string
         }
@@ -316,57 +390,84 @@ router.post(
             return
         }
 
-        const normalizedYear = Number(year)
-        const normalizedDistanceUnit = distanceUnit ?? DEFAULT_DISTANCE_UNIT
+        try {
+            const normalizedYear = Number(year)
+            const normalizedDistanceUnit = distanceUnit ?? DEFAULT_DISTANCE_UNIT
+            const normalizedReminderMode =
+                req.body?.reminderMode === 'custom' || req.body?.reminderMode === 'disabled'
+                    ? req.body.reminderMode
+                    : 'inherit'
+            const normalizedReminderRule =
+                normalizedReminderMode === 'custom' ? normalizeReminderRule(req.body?.reminderRule) : null
 
-        const createdVehicle = await prisma.vehicle.create({
-            data: {
-                user_id: authUser.id,
-                image_id: null,
-                make,
-                model,
-                year: normalizedYear,
-                trim,
-                vehicle_type: vehicleType || null,
-                plate_number: plateNumber || null,
-                vin: vin || null,
-                engine: engine || null,
-                transmission,
-                fuel_type: fuelType,
-                purchase_mileage: purchaseMileage ?? null,
-                mileage: mileage ?? null,
-                distance_unit: normalizedDistanceUnit,
-                color: color || null,
-                notes: notes || null
-            },
-            include: { image: true }
-        })
+            if (normalizedReminderMode === 'custom' && !normalizedReminderRule) {
+                throw new Error('A custom reminder rule requires at least one threshold')
+            }
 
-        vehiclesLogger.info('vehicles.created', {
-            requestId: req.requestId,
-            userId: authUser.id,
-            vehicleId: createdVehicle.id,
-            imageId: createdVehicle.image_id,
-            classificationKey: createdVehicle.image?.classification_key ?? undefined,
-            make: createdVehicle.make,
-            model: createdVehicle.model,
-            year: createdVehicle.year
-        })
+            const createdVehicle = await prisma.$transaction(async tx => {
+                const vehicle = await tx.vehicle.create({
+                    data: {
+                        user_id: authUser.id,
+                        image_id: null,
+                        make,
+                        model,
+                        year: normalizedYear,
+                        trim,
+                        vehicle_type: vehicleType || null,
+                        plate_number: plateNumber || null,
+                        vin: vin || null,
+                        engine: engine || null,
+                        transmission,
+                        fuel_type: fuelType,
+                        purchase_mileage: purchaseMileage ?? null,
+                        mileage: mileage ?? null,
+                        distance_unit: normalizedDistanceUnit,
+                        reminder_mode: normalizedReminderMode,
+                        color: color || null,
+                        notes: notes || null
+                    },
+                    include: { image: true }
+                })
 
-        res.status(201).json(serializeVehicle(createdVehicle))
+                await replaceVehicleReminderRule(
+                    tx,
+                    authUser.id,
+                    vehicle.id,
+                    normalizedReminderMode,
+                    normalizedReminderRule
+                )
 
-        if (shouldScheduleVehicleImage(createdVehicle.color)) {
-            scheduleVehicleImagePipeline({
-                make: createdVehicle.make,
-                model: createdVehicle.model,
-                year: createdVehicle.year,
-                trim: createdVehicle.trim,
-                vehicleType: createdVehicle.vehicle_type,
-                color: createdVehicle.color,
+                return vehicle
+            })
+
+            vehiclesLogger.info('vehicles.created', {
                 requestId: req.requestId,
                 userId: authUser.id,
-                vehicleId: createdVehicle.id
+                vehicleId: createdVehicle.id,
+                imageId: createdVehicle.image_id,
+                classificationKey: createdVehicle.image?.classification_key ?? undefined,
+                make: createdVehicle.make,
+                model: createdVehicle.model,
+                year: createdVehicle.year
             })
+
+            res.status(201).json(serializeVehicle(createdVehicle))
+
+            if (shouldScheduleVehicleImage(createdVehicle.color)) {
+                scheduleVehicleImagePipeline({
+                    make: createdVehicle.make,
+                    model: createdVehicle.model,
+                    year: createdVehicle.year,
+                    trim: createdVehicle.trim,
+                    vehicleType: createdVehicle.vehicle_type,
+                    color: createdVehicle.color,
+                    requestId: req.requestId,
+                    userId: authUser.id,
+                    vehicleId: createdVehicle.id
+                })
+            }
+        } catch (error) {
+            res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid vehicle reminder rule' })
         }
     })
 )
@@ -406,6 +507,8 @@ router.put(
             purchaseMileage?: number
             mileage?: number
             distanceUnit?: string
+            reminderMode?: string
+            reminderRule?: ReminderRulePayload | null
             color?: string
             notes?: string
         }
@@ -432,9 +535,6 @@ router.put(
             return
         }
 
-        const normalizedYear = Number(year)
-        const normalizedDistanceUnit = distanceUnit ?? DEFAULT_DISTANCE_UNIT
-
         const vehicleId = Number(req.params.id)
         const existing = await prisma.vehicle.findFirst({
             where: {
@@ -452,52 +552,82 @@ router.put(
             return
         }
 
-        const updated = await prisma.$transaction(async tx => {
-            const ensuredImage = await ensureVehicleImage(tx, {
-                make,
-                model,
-                year: normalizedYear,
-                trim,
-                vehicleType: vehicleType ?? null,
-                color: color ?? null
-            })
+        try {
+            const normalizedYear = Number(year)
+            const normalizedDistanceUnit = distanceUnit ?? DEFAULT_DISTANCE_UNIT
+            const normalizedReminderMode =
+                req.body?.reminderMode === 'custom' || req.body?.reminderMode === 'disabled'
+                    ? req.body.reminderMode
+                    : req.body?.reminderMode === 'inherit'
+                    ? 'inherit'
+                    : existing.reminder_mode
+            const normalizedReminderRule =
+                normalizedReminderMode === 'custom' ? normalizeReminderRule(req.body?.reminderRule) : null
 
-            return tx.vehicle.update({
-                where: { id: vehicleId },
-                data: {
-                    image_id: ensuredImage?.imageId ?? null,
+            if (normalizedReminderMode === 'custom' && !normalizedReminderRule) {
+                throw new Error('A custom reminder rule requires at least one threshold')
+            }
+
+            const updated = await prisma.$transaction(async tx => {
+                const ensuredImage = await ensureVehicleImage(tx, {
                     make,
                     model,
                     year: normalizedYear,
                     trim,
-                    vehicle_type: vehicleType || null,
-                    plate_number: plateNumber || null,
-                    vin: vin || null,
-                    engine: engine || null,
-                    transmission,
-                    fuel_type: fuelType,
-                    purchase_mileage: purchaseMileage ?? null,
-                    mileage: mileage ?? null,
-                    distance_unit: normalizedDistanceUnit,
-                    color: color || null,
-                    notes: notes || null
-                },
-                include: { image: true }
+                    vehicleType: vehicleType ?? null,
+                    color: color ?? null
+                })
+
+                const vehicle = await tx.vehicle.update({
+                    where: { id: vehicleId },
+                    data: {
+                        image_id: ensuredImage?.imageId ?? null,
+                        make,
+                        model,
+                        year: normalizedYear,
+                        trim,
+                        vehicle_type: vehicleType || null,
+                        plate_number: plateNumber || null,
+                        vin: vin || null,
+                        engine: engine || null,
+                        transmission,
+                        fuel_type: fuelType,
+                        purchase_mileage: purchaseMileage ?? null,
+                        mileage: mileage ?? null,
+                        distance_unit: normalizedDistanceUnit,
+                        reminder_mode: normalizedReminderMode,
+                        color: color || null,
+                        notes: notes || null
+                    },
+                    include: { image: true }
+                })
+
+                await replaceVehicleReminderRule(
+                    tx,
+                    authUser.id,
+                    vehicleId,
+                    normalizedReminderMode,
+                    normalizedReminderRule
+                )
+
+                return vehicle
             })
-        })
 
-        vehiclesLogger.info('vehicles.updated', {
-            requestId: req.requestId,
-            userId: authUser.id,
-            vehicleId: updated.id,
-            imageId: updated.image_id,
-            classificationKey: updated.image?.classification_key ?? undefined,
-            make: updated.make,
-            model: updated.model,
-            year: updated.year
-        })
+            vehiclesLogger.info('vehicles.updated', {
+                requestId: req.requestId,
+                userId: authUser.id,
+                vehicleId: updated.id,
+                imageId: updated.image_id,
+                classificationKey: updated.image?.classification_key ?? undefined,
+                make: updated.make,
+                model: updated.model,
+                year: updated.year
+            })
 
-        res.json(serializeVehicle(updated))
+            res.json(serializeVehicle(updated))
+        } catch (error) {
+            res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid vehicle reminder rule' })
+        }
     })
 )
 

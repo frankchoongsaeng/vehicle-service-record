@@ -5,6 +5,7 @@ import {
     type ServiceTypeValue
 } from '../../types/serviceTypes.js'
 import type { DistanceUnit } from '../../types/distance.js'
+import type { ReminderChannel, ReminderPreferenceMode } from '../../types/reminders.js'
 import type { PreferredCurrencyCode } from '../../types/userSettings.js'
 
 export { SERVICE_TYPES, getServiceTypeLabel, isServiceTypeValue }
@@ -27,6 +28,7 @@ export interface Vehicle {
     purchaseMileage?: number | null
     mileage?: number | null
     distanceUnit: DistanceUnit
+    reminderMode: ReminderPreferenceMode
     color?: string | null
     notes?: string | null
     created_at: string
@@ -47,6 +49,8 @@ export interface VehicleInput {
     purchaseMileage?: number
     mileage?: number
     distanceUnit: DistanceUnit
+    reminderMode?: ReminderPreferenceMode
+    reminderRule?: ReminderRuleInput | null
     color?: string
     notes?: string
 }
@@ -183,4 +187,41 @@ export interface MaintenancePlanInput {
     intervalMileage?: number
     lastCompletedDate?: string
     lastCompletedMileage?: number
+}
+
+export interface ReminderRule {
+    id: number
+    channel: ReminderChannel
+    daysThreshold?: number | null
+    mileageThreshold?: number | null
+    created_at: string
+    updated_at: string
+}
+
+export interface ReminderRuleInput {
+    daysThreshold?: number
+    mileageThreshold?: number
+}
+
+export interface WorkspaceReminderPreferences {
+    reminderEmailEnabled: boolean
+    reminderDigestEnabled: boolean
+    rule: ReminderRule | null
+}
+
+export interface WorkspaceReminderPreferencesInput {
+    reminderEmailEnabled: boolean
+    reminderDigestEnabled: boolean
+    rule: ReminderRuleInput | null
+}
+
+export interface VehicleReminderPreferences {
+    vehicleId: number
+    mode: ReminderPreferenceMode
+    rule: ReminderRule | null
+}
+
+export interface VehicleReminderPreferencesInput {
+    mode: ReminderPreferenceMode
+    rule: ReminderRuleInput | null
 }

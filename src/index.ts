@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit'
 import { createRequestHandler } from '@remix-run/express'
 import authRouter from './routes/auth.js'
 import maintenancePlansRouter from './routes/maintenancePlans.js'
+import remindersRouter from './routes/reminders.js'
 import settingsRouter from './routes/settings.js'
 import vehiclesRouter from './routes/vehicles.js'
 import recordsRouter from './routes/records.js'
@@ -12,6 +13,7 @@ import workshopsRouter from './routes/workshops.js'
 import { attachAuthUser } from './middleware/auth.js'
 import { logger } from './logging/logger.js'
 import { errorLoggingMiddleware, requestLoggingMiddleware } from './middleware/requestLogging.js'
+import { startReminderScheduler } from './services/reminders/scheduler.js'
 
 const app = express()
 const PORT = Number(process.env.PORT) || 3001
@@ -55,6 +57,7 @@ app.use('/api', apiLimiter)
 
 // Routes
 app.use('/api/auth', authRouter)
+app.use('/api/reminders', remindersRouter)
 app.use('/api/settings', settingsRouter)
 app.use('/api/vehicles', vehiclesRouter)
 app.use('/api/workshops', workshopsRouter)
@@ -97,3 +100,5 @@ app.listen(PORT, '0.0.0.0', () => {
         logFilePath: process.env.LOG_FILE_PATH ?? undefined
     })
 })
+
+startReminderScheduler()

@@ -4,6 +4,14 @@ import {
     type ServiceRecord as ApiServiceRecord,
     type Vehicle
 } from '../types/index.js'
+import {
+    daysUntilIsoDate,
+    evaluateMaintenancePlan,
+    formatMaintenanceDate,
+    getMaintenanceDueLabel,
+    getMaintenanceLastCompletedLabel,
+    getMaintenanceStatus
+} from '../../lib/maintenanceEvaluation.js'
 import type {
     ServiceRecord,
     ServiceStatus,
@@ -13,13 +21,9 @@ import type {
 } from '../components/dashboard/types.js'
 import type { AuthUser } from '../types/index.js'
 import { DEFAULT_PREFERRED_CURRENCY, formatCurrencyAmount, type PreferredCurrencyCode } from './currency.js'
-import { formatDistance, getDistanceUnitSuffix, type DistanceUnit } from './distance.js'
+import { formatDistance, type DistanceUnit } from './distance.js'
 
 type UpcomingCandidate = UpcomingItem & { urgency: number }
-type PlanThresholdMetrics = {
-    daysRemaining: number | null
-    mileageRemaining: number | null
-}
 
 export type EvaluatedMaintenancePlan = {
     id: string
@@ -73,142 +77,19 @@ export function formatCurrency(
 }
 
 export function formatDate(date: string) {
-    return new Date(`${date}T00:00:00`).toLocaleDateString(undefined, {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-    })
-}
-
-function daysUntil(date: string, now: Date) {
-    const futureDate = new Date(`${date}T00:00:00`)
-    return Math.ceil((futureDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-}
-
-function addMonths(date: string, months: number) {
-    const nextDate = new Date(`${date}T00:00:00`)
-    nextDate.setMonth(nextDate.getMonth() + months)
-    return nextDate.toISOString().slice(0, 10)
-}
-
-function formatInterval(
-    intervalMonths?: number | null,
-    intervalMileage?: number | null,
-    distanceUnit: DistanceUnit = 'mi'
-) {
-    const parts: string[] = []
-
-    if (intervalMonths != null) {
-        parts.push(`every ${intervalMonths} month${intervalMonths === 1 ? '' : 's'}`)
-    }
-
-    if (intervalMileage != null) {
-        parts.push(`every ${intervalMileage.toLocaleString()} ${getDistanceUnitSuffix(distanceUnit)}`)
-    }
-
-    return parts.join(' or ')
-}
-
-function getPlanThresholdMetrics(plan: MaintenancePlan, vehicle: Vehicle, now: Date): PlanThresholdMetrics {
-    const daysRemaining =
-        plan.intervalMonths != null && plan.lastCompletedDate
-            ? daysUntil(addMonths(plan.lastCompletedDate, plan.intervalMonths), now)
-            : null
-
-    const mileageRemaining =
-        plan.intervalMileage != null && plan.lastCompletedMileage != null && vehicle.mileage != null
-            ? plan.intervalMileage - (vehicle.mileage - plan.lastCompletedMileage)
-            : null
-
-    return { daysRemaining, mileageRemaining }
+    return formatMaintenanceDate(date)
 }
 
 export function getMaintenancePlanStatus(plan: MaintenancePlan, vehicle: Vehicle, now: Date): ServiceStatus {
-    const { daysRemaining, mileageRemaining } = getPlanThresholdMetrics(plan, vehicle, now)
-    const thresholds = [daysRemaining, mileageRemaining].filter((value): value is number => value != null)
-
-    if (thresholds.length === 0) {
-        return 'Planned'
-    }
-
-    if (thresholds.some(value => value <= 0)) {
-        return 'Overdue'
-    }
-
-    if ((daysRemaining != null && daysRemaining <= 30) || (mileageRemaining != null && mileageRemaining <= 750)) {
-        return 'Upcoming'
-    }
-
-    return 'Planned'
+    return getMaintenanceStatus(plan, vehicle, now)
 }
 
 export function getMaintenancePlanDue(plan: MaintenancePlan, vehicle: Vehicle, now: Date): string {
-    const { daysRemaining, mileageRemaining } = getPlanThresholdMetrics(plan, vehicle, now)
-    const status = getMaintenancePlanStatus(plan, vehicle, now)
-
-    if (daysRemaining == null && mileageRemaining == null) {
-        if (
-            plan.intervalMonths != null &&
-            !plan.lastCompletedDate &&
-            plan.intervalMileage != null &&
-            plan.lastCompletedMileage == null
-        ) {
-            return 'Add last completed date or mileage'
-        }
-
-        if (plan.intervalMonths != null && !plan.lastCompletedDate) {
-            return 'Add last completed date'
-        }
-
-        if (plan.intervalMileage != null && plan.lastCompletedMileage == null) {
-            return 'Add last completed mileage'
-        }
-
-        if (plan.intervalMileage != null && vehicle.mileage == null) {
-            return 'Update current vehicle mileage'
-        }
-
-        return 'Plan cadence saved'
-    }
-
-    const dayText =
-        daysRemaining != null ? `${Math.abs(daysRemaining)} day${Math.abs(daysRemaining) === 1 ? '' : 's'}` : null
-    const mileageText =
-        mileageRemaining != null ? formatDistance(Math.abs(mileageRemaining), vehicle.distanceUnit) : null
-
-    if (status === 'Overdue') {
-        const overdueParts = [
-            daysRemaining != null && daysRemaining <= 0 && dayText ? dayText : null,
-            mileageRemaining != null && mileageRemaining <= 0 && mileageText ? mileageText : null
-        ].filter((value): value is string => value != null)
-
-        return overdueParts.length > 0 ? `Overdue by ${overdueParts.join(' or ')}` : 'Overdue'
-    }
-
-    const dueParts = [
-        dayText && daysRemaining != null
-            ? `${Math.max(daysRemaining, 0)} day${Math.max(daysRemaining, 0) === 1 ? '' : 's'}`
-            : null,
-        mileageText && mileageRemaining != null
-            ? formatDistance(Math.max(mileageRemaining, 0), vehicle.distanceUnit)
-            : null
-    ].filter((value): value is string => value != null)
-
-    return dueParts.length > 0 ? `Due in ${dueParts.join(' or ')}` : 'Plan cadence saved'
+    return getMaintenanceDueLabel(plan, vehicle, now)
 }
 
 export function getMaintenancePlanLastCompleted(plan: MaintenancePlan, distanceUnit: DistanceUnit = 'mi'): string {
-    const parts: string[] = []
-
-    if (plan.lastCompletedDate) {
-        parts.push(formatDate(plan.lastCompletedDate))
-    }
-
-    if (plan.lastCompletedMileage != null) {
-        parts.push(formatDistance(plan.lastCompletedMileage, distanceUnit))
-    }
-
-    return parts.length > 0 ? `Last completed ${parts.join(' at ')}` : 'No last completed baseline saved'
+    return getMaintenanceLastCompletedLabel(plan, distanceUnit)
 }
 
 export function evaluateMaintenancePlans(
@@ -217,15 +98,19 @@ export function evaluateMaintenancePlans(
     now: Date
 ): EvaluatedMaintenancePlan[] {
     return plans
-        .map(plan => ({
-            id: String(plan.id),
-            title: plan.title,
-            description: plan.description ?? undefined,
-            interval: formatInterval(plan.intervalMonths, plan.intervalMileage, vehicle.distanceUnit),
-            due: getMaintenancePlanDue(plan, vehicle, now),
-            lastCompleted: getMaintenancePlanLastCompleted(plan, vehicle.distanceUnit),
-            status: getMaintenancePlanStatus(plan, vehicle, now)
-        }))
+        .map(plan => {
+            const evaluation = evaluateMaintenancePlan(plan, vehicle, now)
+
+            return {
+                id: String(plan.id),
+                title: plan.title,
+                description: plan.description ?? undefined,
+                interval: evaluation.intervalLabel,
+                due: evaluation.dueLabel,
+                lastCompleted: evaluation.lastCompletedLabel,
+                status: evaluation.status
+            }
+        })
         .sort((left, right) => {
             const urgencyScore = { Overdue: 0, Upcoming: 1, Planned: 2, Completed: 3 } as const
             return urgencyScore[left.status] - urgencyScore[right.status] || left.title.localeCompare(right.title)
@@ -233,7 +118,7 @@ export function evaluateMaintenancePlans(
 }
 
 export function getRecordStatus(record: ApiServiceRecord, now: Date): ServiceStatus {
-    const daysRemaining = daysUntil(record.date, now)
+    const daysRemaining = daysUntilIsoDate(record.date, now)
 
     if (daysRemaining > 30) {
         return 'Planned'

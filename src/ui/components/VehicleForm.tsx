@@ -234,9 +234,12 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
         purchaseMileage: initial?.purchaseMileage ?? undefined,
         mileage: initial?.mileage ?? undefined,
         distanceUnit: initial?.distanceUnit ?? DEFAULT_DISTANCE_UNIT,
+        reminderMode: initial?.reminderMode ?? 'inherit',
         color: initial?.color ?? '',
         notes: initial?.notes ?? ''
     })
+    const [reminderDaysThreshold, setReminderDaysThreshold] = useState('')
+    const [reminderMileageThreshold, setReminderMileageThreshold] = useState('')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
     const [invalidFields, setInvalidFields] = useState<Partial<Record<RequiredVehicleField, true>>>({})
@@ -349,6 +352,42 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
         onVehicleTypeChange?.(form.vehicleType ?? '')
     }, [form.vehicleType, onVehicleTypeChange])
 
+    useEffect(() => {
+        if (!initial) {
+            setReminderDaysThreshold('')
+            setReminderMileageThreshold('')
+            return
+        }
+
+        let active = true
+
+        api.getVehicleReminderPreferences(initial.id)
+            .then(preferences => {
+                if (!active) {
+                    return
+                }
+
+                setForm(current => ({ ...current, reminderMode: preferences.mode }))
+                setReminderDaysThreshold(
+                    preferences.rule?.daysThreshold != null ? String(preferences.rule.daysThreshold) : ''
+                )
+                setReminderMileageThreshold(
+                    preferences.rule?.mileageThreshold != null ? String(preferences.rule.mileageThreshold) : ''
+                )
+            })
+            .catch(error => {
+                if (!active) {
+                    return
+                }
+
+                setError(error instanceof Error ? error.message : 'Unable to load reminder settings for this vehicle.')
+            })
+
+        return () => {
+            active = false
+        }
+    }, [initial])
+
     const vinMessageClassName = cn('text-xs leading-5 text-muted-foreground', {
         'text-foreground': vinLookupStatus === 'success',
         'text-destructive': vinLookupStatus === 'error'
@@ -382,12 +421,30 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
         setInvalidFields({})
         setLoading(true)
         try {
+            const reminderRule =
+                form.reminderMode === 'custom'
+                    ? {
+                          daysThreshold: reminderDaysThreshold.trim() ? Number(reminderDaysThreshold) : undefined,
+                          mileageThreshold: reminderMileageThreshold.trim()
+                              ? Number(reminderMileageThreshold)
+                              : undefined
+                      }
+                    : null
+
+            if (form.reminderMode === 'custom' && !reminderRule?.daysThreshold && !reminderRule?.mileageThreshold) {
+                setError('Custom reminder overrides need a days threshold, mileage threshold, or both.')
+                setLoading(false)
+                return
+            }
+
             await onSubmit({
                 ...form,
                 year: Number(form.year),
                 purchaseMileage: normalizeOptionalNumber(form.purchaseMileage),
                 mileage: normalizeOptionalNumber(form.mileage),
                 distanceUnit: form.distanceUnit,
+                reminderMode: form.reminderMode,
+                reminderRule,
                 vehicleType: form.vehicleType || undefined,
                 plateNumber: form.plateNumber || undefined,
                 vin: form.vin || undefined,
@@ -613,6 +670,50 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
                                 rows={3}
                             />
                         </div>
+                        <div className='space-y-2 md:col-span-2'>
+                            <label className='text-sm font-medium text-foreground'>Vehicle reminder override</label>
+                            <Select
+                                value={form.reminderMode ?? 'inherit'}
+                                onValueChange={value => set('reminderMode', value)}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder='Select reminder mode' />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value='inherit'>Use workspace defaults</SelectItem>
+                                    <SelectItem value='custom'>Use custom vehicle thresholds</SelectItem>
+                                    <SelectItem value='disabled'>Disable reminders for this vehicle</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <p className='text-xs text-muted-foreground'>
+                                Choose whether this vehicle inherits workspace reminder rules, uses its own thresholds,
+                                or stays out of digests entirely.
+                            </p>
+                        </div>
+                        {form.reminderMode === 'custom' ? (
+                            <>
+                                <div className='space-y-2'>
+                                    <label className='text-sm font-medium text-foreground'>Days threshold</label>
+                                    <Input
+                                        type='number'
+                                        min='1'
+                                        value={reminderDaysThreshold}
+                                        onChange={event => setReminderDaysThreshold(event.target.value)}
+                                        placeholder='e.g. 14'
+                                    />
+                                </div>
+                                <div className='space-y-2'>
+                                    <label className='text-sm font-medium text-foreground'>Mileage threshold</label>
+                                    <Input
+                                        type='number'
+                                        min='1'
+                                        value={reminderMileageThreshold}
+                                        onChange={event => setReminderMileageThreshold(event.target.value)}
+                                        placeholder='e.g. 750'
+                                    />
+                                </div>
+                            </>
+                        ) : null}
                     </div>
 
                     <div className='mx-auto max-w-3xl rounded-xl border bg-muted/40 p-4 text-center'>
@@ -859,6 +960,55 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
                             placeholder='Any additional notes about this vehicle'
                             rows={3}
                         />
+                    </div>
+
+                    <div className='space-y-4 rounded-xl border bg-muted/40 p-4'>
+                        <div className='space-y-2'>
+                            <label className='text-sm font-medium text-foreground'>Vehicle reminder override</label>
+                            <Select
+                                value={form.reminderMode ?? 'inherit'}
+                                onValueChange={value => set('reminderMode', value)}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder='Select reminder mode' />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value='inherit'>Use workspace defaults</SelectItem>
+                                    <SelectItem value='custom'>Use custom vehicle thresholds</SelectItem>
+                                    <SelectItem value='disabled'>Disable reminders for this vehicle</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {form.reminderMode === 'custom' ? (
+                            <div className='grid gap-4 md:grid-cols-2'>
+                                <div className='space-y-2'>
+                                    <label className='text-sm font-medium text-foreground'>Days threshold</label>
+                                    <Input
+                                        type='number'
+                                        min='1'
+                                        value={reminderDaysThreshold}
+                                        onChange={event => setReminderDaysThreshold(event.target.value)}
+                                        placeholder='e.g. 14'
+                                    />
+                                </div>
+                                <div className='space-y-2'>
+                                    <label className='text-sm font-medium text-foreground'>Mileage threshold</label>
+                                    <Input
+                                        type='number'
+                                        min='1'
+                                        value={reminderMileageThreshold}
+                                        onChange={event => setReminderMileageThreshold(event.target.value)}
+                                        placeholder='e.g. 750'
+                                    />
+                                </div>
+                            </div>
+                        ) : null}
+
+                        <p className='text-sm text-muted-foreground'>
+                            Custom thresholds let one vehicle notify earlier or later than the workspace-wide reminder
+                            rule.
+                        </p>
                     </div>
 
                     <div className='rounded-xl border bg-muted/40 p-4'>

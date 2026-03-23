@@ -8,21 +8,25 @@ datasource db {
 }
 
 model User {
-    id                 String   @id @default(cuid())
-    email              String   @unique
-    password_hash      String
-    first_name         String?
-    last_name          String?
-    country            String?
-    profile_image_url  String?
-    preferred_currency String   @default("USD")
-    created_at         DateTime @default(now())
-    updated_at         DateTime @updatedAt
+    id                      String   @id @default(cuid())
+    email                   String   @unique
+    password_hash           String
+    first_name              String?
+    last_name               String?
+    country                 String?
+    profile_image_url       String?
+    preferred_currency      String   @default("USD")
+    reminder_email_enabled  Boolean  @default(true)
+    reminder_digest_enabled Boolean  @default(true)
+    created_at              DateTime @default(now())
+    updated_at              DateTime @updatedAt
 
     vehicles          Vehicle[]
     service_records   ServiceRecord[]
     maintenance_plans MaintenancePlan[]
     workshops         Workshop[]
+    reminder_rules    ReminderRule[]
+    notifications     Notification[]
 
     @@map("users")
 }
@@ -44,6 +48,7 @@ model Vehicle {
     purchase_mileage Int?
     mileage          Int?
     distance_unit    String   @default("mi")
+    reminder_mode    String   @default("inherit")
     color            String?
     notes            String?
     created_at       DateTime @default(now())
@@ -53,6 +58,7 @@ model Vehicle {
     image             VehicleImage?     @relation(fields: [image_id], references: [id], onDelete: SetNull)
     service_records   ServiceRecord[]
     maintenance_plans MaintenancePlan[]
+    reminder_rules    ReminderRule[]
 
     @@index([user_id])
     @@index([image_id])
@@ -157,4 +163,71 @@ model Workshop {
     @@index([user_id])
     @@index([user_id, name])
     @@map("workshops")
+}
+
+model ReminderRule {
+    id                Int      @id @default(autoincrement())
+    user_id           String
+    vehicle_id        Int?
+    channel           String   @default("email")
+    days_threshold    Int?
+    mileage_threshold Int?
+    created_at        DateTime @default(now())
+    updated_at        DateTime @updatedAt
+
+    user    User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+    vehicle Vehicle? @relation(fields: [vehicle_id], references: [id], onDelete: Cascade)
+
+    @@index([user_id])
+    @@index([vehicle_id])
+    @@index([user_id, vehicle_id, channel])
+    @@map("reminder_rules")
+}
+
+model Notification {
+    id            Int       @id @default(autoincrement())
+    user_id       String
+    channel       String    @default("email")
+    kind          String    @default("maintenance_digest")
+    status        String    @default("pending")
+    subject       String
+    body_text     String
+    body_html     String
+    dedupe_key    String    @unique
+    item_count    Int       @default(0)
+    retry_count   Int       @default(0)
+    scheduled_for DateTime
+    next_retry_at DateTime?
+    sent_at       DateTime?
+    last_error    String?
+    created_at    DateTime  @default(now())
+    updated_at    DateTime  @updatedAt
+
+    user              User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
+    delivery_attempts DeliveryAttempt[]
+
+    @@index([user_id])
+    @@index([status, next_retry_at])
+    @@index([scheduled_for])
+    @@map("notifications")
+}
+
+model DeliveryAttempt {
+    id              Int       @id @default(autoincrement())
+    notification_id Int
+    channel         String    @default("email")
+    provider        String
+    status          String
+    attempt_number  Int
+    response        String?
+    error           String?
+    started_at      DateTime  @default(now())
+    completed_at    DateTime?
+    created_at      DateTime  @default(now())
+
+    notification Notification @relation(fields: [notification_id], references: [id], onDelete: Cascade)
+
+    @@index([notification_id])
+    @@index([status])
+    @@map("delivery_attempts")
 }

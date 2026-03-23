@@ -8,6 +8,7 @@ Duralog is a web app to track maintenance and service history for your vehicles 
 - **Track service records** — oil changes, tire rotations, brake service, battery replacements, and more
 - **Rich record details** — service type, date, mileage at service, cost, and notes
 - **Manage workshop contacts** — keep a reusable directory of workshop names, addresses, and phone numbers
+- **Email reminder digests** — evaluate maintenance plans daily, queue due and overdue reminders, and retry delivery with logged attempts
 - **Cross-device access** — data is stored on the backend server, accessible from any device
 - **Comprehensive seed data** — demo vehicles and service records cover dashboards, filters, empty states, and auth isolation checks
 - **Workshop-ready development data** — seeded workshops populate the workshop directory and service-record suggestions immediately
@@ -132,6 +133,18 @@ Important variables:
 - `LOG_LEVEL`: backend log threshold, for example `debug`, `info`, `warn`, or `error`
 - `LOG_READ_REQUEST_SAMPLE_RATE`: production sampling rate for successful read-request lifecycle logs between `0` and `1`
 - `LOG_FILE_PATH`: optional NDJSON backend log file path, useful for searching `requestId` values outside the terminal
+- `REMINDER_SCHEDULER_ENABLED`: enable or disable the reminder scheduler, defaults to `true`
+- `REMINDER_RUN_ON_STARTUP`: run reminder evaluation when the server boots, defaults to `true`
+- `REMINDER_EVALUATION_HOUR_UTC`: daily UTC hour for maintenance digest evaluation, defaults to `8`
+- `REMINDER_RETRY_INTERVAL_MINUTES`: cadence for retrying queued reminder notifications, defaults to `15`
+- `REMINDER_RETRY_BACKOFF_MINUTES`: base backoff between failed delivery attempts, defaults to `15`
+- `REMINDER_MAX_RETRIES`: maximum delivery attempts before a reminder stays failed, defaults to `3`
+- `SMTP_HOST`: optional SMTP host used for real email delivery; if unset, reminder emails are logged locally instead of sent
+- `SMTP_PORT`: SMTP port, defaults to `587`
+- `SMTP_SECURE`: set to `true` for implicit TLS SMTP transports
+- `SMTP_USER`: optional SMTP username
+- `SMTP_PASS`: optional SMTP password
+- `SMTP_FROM`: sender address for reminder emails; required for SMTP delivery
 - `OPENAI_API_KEY`: required for the async vehicle image generation service
 - `OPENAI_IMAGE_MODEL`: optional OpenAI image model override, defaults to `gpt-image-1`
 - `OPENAI_IMAGE_CLASSIFIER_MODEL`: optional OpenAI model override for the image classifier service, defaults to `gpt-4.1-mini`
@@ -151,6 +164,8 @@ LOG_FILE_PATH=./logs/backend.ndjson
 ```
 
 Each line in that file is one JSON log record, so you can grep or ingest it with external tooling while preserving the same `requestId` values emitted by the frontend API client and backend request logger.
+
+Reminder delivery attempts are also recorded in the database, so you can inspect notification status, retry counts, and provider responses without relying only on stdout logs.
 
 ## Remote SQLite
 
@@ -189,10 +204,13 @@ After running migrations, seed data, and the dev servers, validate the change wi
 4. Open at least one seeded vehicle dashboard and confirm summary stats, timeline, upcoming maintenance, and snapshot data render from the database
 5. Open the service records route and confirm filtering, detail panel navigation, and the add-record route work
 6. Open the workshops page from the hamburger menu, create a workshop, edit it, and confirm the saved address and phone number reload correctly
-7. Open the seeded vehicle with no service history and confirm empty-state behavior is correct
-8. Refresh the page and confirm the session persists
-9. Sign out and confirm the session clears and the app returns to `/login`
-10. Request `/api/vehicles` without a session and confirm the API returns `401`
+7. Open Settings, set reminder day and mileage thresholds, and confirm the preferences save without errors
+8. Edit a vehicle and set its reminder override to `custom` or `disabled`, then confirm the form saves and reloads the same mode
+9. If SMTP is not configured, check the server logs after startup and confirm the reminder scheduler logs a digest preview instead of failing
+10. Open the seeded vehicle with no service history and confirm empty-state behavior is correct
+11. Refresh the page and confirm the session persists
+12. Sign out and confirm the session clears and the app returns to `/login`
+13. Request `/api/vehicles` without a session and confirm the API returns `401`
 
 ## API Endpoints
 
@@ -201,6 +219,10 @@ After running migrations, seed data, and the dev servers, validate the change wi
 | GET    | `/api/auth/session`                    | Get current authenticated user  |
 | POST   | `/api/auth/login`                      | Sign in with email and password |
 | POST   | `/api/auth/logout`                     | Clear the current session       |
+| GET    | `/api/reminders/preferences`           | Get workspace reminder defaults |
+| PUT    | `/api/reminders/preferences`           | Update workspace reminder defaults |
+| GET    | `/api/reminders/vehicles/:vehicleId`   | Get vehicle reminder override   |
+| PUT    | `/api/reminders/vehicles/:vehicleId`   | Update vehicle reminder override |
 | GET    | `/api/workshops`                       | List saved workshops            |
 | POST   | `/api/workshops`                       | Create a workshop               |
 | PUT    | `/api/workshops/:id`                   | Update a workshop               |

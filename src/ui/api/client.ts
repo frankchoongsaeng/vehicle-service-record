@@ -12,7 +12,11 @@ import type {
     ServiceRecordInput,
     ServiceRecordUpdateInput,
     MaintenancePlan,
-    MaintenancePlanInput
+    MaintenancePlanInput,
+    VehicleReminderPreferences,
+    VehicleReminderPreferencesInput,
+    WorkspaceReminderPreferences,
+    WorkspaceReminderPreferencesInput
 } from '../types/index.js'
 
 const BASE = '/api'
@@ -276,4 +280,28 @@ export const updateMaintenancePlan = (
 export const deleteMaintenancePlan = (vehicleId: number, planId: number): Promise<void> =>
     request(`/vehicles/${vehicleId}/maintenance-plans/${planId}`, {
         method: 'DELETE'
+    })
+
+// ── Reminders ───────────────────────────────────────────────────────────────
+
+export const getReminderPreferences = (): Promise<WorkspaceReminderPreferences> => request('/reminders/preferences')
+
+export const updateReminderPreferences = (
+    input: WorkspaceReminderPreferencesInput
+): Promise<WorkspaceReminderPreferences> =>
+    request('/reminders/preferences', {
+        method: 'PUT',
+        body: JSON.stringify(input)
+    })
+
+export const getVehicleReminderPreferences = (vehicleId: number): Promise<VehicleReminderPreferences> =>
+    request(`/reminders/vehicles/${vehicleId}`)
+
+export const updateVehicleReminderPreferences = (
+    vehicleId: number,
+    input: VehicleReminderPreferencesInput
+): Promise<VehicleReminderPreferences> =>
+    request(`/reminders/vehicles/${vehicleId}`, {
+        method: 'PUT',
+        body: JSON.stringify(input)
     })

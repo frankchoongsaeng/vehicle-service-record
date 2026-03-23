@@ -4,6 +4,7 @@ import {
     isServiceTypeValue,
     type ServiceTypeValue
 } from '../../types/serviceTypes.js'
+import type { DistanceUnit } from '../../types/distance.js'
 import type { PreferredCurrencyCode } from '../../types/userSettings.js'
 
 export { SERVICE_TYPES, getServiceTypeLabel, isServiceTypeValue }
@@ -25,6 +26,7 @@ export interface Vehicle {
     fuelType: string
     purchaseMileage?: number | null
     mileage?: number | null
+    distanceUnit: DistanceUnit
     color?: string | null
     notes?: string | null
     created_at: string
@@ -44,6 +46,7 @@ export interface VehicleInput {
     fuelType: string
     purchaseMileage?: number
     mileage?: number
+    distanceUnit: DistanceUnit
     color?: string
     notes?: string
 }

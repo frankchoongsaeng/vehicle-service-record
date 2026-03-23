@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Info } from 'lucide-react'
 
 import * as api from '../api/client.js'
+import { DEFAULT_DISTANCE_UNIT, getDistanceUnitLabel } from '../lib/distance.js'
 import { isKnownVehicleType, vehicleTypeOptions } from '../lib/vehicleTypes.js'
 import { cn } from '../lib/utils.js'
 import type { VinLookupResult, Vehicle, VehicleInput } from '../types/index.js'
@@ -14,6 +15,7 @@ import { Textarea } from './ui/textarea.js'
 const vinHelperText = 'Add the VIN to help us auto-fill the rest of the vehicle details for you.'
 const transmissionOptions = ['Automatic', 'Manual', 'CVT', 'Dual-clutch', 'Semi-automatic'] as const
 const fuelTypeOptions = ['Gasoline', 'Diesel', 'Hybrid', 'Plug-in Hybrid', 'Electric', 'Flex Fuel'] as const
+const distanceUnitOptions = [DEFAULT_DISTANCE_UNIT, 'km'] as const
 const VIN_LENGTH = 17
 const VIN_POSITION_WEIGHTS = [8, 7, 6, 5, 4, 3, 2, 10, 0, 9, 8, 7, 6, 5, 4, 3, 2] as const
 const VIN_TRANSLITERATION: Record<string, number> = {
@@ -231,6 +233,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
         fuelType: initial?.fuelType ?? '',
         purchaseMileage: initial?.purchaseMileage ?? undefined,
         mileage: initial?.mileage ?? undefined,
+        distanceUnit: initial?.distanceUnit ?? DEFAULT_DISTANCE_UNIT,
         color: initial?.color ?? '',
         notes: initial?.notes ?? ''
     })
@@ -384,6 +387,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
                 year: Number(form.year),
                 purchaseMileage: normalizeOptionalNumber(form.purchaseMileage),
                 mileage: normalizeOptionalNumber(form.mileage),
+                distanceUnit: form.distanceUnit,
                 vehicleType: form.vehicleType || undefined,
                 plateNumber: form.plateNumber || undefined,
                 vin: form.vin || undefined,
@@ -557,7 +561,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
                             </Select>
                         </div>
                         <div className='space-y-2'>
-                            <label className='text-sm font-medium text-foreground'>Purchase Mileage</label>
+                            <label className='text-sm font-medium text-foreground'>Purchase Odometer</label>
                             <Input
                                 type='number'
                                 value={form.purchaseMileage ?? ''}
@@ -567,7 +571,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
                             />
                         </div>
                         <div className='space-y-2'>
-                            <label className='text-sm font-medium text-foreground'>Current Mileage</label>
+                            <label className='text-sm font-medium text-foreground'>Current Odometer</label>
                             <Input
                                 type='number'
                                 value={form.mileage ?? ''}
@@ -575,6 +579,21 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
                                 placeholder='e.g. 45000'
                                 min='0'
                             />
+                        </div>
+                        <div className='space-y-2'>
+                            <label className='text-sm font-medium text-foreground'>Distance Unit</label>
+                            <Select value={form.distanceUnit} onValueChange={value => set('distanceUnit', value)}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder='Select distance unit' />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {distanceUnitOptions.map(option => (
+                                        <SelectItem key={option} value={option}>
+                                            {getDistanceUnitLabel(option)}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                         <div className='space-y-2'>
                             <label className='text-sm font-medium text-foreground'>Color</label>
@@ -599,7 +618,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
                     <div className='mx-auto max-w-3xl rounded-xl border bg-muted/40 p-4 text-center'>
                         <p className='text-sm font-medium text-foreground'>Profile completeness</p>
                         <p className='mt-1 text-sm text-muted-foreground'>
-                            VIN, current mileage, and notes make future records easier to trust and search.
+                            VIN, current odometer, and notes make future records easier to trust and search.
                         </p>
                     </div>
 
@@ -784,9 +803,9 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
                         </div>
                     </div>
 
-                    <div className='grid gap-4 md:grid-cols-2'>
+                    <div className='grid gap-4 md:grid-cols-3'>
                         <div className='space-y-2'>
-                            <label className='text-sm font-medium text-foreground'>Purchase Mileage</label>
+                            <label className='text-sm font-medium text-foreground'>Purchase Odometer</label>
                             <Input
                                 type='number'
                                 value={form.purchaseMileage ?? ''}
@@ -796,7 +815,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
                             />
                         </div>
                         <div className='space-y-2'>
-                            <label className='text-sm font-medium text-foreground'>Current Mileage</label>
+                            <label className='text-sm font-medium text-foreground'>Current Odometer</label>
                             <Input
                                 type='number'
                                 value={form.mileage ?? ''}
@@ -804,6 +823,21 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
                                 placeholder='e.g. 45000'
                                 min='0'
                             />
+                        </div>
+                        <div className='space-y-2'>
+                            <label className='text-sm font-medium text-foreground'>Distance Unit</label>
+                            <Select value={form.distanceUnit} onValueChange={value => set('distanceUnit', value)}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder='Select distance unit' />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {distanceUnitOptions.map(option => (
+                                        <SelectItem key={option} value={option}>
+                                            {getDistanceUnitLabel(option)}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
 
@@ -830,7 +864,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
                     <div className='rounded-xl border bg-muted/40 p-4'>
                         <p className='text-sm font-medium text-foreground'>Profile completeness</p>
                         <p className='mt-1 text-sm text-muted-foreground'>
-                            VIN, current mileage, and notes make future records easier to trust and search.
+                            VIN, current odometer, and notes make future records easier to trust and search.
                         </p>
                     </div>
 

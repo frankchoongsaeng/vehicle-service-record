@@ -43,6 +43,7 @@ model Vehicle {
     fuel_type        String
     purchase_mileage Int?
     mileage          Int?
+    distance_unit    String   @default("mi")
     color            String?
     notes            String?
     created_at       DateTime @default(now())

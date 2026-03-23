@@ -67,7 +67,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
         fetchAuthenticatedUser(request)
     ])
 
-    const records = buildDisplayServiceRecords(rawRecords, new Date(), authUser.preferredCurrency)
+    const records = buildDisplayServiceRecords(rawRecords, new Date(), authUser.preferredCurrency, vehicle.distanceUnit)
     const vehicleLabel = `${vehicle.year} ${vehicle.make} ${vehicle.model}`
     const vehicleImageFallback = getVehicleTypeImage(vehicle.vehicleType)
     const vehicleImageSrc = vehicle.imageUrl ?? vehicleImageFallback

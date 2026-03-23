@@ -3,6 +3,7 @@ import { CircleDollarSign, Gauge, Wrench } from 'lucide-react'
 
 import { useAuth } from '../auth/useAuth.js'
 import { DEFAULT_PREFERRED_CURRENCY } from '../lib/currency.js'
+import { formatDistance, getDistanceUnitSuffix } from '../lib/distance.js'
 import {
     SERVICE_TYPES,
     getServiceTypeLabel,
@@ -49,7 +50,7 @@ function normalizeText(value: string) {
     return value.trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ')
 }
 
-function formatPlanCadence(plan: MaintenancePlan) {
+function formatPlanCadence(plan: MaintenancePlan, distanceUnit: Vehicle['distanceUnit']) {
     const parts: string[] = []
 
     if (plan.intervalMonths != null) {
@@ -57,7 +58,7 @@ function formatPlanCadence(plan: MaintenancePlan) {
     }
 
     if (plan.intervalMileage != null) {
-        parts.push(`every ${plan.intervalMileage.toLocaleString()} mi`)
+        parts.push(`every ${plan.intervalMileage.toLocaleString()} ${getDistanceUnitSuffix(distanceUnit)}`)
     }
 
     return parts.join(' or ')
@@ -182,17 +183,21 @@ export default function MaintenanceItemCompletionDialog({ open, plan, vehicle, o
                         </div>
 
                         <div className='grid gap-2 text-sm text-muted-foreground sm:grid-cols-3'>
-                            <p>{formatPlanCadence(plan) || 'Recurring cadence saved on this plan'}</p>
                             <p>
-                                Current mileage:{' '}
-                                {vehicle.mileage != null ? `${vehicle.mileage.toLocaleString()} mi` : 'Not recorded'}
+                                {formatPlanCadence(plan, vehicle.distanceUnit) ||
+                                    'Recurring cadence saved on this plan'}
                             </p>
+                            <p>Current mileage: {formatDistance(vehicle.mileage, vehicle.distanceUnit)}</p>
                             <p>
                                 Last completed:{' '}
                                 {plan.lastCompletedDate ?? plan.lastCompletedMileage != null
                                     ? `${plan.lastCompletedDate ?? 'Date not set'}${
                                           plan.lastCompletedMileage != null
-                                              ? ` at ${plan.lastCompletedMileage.toLocaleString()} mi`
+                                              ? ` at ${formatDistance(
+                                                    plan.lastCompletedMileage,
+                                                    vehicle.distanceUnit,
+                                                    'Not recorded'
+                                                )}`
                                               : ''
                                       }`
                                     : 'No baseline saved'}
@@ -254,6 +259,9 @@ export default function MaintenanceItemCompletionDialog({ open, plan, vehicle, o
                                     placeholder='e.g. 45200'
                                 />
                                 <InputGroupAddon align='inline-end'>
+                                    <span className='text-sm text-muted-foreground'>
+                                        {getDistanceUnitSuffix(vehicle.distanceUnit)}
+                                    </span>
                                     <Gauge className='text-muted-foreground' />
                                 </InputGroupAddon>
                             </InputGroup>

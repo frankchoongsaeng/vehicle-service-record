@@ -4,6 +4,7 @@ import { createLogger } from '../logging/logger.js'
 import { asyncHandler } from '../middleware/asyncHandler.js'
 import { requireAuth } from '../middleware/auth.js'
 import { resolveUploadedImageUrl } from '../services/imageUpload.js'
+import { DEFAULT_DISTANCE_UNIT, isDistanceUnit } from '../types/distance.js'
 import { scheduleVehicleImagePipeline } from '../vehicles/imagePipeline.js'
 import { ensureVehicleImage } from '../vehicles/imageWorkflow.js'
 import { lookupVin, VinLookupError } from '../vehicles/vinLookup.js'
@@ -45,6 +46,7 @@ function serializeVehicle(vehicle: {
     fuel_type: string
     purchase_mileage: number | null
     mileage: number | null
+    distance_unit: string
     color: string | null
     notes: string | null
     created_at: Date
@@ -85,6 +87,7 @@ function serializeVehicle(vehicle: {
         fuelType: vehicle.fuel_type,
         purchaseMileage: vehicle.purchase_mileage,
         mileage: vehicle.mileage,
+        distanceUnit: isDistanceUnit(vehicle.distance_unit) ? vehicle.distance_unit : DEFAULT_DISTANCE_UNIT,
         color: vehicle.color,
         notes: vehicle.notes,
         created_at: vehicle.created_at,
@@ -272,6 +275,7 @@ router.post(
             fuelType,
             purchaseMileage,
             mileage,
+            distanceUnit,
             color,
             notes
         } = req.body as {
@@ -287,6 +291,7 @@ router.post(
             fuelType: string
             purchaseMileage?: number
             mileage?: number
+            distanceUnit?: string
             color?: string
             notes?: string
         }
@@ -301,7 +306,18 @@ router.post(
             return
         }
 
+        if (distanceUnit != null && !isDistanceUnit(distanceUnit)) {
+            vehiclesLogger.warn('vehicles.create_invalid_distance_unit', {
+                requestId: req.requestId,
+                userId: authUser.id,
+                distanceUnit
+            })
+            res.status(400).json({ error: 'distanceUnit must be either km or mi' })
+            return
+        }
+
         const normalizedYear = Number(year)
+        const normalizedDistanceUnit = distanceUnit ?? DEFAULT_DISTANCE_UNIT
 
         const createdVehicle = await prisma.vehicle.create({
             data: {
@@ -319,6 +335,7 @@ router.post(
                 fuel_type: fuelType,
                 purchase_mileage: purchaseMileage ?? null,
                 mileage: mileage ?? null,
+                distance_unit: normalizedDistanceUnit,
                 color: color || null,
                 notes: notes || null
             },
@@ -372,6 +389,7 @@ router.put(
             fuelType,
             purchaseMileage,
             mileage,
+            distanceUnit,
             color,
             notes
         } = req.body as {
@@ -387,6 +405,7 @@ router.put(
             fuelType: string
             purchaseMileage?: number
             mileage?: number
+            distanceUnit?: string
             color?: string
             notes?: string
         }
@@ -402,7 +421,19 @@ router.put(
             return
         }
 
+        if (distanceUnit != null && !isDistanceUnit(distanceUnit)) {
+            vehiclesLogger.warn('vehicles.update_invalid_distance_unit', {
+                requestId: req.requestId,
+                userId: authUser.id,
+                vehicleId: Number(req.params.id),
+                distanceUnit
+            })
+            res.status(400).json({ error: 'distanceUnit must be either km or mi' })
+            return
+        }
+
         const normalizedYear = Number(year)
+        const normalizedDistanceUnit = distanceUnit ?? DEFAULT_DISTANCE_UNIT
 
         const vehicleId = Number(req.params.id)
         const existing = await prisma.vehicle.findFirst({
@@ -447,6 +478,7 @@ router.put(
                     fuel_type: fuelType,
                     purchase_mileage: purchaseMileage ?? null,
                     mileage: mileage ?? null,
+                    distance_unit: normalizedDistanceUnit,
                     color: color || null,
                     notes: notes || null
                 },

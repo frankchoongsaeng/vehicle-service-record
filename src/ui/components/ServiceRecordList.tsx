@@ -2,6 +2,7 @@ import { ArrowLeft, Pencil, Plus, Trash2 } from 'lucide-react'
 
 import { useAuth } from '../auth/useAuth.js'
 import { DEFAULT_PREFERRED_CURRENCY, formatCurrencyAmount } from '../lib/currency.js'
+import { formatDistance } from '../lib/distance.js'
 import { Badge } from './ui/badge.js'
 import { Button } from './ui/button.js'
 import { Card, CardContent } from './ui/card.js'
@@ -54,7 +55,7 @@ export default function ServiceRecordList({ vehicle, records, onAdd, onEdit, onD
                         </h1>
                         <p className='mt-1 text-sm text-muted-foreground'>
                             {vehicle.color && `${vehicle.color} · `}
-                            {vehicle.mileage != null && `${vehicle.mileage.toLocaleString()} mi`}
+                            {vehicle.mileage != null && formatDistance(vehicle.mileage, vehicle.distanceUnit)}
                         </p>
                     </div>
                 </div>
@@ -100,7 +101,9 @@ export default function ServiceRecordList({ vehicle, records, onAdd, onEdit, onD
 
                                     <div className='mt-2 flex flex-wrap gap-2'>
                                         {r.mileage != null && (
-                                            <Badge variant='secondary'>Mileage: {r.mileage.toLocaleString()} mi</Badge>
+                                            <Badge variant='secondary'>
+                                                Mileage: {formatDistance(r.mileage, vehicle.distanceUnit)}
+                                            </Badge>
                                         )}
                                         {r.cost != null && (
                                             <Badge variant='secondary'>

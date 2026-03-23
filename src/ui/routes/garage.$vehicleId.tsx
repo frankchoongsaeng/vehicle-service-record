@@ -13,6 +13,7 @@ import type { SnapshotField, SummaryStat, TimelineEvent, UpcomingItem } from '..
 import { UpcomingMaintenancePanel } from '../components/dashboard/UpcomingMaintenancePanel'
 import { VehicleSnapshotCard } from '../components/dashboard/VehicleSnapshotCard'
 import { useAuth } from '../auth/useAuth'
+import { formatDistance } from '../lib/distance.js'
 import { fallbackVehicleTypeImage, getVehicleTypeImage } from '../lib/vehicleTypes.js'
 import type { MaintenancePlan, ServiceRecord as ApiServiceRecord, Vehicle } from '../types/index.js'
 import {
@@ -74,8 +75,8 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
         { label: 'Transmission', value: vehicle.transmission },
         { label: 'Fuel Type', value: vehicle.fuelType },
         {
-            label: 'Purchase Mileage',
-            value: vehicle.purchaseMileage != null ? `${vehicle.purchaseMileage.toLocaleString()} mi` : 'Not recorded'
+            label: 'Purchase Odometer',
+            value: formatDistance(vehicle.purchaseMileage, vehicle.distanceUnit)
         }
     ]
 

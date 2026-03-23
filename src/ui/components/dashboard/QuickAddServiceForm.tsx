@@ -42,7 +42,7 @@ export function QuickAddServiceForm() {
                             <label className='text-sm font-medium text-foreground' htmlFor='mileage'>
                                 Mileage
                             </label>
-                            <Input id='mileage' placeholder='125,240 km' />
+                            <Input id='mileage' placeholder='e.g. 45200' />
                         </div>
                         <div className='space-y-2'>
                             <label className='text-sm font-medium text-foreground' htmlFor='cost'>

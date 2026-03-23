@@ -13,6 +13,7 @@ import type {
 } from '../components/dashboard/types.js'
 import type { AuthUser } from '../types/index.js'
 import { DEFAULT_PREFERRED_CURRENCY, formatCurrencyAmount, type PreferredCurrencyCode } from './currency.js'
+import { formatDistance, getDistanceUnitSuffix, type DistanceUnit } from './distance.js'
 
 type UpcomingCandidate = UpcomingItem & { urgency: number }
 type PlanThresholdMetrics = {
@@ -60,8 +61,8 @@ export function getServiceCategory(serviceType: string) {
     }
 }
 
-export function formatMileage(value: number | null | undefined) {
-    return value == null ? 'Not recorded' : `${value.toLocaleString()} mi`
+export function formatMileage(value: number | null | undefined, distanceUnit: DistanceUnit = 'mi') {
+    return formatDistance(value, distanceUnit)
 }
 
 export function formatCurrency(
@@ -90,7 +91,11 @@ function addMonths(date: string, months: number) {
     return nextDate.toISOString().slice(0, 10)
 }
 
-function formatInterval(intervalMonths?: number | null, intervalMileage?: number | null) {
+function formatInterval(
+    intervalMonths?: number | null,
+    intervalMileage?: number | null,
+    distanceUnit: DistanceUnit = 'mi'
+) {
     const parts: string[] = []
 
     if (intervalMonths != null) {
@@ -98,7 +103,7 @@ function formatInterval(intervalMonths?: number | null, intervalMileage?: number
     }
 
     if (intervalMileage != null) {
-        parts.push(`every ${intervalMileage.toLocaleString()} mi`)
+        parts.push(`every ${intervalMileage.toLocaleString()} ${getDistanceUnitSuffix(distanceUnit)}`)
     }
 
     return parts.join(' or ')
@@ -168,7 +173,8 @@ export function getMaintenancePlanDue(plan: MaintenancePlan, vehicle: Vehicle, n
 
     const dayText =
         daysRemaining != null ? `${Math.abs(daysRemaining)} day${Math.abs(daysRemaining) === 1 ? '' : 's'}` : null
-    const mileageText = mileageRemaining != null ? `${Math.abs(mileageRemaining).toLocaleString()} mi` : null
+    const mileageText =
+        mileageRemaining != null ? formatDistance(Math.abs(mileageRemaining), vehicle.distanceUnit) : null
 
     if (status === 'Overdue') {
         const overdueParts = [
@@ -183,13 +189,15 @@ export function getMaintenancePlanDue(plan: MaintenancePlan, vehicle: Vehicle, n
         dayText && daysRemaining != null
             ? `${Math.max(daysRemaining, 0)} day${Math.max(daysRemaining, 0) === 1 ? '' : 's'}`
             : null,
-        mileageText && mileageRemaining != null ? `${Math.max(mileageRemaining, 0).toLocaleString()} mi` : null
+        mileageText && mileageRemaining != null
+            ? formatDistance(Math.max(mileageRemaining, 0), vehicle.distanceUnit)
+            : null
     ].filter((value): value is string => value != null)
 
     return dueParts.length > 0 ? `Due in ${dueParts.join(' or ')}` : 'Plan cadence saved'
 }
 
-export function getMaintenancePlanLastCompleted(plan: MaintenancePlan): string {
+export function getMaintenancePlanLastCompleted(plan: MaintenancePlan, distanceUnit: DistanceUnit = 'mi'): string {
     const parts: string[] = []
 
     if (plan.lastCompletedDate) {
@@ -197,7 +205,7 @@ export function getMaintenancePlanLastCompleted(plan: MaintenancePlan): string {
     }
 
     if (plan.lastCompletedMileage != null) {
-        parts.push(`${plan.lastCompletedMileage.toLocaleString()} mi`)
+        parts.push(formatDistance(plan.lastCompletedMileage, distanceUnit))
     }
 
     return parts.length > 0 ? `Last completed ${parts.join(' at ')}` : 'No last completed baseline saved'
@@ -213,9 +221,9 @@ export function evaluateMaintenancePlans(
             id: String(plan.id),
             title: plan.title,
             description: plan.description ?? undefined,
-            interval: formatInterval(plan.intervalMonths, plan.intervalMileage),
+            interval: formatInterval(plan.intervalMonths, plan.intervalMileage, vehicle.distanceUnit),
             due: getMaintenancePlanDue(plan, vehicle, now),
-            lastCompleted: getMaintenancePlanLastCompleted(plan),
+            lastCompleted: getMaintenancePlanLastCompleted(plan, vehicle.distanceUnit),
             status: getMaintenancePlanStatus(plan, vehicle, now)
         }))
         .sort((left, right) => {
@@ -278,14 +286,15 @@ export async function fetchAuthenticatedUser(request: Request): Promise<AuthUser
 export function buildDisplayServiceRecords(
     records: ApiServiceRecord[],
     now: Date,
-    currency: PreferredCurrencyCode = DEFAULT_PREFERRED_CURRENCY
+    currency: PreferredCurrencyCode = DEFAULT_PREFERRED_CURRENCY,
+    distanceUnit: DistanceUnit = 'mi'
 ): ServiceRecord[] {
     return [...records]
         .sort((left, right) => right.date.localeCompare(left.date) || right.id - left.id)
         .map(record => ({
             id: String(record.id),
             date: formatDate(record.date),
-            mileage: formatMileage(record.mileage),
+            mileage: formatMileage(record.mileage, distanceUnit),
             service: getServiceLabel(record.service_type),
             workshop: record.workshop?.trim() || 'Not specified',
             category: getServiceCategory(record.service_type),
@@ -372,10 +381,10 @@ export function buildSummaryStats(
     return [
         {
             title: 'Current Mileage',
-            value: formatMileage(vehicle.mileage),
+            value: formatMileage(vehicle.mileage, vehicle.distanceUnit),
             hint:
                 vehicle.purchaseMileage != null
-                    ? `Purchased at ${vehicle.purchaseMileage.toLocaleString()} mi`
+                    ? `Purchased at ${formatDistance(vehicle.purchaseMileage, vehicle.distanceUnit)}`
                     : 'Purchase mileage not recorded'
         },
         {

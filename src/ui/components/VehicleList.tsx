@@ -1,5 +1,6 @@
 import { EllipsisVertical, Pencil, Trash2 } from 'lucide-react'
 
+import { formatDistance } from '../lib/distance.js'
 import { fallbackVehicleTypeImage, getVehicleTypeImage } from '../lib/vehicleTypes.js'
 import { Badge } from './ui/badge.js'
 import { Button } from './ui/button.js'
@@ -56,7 +57,9 @@ export default function VehicleList({ vehicles, onSelect, onEdit, onDelete }: Pr
                                         {v.vehicleType && <Badge variant='secondary'>{v.vehicleType}</Badge>}
                                         {v.color && <Badge variant='secondary'>Color: {v.color}</Badge>}
                                         {v.mileage != null && (
-                                            <Badge variant='secondary'>{v.mileage.toLocaleString()} mi</Badge>
+                                            <Badge variant='secondary'>
+                                                {formatDistance(v.mileage, v.distanceUnit)}
+                                            </Badge>
                                         )}
                                     </div>
 

@@ -1,5 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
-
 import type { LoaderFunctionArgs, MetaFunction } from '@remix-run/node'
 import { useLoaderData, useLocation, useNavigate, useSearchParams } from '@remix-run/react'
 import { Pencil, Plus, Trash2 } from 'lucide-react'

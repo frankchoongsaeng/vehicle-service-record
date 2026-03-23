@@ -1,5 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
-
 import type { MetaFunction } from '@remix-run/node'
 import { Link, useLocation, useNavigate, useSearchParams } from '@remix-run/react'
 import { Globe, Settings2, Upload, UserRound, X } from 'lucide-react'

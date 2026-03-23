@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
 import type { LoaderFunctionArgs, MetaFunction } from '@remix-run/node'
 import { Link, Outlet, useLoaderData, useNavigate, useParams, useRevalidator, useSearchParams } from '@remix-run/react'
 import {

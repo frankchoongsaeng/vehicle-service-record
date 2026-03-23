@@ -1,5 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
-
 import type { LoaderFunctionArgs, MetaFunction } from '@remix-run/node'
 import { Link, useLoaderData, useLocation, useNavigate, useOutlet } from '@remix-run/react'
 import { Activity, CalendarClock, CircleDollarSign, FileText, Plus, TriangleAlert } from 'lucide-react'

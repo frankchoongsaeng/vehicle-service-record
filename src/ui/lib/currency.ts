@@ -15,9 +15,7 @@ export function formatCurrencyAmount(
         return 'N/A'
     }
 
-    const { locale } = getPreferredCurrencyDefinition(currency)
-
-    return new Intl.NumberFormat(locale, {
+    return new Intl.NumberFormat(undefined, {
         style: 'currency',
         currency,
         minimumFractionDigits: 2,
@@ -27,6 +25,10 @@ export function formatCurrencyAmount(
 
 export function getCurrencyLabel(currency: PreferredCurrencyCode) {
     const definition = getPreferredCurrencyDefinition(currency)
+
+    if (definition.symbol) {
+        return `${definition.label} (${definition.symbol}) (${currency})`
+    }
 
     return `${definition.label} (${currency})`
 }

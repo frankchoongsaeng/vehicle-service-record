@@ -344,13 +344,7 @@ export default function WorkshopsRoute() {
                     eyebrow='Directory'
                     title='Manage workshops'
                     description='Keep a reusable list of service shops and mechanics with the contact details you need.'
-                    cardClassName='border-none bg-transparent shadow-none'
-                    actions={
-                        <Button onClick={() => setViewAndSyncUrl({ type: 'create' })}>
-                            <Plus data-icon='inline-start' />
-                            Add Workshop
-                        </Button>
-                    }
+                    variant='plain'
                 />
 
                 <div className={view.type === 'list' ? 'grid gap-6' : 'grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]'}>
@@ -372,11 +366,17 @@ export default function WorkshopsRoute() {
                             </Card>
                         ) : (
                             <Card>
-                                <CardHeader>
-                                    <CardTitle>Workshop directory</CardTitle>
-                                    <CardDescription>
-                                        Review your saved service locations and manage them with the row actions.
-                                    </CardDescription>
+                                <CardHeader className='flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between'>
+                                    <div className='flex flex-col gap-1.5'>
+                                        <CardTitle>Workshop directory</CardTitle>
+                                        <CardDescription>
+                                            Review your saved service locations and manage them with the row actions.
+                                        </CardDescription>
+                                    </div>
+                                    <Button size='sm' onClick={() => setViewAndSyncUrl({ type: 'create' })}>
+                                        <Plus data-icon='inline-start' />
+                                        Add Workshop
+                                    </Button>
                                 </CardHeader>
                                 <CardContent>
                                     <div className='mb-4 flex items-center justify-between gap-3 text-sm text-muted-foreground'>

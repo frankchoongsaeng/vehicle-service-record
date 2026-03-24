@@ -19,7 +19,7 @@ Duralog is a web app to track maintenance and service history for your vehicles 
 |----------|-------------------------------------|
 | Frontend | Remix 2 + React 18 + TypeScript     |
 | Backend  | Node.js + Express 4 + TypeScript    |
-| Database | Prisma ORM + SQLite                 |
+| Database | Prisma ORM + SQLite or MySQL        |
 | Build    | Vite 6 + Remix Vite plugin          |
 
 ## UI Styling Standard
@@ -123,7 +123,8 @@ Copy `.env.example` to `.env` and adjust values for your environment.
 
 Important variables:
 
-- `DATABASE_URL`: Prisma SQLite connection string. Use `file:./prisma/dev.db` for local SQLite or a `libsql://...` URL for a remote libSQL-compatible SQLite database.
+- `DATABASE_PROVIDER`: optional override for Prisma provider selection. Leave unset to infer from `DATABASE_URL`.
+- `DATABASE_URL`: database connection string. Use `file:./prisma/dev.db` for local SQLite, `libsql://...` for remote libSQL-compatible SQLite, or `mysql://...` for MySQL.
 - `DATABASE_AUTH_TOKEN`: optional auth token for remote libSQL providers that require bearer-style authentication
 - `OPENAUTH_SECRET`: signing secret for the login session token
 - `OPENAUTH_ISSUER`: token issuer value, defaults to `vehicle-service-record-openauth`
@@ -167,9 +168,15 @@ Each line in that file is one JSON log record, so you can grep or ingest it with
 
 Reminder delivery attempts are also recorded in the database, so you can inspect notification status, retry counts, and provider responses without relying only on stdout logs.
 
-## Remote SQLite
+## Database Providers
 
-The app now supports switching between local SQLite and a remote libSQL-compatible database by changing `DATABASE_URL`.
+The app supports three database connection modes behind Prisma:
+
+- local SQLite
+- remote libSQL-compatible SQLite
+- MySQL
+
+Provider selection is inferred from `DATABASE_URL` unless you set `DATABASE_PROVIDER` explicitly.
 
 Examples:
 
@@ -180,12 +187,17 @@ DATABASE_URL="file:./prisma/dev.db"
 # Remote libSQL database
 DATABASE_URL="libsql://your-database-host"
 DATABASE_AUTH_TOKEN="your-optional-token"
+
+# MySQL database
+DATABASE_URL="mysql://user:password@127.0.0.1:3306/duralog"
 ```
 
 Notes:
 
-- The backend runtime, Prisma CLI commands, and `npm run db:seed` all follow the same `DATABASE_URL` setting.
-- Remote database URLs must be libSQL-compatible. Plain remote `sqlite://` URLs are not supported by Prisma.
+- The backend runtime, Prisma CLI commands, and `npm run db:seed` all follow the same provider selection.
+- SQLite and MySQL use separate migration histories. SQLite uses `prisma/migrations`; MySQL uses `prisma/mysql/migrations`. Prisma generates the provider-specific MySQL schema from the canonical `prisma/schema.prisma` definition when needed.
+- After switching between SQLite and MySQL, run `npm run db:generate` before starting the app so the Prisma client matches the active provider.
+- Remote SQLite URLs must be libSQL-compatible. Plain remote `sqlite://` URLs are not supported by Prisma.
 
 ## Login Flow
 
@@ -214,28 +226,28 @@ After running migrations, seed data, and the dev servers, validate the change wi
 
 ## API Endpoints
 
-| Method | Path                                   | Description                     |
-| ------ | -------------------------------------- | ------------------------------- |
-| GET    | `/api/auth/session`                    | Get current authenticated user  |
-| POST   | `/api/auth/login`                      | Sign in with email and password |
-| POST   | `/api/auth/logout`                     | Clear the current session       |
-| GET    | `/api/reminders/preferences`           | Get workspace reminder defaults |
+| Method | Path                                   | Description                        |
+| ------ | -------------------------------------- | ---------------------------------- |
+| GET    | `/api/auth/session`                    | Get current authenticated user     |
+| POST   | `/api/auth/login`                      | Sign in with email and password    |
+| POST   | `/api/auth/logout`                     | Clear the current session          |
+| GET    | `/api/reminders/preferences`           | Get workspace reminder defaults    |
 | PUT    | `/api/reminders/preferences`           | Update workspace reminder defaults |
-| GET    | `/api/reminders/vehicles/:vehicleId`   | Get vehicle reminder override   |
-| PUT    | `/api/reminders/vehicles/:vehicleId`   | Update vehicle reminder override |
-| GET    | `/api/workshops`                       | List saved workshops            |
-| POST   | `/api/workshops`                       | Create a workshop               |
-| PUT    | `/api/workshops/:id`                   | Update a workshop               |
-| DELETE | `/api/workshops/:id`                   | Delete a workshop               |
-| GET    | `/api/vehicles`                        | List all vehicles               |
-| POST   | `/api/vehicles`                        | Create a vehicle                |
-| PUT    | `/api/vehicles/:id`                    | Update a vehicle                |
-| DELETE | `/api/vehicles/:id`                    | Delete a vehicle                |
-| GET    | `/api/vehicles/:vehicleId/records`     | List service records            |
-| POST   | `/api/vehicles/:vehicleId/records`     | Add a service record            |
-| PUT    | `/api/vehicles/:vehicleId/records/:id` | Update a service record         |
-| DELETE | `/api/vehicles/:vehicleId/records/:id` | Delete a service record         |
-| GET    | `/api/health`                          | Health check                    |
+| GET    | `/api/reminders/vehicles/:vehicleId`   | Get vehicle reminder override      |
+| PUT    | `/api/reminders/vehicles/:vehicleId`   | Update vehicle reminder override   |
+| GET    | `/api/workshops`                       | List saved workshops               |
+| POST   | `/api/workshops`                       | Create a workshop                  |
+| PUT    | `/api/workshops/:id`                   | Update a workshop                  |
+| DELETE | `/api/workshops/:id`                   | Delete a workshop                  |
+| GET    | `/api/vehicles`                        | List all vehicles                  |
+| POST   | `/api/vehicles`                        | Create a vehicle                   |
+| PUT    | `/api/vehicles/:id`                    | Update a vehicle                   |
+| DELETE | `/api/vehicles/:id`                    | Delete a vehicle                   |
+| GET    | `/api/vehicles/:vehicleId/records`     | List service records               |
+| POST   | `/api/vehicles/:vehicleId/records`     | Add a service record               |
+| PUT    | `/api/vehicles/:vehicleId/records/:id` | Update a service record            |
+| DELETE | `/api/vehicles/:vehicleId/records/:id` | Delete a service record            |
+| GET    | `/api/health`                          | Health check                       |
 
 ## Building for Production
 

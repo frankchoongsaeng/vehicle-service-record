@@ -30,4 +30,5 @@ server/dist
 
 # SQLite database (runtime data)
 server/data/
+.prisma/generated/
 tmp/

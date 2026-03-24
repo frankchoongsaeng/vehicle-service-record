@@ -1,0 +1,69 @@
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: duralog
+      MYSQL_USER: duralog
+      MYSQL_PASSWORD: duralog
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+  app:
+    build:
+      context: .
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_PROVIDER: mysql
+      DATABASE_URL: mysql://duralog:duralog@mysql:3306/duralog
+      OPENAUTH_SECRET: ${OPENAUTH_SECRET:-replace-this-secret-for-production}
+      OPENAUTH_ISSUER: ${OPENAUTH_ISSUER:-vehicle-service-record-openauth}
+      OPENAUTH_AUDIENCE: ${OPENAUTH_AUDIENCE:-vehicle-service-record-client}
+      DEV_USER_EMAIL: ${DEV_USER_EMAIL:-demo@example.com}
+      DEV_USER_PASSWORD: ${DEV_USER_PASSWORD:-change-me123}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_READ_REQUEST_SAMPLE_RATE: ${LOG_READ_REQUEST_SAMPLE_RATE:-0.1}
+      LOG_FILE_PATH: ${LOG_FILE_PATH:-}
+      REMINDER_SCHEDULER_ENABLED: ${REMINDER_SCHEDULER_ENABLED:-true}
+      REMINDER_RUN_ON_STARTUP: ${REMINDER_RUN_ON_STARTUP:-false}
+      REMINDER_EVALUATION_HOUR_UTC: ${REMINDER_EVALUATION_HOUR_UTC:-8}
+      REMINDER_RETRY_INTERVAL_MINUTES: ${REMINDER_RETRY_INTERVAL_MINUTES:-15}
+      REMINDER_RETRY_BACKOFF_MINUTES: ${REMINDER_RETRY_BACKOFF_MINUTES:-15}
+      REMINDER_MAX_RETRIES: ${REMINDER_MAX_RETRIES:-3}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_IMAGE_MODEL: ${OPENAI_IMAGE_MODEL:-gpt-image-1}
+      OPENAI_IMAGE_CLASSIFIER_MODEL: ${OPENAI_IMAGE_CLASSIFIER_MODEL:-gpt-4.1-mini}
+      BUNNY_STORAGE_ZONE_NAME: ${BUNNY_STORAGE_ZONE_NAME:-}
+      BUNNY_STORAGE_ACCESS_KEY: ${BUNNY_STORAGE_ACCESS_KEY:-}
+      BUNNY_STORAGE_REGION: ${BUNNY_STORAGE_REGION:-Falkenstein}
+      BUNNY_PUBLIC_BASE_URL: ${BUNNY_PUBLIC_BASE_URL:-}
+      SEED_ON_STARTUP: ${SEED_ON_STARTUP:-false}
+
+volumes:
+  mysql-data:

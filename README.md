@@ -117,6 +117,45 @@ npm run dev
 
 Open [http://localhost:3001](http://localhost:3001) in your browser.
 
+## Run With Docker Compose and MySQL
+
+The repository includes a Compose stack that starts both MySQL and the application.
+
+1. Copy `.env.example` to `.env` if you have not already.
+2. Set at least `OPENAUTH_SECRET` in `.env`.
+3. Optionally set `SEED_ON_STARTUP=true` in `.env` if you want demo data loaded automatically.
+4. Start the stack:
+
+```bash
+docker compose up --build
+```
+
+What the app container does on startup:
+
+- regenerates the Prisma client for MySQL
+- waits for the database and applies MySQL migrations with `prisma migrate deploy`
+- optionally runs `npm run db:seed` when `SEED_ON_STARTUP=true`
+- starts the production server on <http://localhost:3001>
+
+The bundled MySQL instance is available on `localhost:3306` with these development credentials:
+
+- database: `duralog`
+- user: `duralog`
+- password: `duralog`
+- root password: `root`
+
+To stop the stack:
+
+```bash
+docker compose down
+```
+
+To stop it and remove the persisted MySQL volume:
+
+```bash
+docker compose down -v
+```
+
 ## Environment
 
 Copy `.env.example` to `.env` and adjust values for your environment.

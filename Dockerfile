@@ -5,10 +5,14 @@ WORKDIR /app
 ENV DATABASE_PROVIDER=mysql
 ENV DATABASE_URL=mysql://duralog:duralog@mysql:3306/duralog
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openssl \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY package.json package-lock.json prisma.config.ts tsconfig.json tsconfig.node.json vite.config.ts eslint.config.js postcss.config.cjs tailwind.config.ts ./
 COPY prisma ./prisma
 
-RUN npm ci
+RUN npm ci --include=dev
 
 COPY . .
 
@@ -20,6 +24,10 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3001
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openssl \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /app/package.json /app/package-lock.json ./
 COPY --from=build /app/node_modules ./node_modules

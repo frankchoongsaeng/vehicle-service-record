@@ -2,10 +2,18 @@ import type { MetaFunction } from '@remix-run/node'
 import { useEffect } from 'react'
 import { useNavigate } from '@remix-run/react'
 import BrandedLoadingScreen from '../components/BrandedLoadingScreen'
+import LandingPage from '../components/LandingPage.js'
 import { useAuth } from '../auth/useAuth.js'
 
 export const meta: MetaFunction = () => {
-    return [{ title: 'Duralog' }, { name: 'description', content: 'Track vehicle maintenance and service history.' }]
+    return [
+        { title: 'Duralog — Vehicle Maintenance Tracking' },
+        {
+            name: 'description',
+            content:
+                'Track maintenance, plan service, and keep your vehicles running smoothly. Service records, maintenance plans, and workshop management in one place.'
+        }
+    ]
 }
 
 export default function Index() {
@@ -15,24 +23,16 @@ export default function Index() {
     useEffect(() => {
         if (auth.status === 'authenticated') {
             navigate('/garage', { replace: true })
-            return
         }
-
-        if (auth.status !== 'unauthenticated') {
-            return
-        }
-
-        const redirectTo = '/garage'
-        navigate(`/login?redirectTo=${encodeURIComponent(redirectTo)}`, { replace: true })
     }, [auth.status, navigate])
 
     if (auth.status === 'loading') {
         return <BrandedLoadingScreen message='Checking your session…' />
     }
 
-    if (!auth.user) {
-        return <div className='grid min-h-screen place-items-center text-muted-foreground'>Redirecting to login…</div>
+    if (auth.status === 'authenticated') {
+        return <div className='grid min-h-screen place-items-center text-muted-foreground'>Redirecting…</div>
     }
 
-    return <div className='grid min-h-screen place-items-center text-muted-foreground'>Redirecting…</div>
+    return <LandingPage />
 }

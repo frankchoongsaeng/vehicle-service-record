@@ -4,7 +4,6 @@ import { useState } from 'react'
 
 import * as api from '../api/client.js'
 import { useAuth } from '../auth/useAuth.js'
-import { buildVerifyEmailUrl } from '../auth/onboarding.js'
 import type { AuthUser } from '../types/index.js'
 import { getUserDisplayName, getUserInitials } from '../lib/account.js'
 import { useTheme } from '../theme/theme.js'
@@ -77,9 +76,38 @@ export function AuthenticatedShell({
 
     return (
         <div className='min-h-screen bg-background'>
+            {verificationRequired ? (
+                <div className='border-b bg-amber-50 text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100'>
+                    <div className='mx-auto flex w-full max-w-screen-2xl flex-col gap-3 px-4 py-3 sm:px-6 lg:px-8'>
+                        <div className='flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between'>
+                            <div className='flex items-start gap-3'>
+                                <div className='rounded-full bg-amber-200/80 p-2 text-amber-900 dark:bg-amber-900/70 dark:text-amber-100'>
+                                    <MailCheck className='size-4' />
+                                </div>
+                                <div className='flex flex-col gap-1'>
+                                    <p className='font-semibold'>Verify your email to unlock email-based features</p>
+                                    <p className='max-w-3xl text-sm text-amber-900/80 dark:text-amber-100/80'>
+                                        You can keep using Duralog now, but reminder emails and other email services stay paused until {currentUser.email} is verified.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className='flex flex-wrap gap-2'>
+                                <Button type='button' variant='outline' onClick={handleResendVerification} disabled={resendingVerification}>
+                                    {resendingVerification ? 'Sending…' : 'Resend email'}
+                                </Button>
+                            </div>
+                        </div>
+
+                        {verificationMessage ? <p className='text-sm'>{verificationMessage}</p> : null}
+                        {verificationError ? <p className='text-sm text-destructive dark:text-red-200'>{verificationError}</p> : null}
+                    </div>
+                </div>
+            ) : null}
+
             <div className='sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80'>
-                <div className='mx-auto flex w-full max-w-screen-2xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8'>
-                    <div className='grid grid-cols-3 items-center gap-3'>
+                <div className='mx-auto w-full max-w-screen-2xl px-4 py-4 sm:px-6 lg:px-8'>
+                    <div className='grid w-full grid-cols-3 items-center gap-3'>
                         <div className='flex min-w-0 items-center justify-start gap-2'>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -187,36 +215,6 @@ export function AuthenticatedShell({
                             </DropdownMenu>
                         </div>
                     </div>
-
-                    {verificationRequired ? (
-                        <div className='flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100'>
-                            <div className='flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between'>
-                                <div className='flex items-start gap-3'>
-                                    <div className='rounded-full bg-amber-200/80 p-2 text-amber-900 dark:bg-amber-900/70 dark:text-amber-100'>
-                                        <MailCheck className='size-4' />
-                                    </div>
-                                    <div className='flex flex-col gap-1'>
-                                        <p className='font-semibold'>Verify your email to unlock email-based features</p>
-                                        <p className='max-w-3xl text-amber-900/80 dark:text-amber-100/80'>
-                                            You can keep using Duralog now, but reminder emails and other email services stay paused until {currentUser.email} is verified.
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div className='flex flex-wrap gap-2'>
-                                    <Button asChild variant='outline'>
-                                        <NavLink to={buildVerifyEmailUrl('/garage')}>Open verification page</NavLink>
-                                    </Button>
-                                    <Button type='button' variant='outline' onClick={handleResendVerification} disabled={resendingVerification}>
-                                        {resendingVerification ? 'Sending…' : 'Resend email'}
-                                    </Button>
-                                </div>
-                            </div>
-
-                            {verificationMessage ? <p>{verificationMessage}</p> : null}
-                            {verificationError ? <p className='text-destructive dark:text-red-200'>{verificationError}</p> : null}
-                        </div>
-                    ) : null}
                 </div>
             </div>
 

@@ -1,13 +1,13 @@
 import type { MetaFunction } from '@remix-run/node'
 import { Link, useNavigate, useSearchParams } from '@remix-run/react'
-import { ArrowRight, MailCheck, Moon, RefreshCcw, Sun } from 'lucide-react'
+import { ArrowRight, MailCheck, Moon, Sun } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
 import * as api from '../api/client.js'
 import { ApiError } from '../api/client.js'
 import { AuthScreen } from '../components/AuthScreen.js'
 import BrandedLoadingScreen from '../components/BrandedLoadingScreen.js'
-import { buildVerifyEmailUrl, getPostAuthenticationDestination } from '../auth/onboarding.js'
+import { getPostAuthenticationDestination } from '../auth/onboarding.js'
 import { getSafeRedirectTarget } from '../auth/redirect.js'
 import { useAuth } from '../auth/useAuth.js'
 import { Button } from '../components/ui/button.js'
@@ -35,7 +35,7 @@ export default function VerifyEmailRoute() {
     const [verificationState, setVerificationState] = useState<VerificationState>(token ? 'verifying' : 'idle')
     const [message, setMessage] = useState<string | null>(null)
     const [error, setError] = useState<string | null>(null)
-    const [resending, setResending] = useState(false)
+    const loginLink = `/login?redirectTo=${encodeURIComponent(redirectTo)}`
 
     useEffect(() => {
         if (!token) {
@@ -87,35 +87,22 @@ export default function VerifyEmailRoute() {
         return getPostAuthenticationDestination(auth.user, redirectTo)
     }, [auth.user, redirectTo])
 
-    const handleResend = async () => {
-        setResending(true)
-        setError(null)
-        setMessage(null)
-
-        try {
-            const updatedUser = await api.resendEmailVerification()
-            auth.replaceUser(updatedUser)
-            setVerificationState('idle')
-            setMessage('A fresh verification email is on the way. Check your inbox and spam folder.')
-        } catch (resendError) {
-            if (resendError instanceof ApiError || resendError instanceof Error) {
-                setError(resendError.message)
-            } else {
-                setError('Unable to resend the verification email right now.')
-            }
-        } finally {
-            setResending(false)
+    useEffect(() => {
+        if (auth.status !== 'loading' && !token) {
+            navigate(auth.user ? continueTarget : loginLink, { replace: true })
         }
-    }
+    }, [auth.status, auth.user, continueTarget, loginLink, navigate, token])
 
     if (auth.status === 'loading') {
         return <BrandedLoadingScreen message='Checking your session…' />
     }
 
+    if (!token) {
+        return <BrandedLoadingScreen message='Redirecting…' />
+    }
+
     const alreadyVerified = Boolean(auth.user?.emailVerifiedAt)
     const verificationSentAt = auth.user?.emailVerificationSentAt
-    const loginLink = `/login?redirectTo=${encodeURIComponent(redirectTo)}`
-    const canResend = Boolean(auth.user && !alreadyVerified)
 
     return (
         <AuthScreen
@@ -138,20 +125,7 @@ export default function VerifyEmailRoute() {
                     {theme === 'dark' ? <Sun /> : <Moon />}
                 </Button>
             }
-            footer={
-                <p>
-                    {auth.user ? (
-                        <Link to={buildVerifyEmailUrl(redirectTo)} className='font-semibold text-foreground hover:underline'>
-                            Refresh this verification page
-                        </Link>
-                    ) : (
-                        <Link to={loginLink} className='font-semibold text-foreground hover:underline'>
-                            Sign in to resend the email
-                        </Link>
-                    )}
-                    .
-                </p>
-            }
+            footer={auth.user ? undefined : <p><Link to={loginLink} className='font-semibold text-foreground hover:underline'>Sign in</Link>.</p>}
         >
             <div className='flex flex-col gap-4'>
                 <div className='flex items-start gap-3 rounded-xl border bg-muted/40 px-4 py-4'>
@@ -204,13 +178,6 @@ export default function VerifyEmailRoute() {
                             </Link>
                         </Button>
                     )}
-
-                    {canResend ? (
-                        <Button type='button' variant='outline' onClick={handleResend} disabled={resending}>
-                            <RefreshCcw data-icon='inline-start' />
-                            {resending ? 'Sending…' : 'Resend verification email'}
-                        </Button>
-                    ) : null}
                 </div>
             </div>
         </AuthScreen>

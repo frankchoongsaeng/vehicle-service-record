@@ -2,7 +2,6 @@ import type { AuthUser } from '../types/index.js'
 import { getSafeRedirectTarget } from './redirect.js'
 
 export const ONBOARDING_PATH = '/onboarding'
-export const VERIFY_EMAIL_PATH = '/verify-email'
 
 export const ONBOARDING_STEPS = ['profile', 'preferences'] as const
 
@@ -38,16 +37,6 @@ export function buildOnboardingUrl(redirectTo: string): string {
     }
 
     return `${ONBOARDING_PATH}?redirectTo=${encodeURIComponent(nextTarget)}`
-}
-
-export function buildVerifyEmailUrl(redirectTo: string): string {
-    const nextTarget = getSafeRedirectTarget(redirectTo)
-
-    if (nextTarget === '/garage') {
-        return VERIFY_EMAIL_PATH
-    }
-
-    return `${VERIFY_EMAIL_PATH}?redirectTo=${encodeURIComponent(nextTarget)}`
 }
 
 export function getPostAuthenticationDestination(

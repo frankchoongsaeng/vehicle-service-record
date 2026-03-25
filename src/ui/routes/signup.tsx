@@ -6,7 +6,7 @@ import { AuthScreen } from '../components/AuthScreen.js'
 import BrandedLoadingScreen from '../components/BrandedLoadingScreen.js'
 import { Button } from '../components/ui/button.js'
 import { Input } from '../components/ui/input.js'
-import { buildVerifyEmailUrl, getPostAuthenticationDestination } from '../auth/onboarding.js'
+import { getPostAuthenticationDestination } from '../auth/onboarding.js'
 import { useAuth } from '../auth/useAuth.js'
 import { getSafeRedirectTarget } from '../auth/redirect.js'
 import { ApiError } from '../api/client.js'
@@ -60,10 +60,7 @@ export default function SignupRoute() {
 
         try {
             const nextUser = await auth.signup({ email, password })
-            navigate(
-                nextUser.emailVerifiedAt ? getPostAuthenticationDestination(nextUser, redirectTo) : buildVerifyEmailUrl(redirectTo),
-                { replace: true }
-            )
+            navigate(getPostAuthenticationDestination(nextUser, redirectTo), { replace: true })
         } catch (submitError) {
             if (submitError instanceof ApiError) {
                 setError(submitError.message)

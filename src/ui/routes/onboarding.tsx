@@ -17,7 +17,14 @@ import { Badge } from '../components/ui/badge.js'
 import { Button } from '../components/ui/button.js'
 import { Input } from '../components/ui/input.js'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select.js'
-import { DEFAULT_HISTORY_SORT_ORDER, type HistorySortOrder } from '../../types/userSettings.js'
+import { cn } from '../lib/utils.js'
+import {
+    DEFAULT_HISTORY_SORT_ORDER,
+    PREFERRED_CURRENCIES,
+    type HistorySortOrder,
+    type PreferredCurrencyCode
+} from '../../types/userSettings.js'
+import { getCurrencyLabel } from '../lib/currency.js'
 
 export const meta: MetaFunction = () => {
     return [
@@ -28,8 +35,22 @@ export const meta: MetaFunction = () => {
 
 function OnboardingStepBadge({ active, complete, label }: { active: boolean; complete: boolean; label: string }) {
     return (
-        <div className='flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm'>
-            <span className={active || complete ? 'text-foreground' : 'text-muted-foreground'}>
+        <div
+            className={cn(
+                'flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors duration-200',
+                complete && !active && 'border-primary/30 bg-primary/10 text-primary',
+                active && 'border-primary bg-primary text-primary-foreground',
+                !active && !complete && 'border-border text-muted-foreground'
+            )}
+        >
+            <span
+                className={cn(
+                    'transition-colors duration-200',
+                    active && 'text-primary-foreground',
+                    complete && !active && 'text-primary',
+                    !active && !complete && 'text-muted-foreground'
+                )}
+            >
                 {complete ? (
                     <CheckCircle2 className='h-4 w-4' />
                 ) : label === 'Profile' ? (
@@ -38,7 +59,14 @@ function OnboardingStepBadge({ active, complete, label }: { active: boolean; com
                     <BellRing className='h-4 w-4' />
                 )}
             </span>
-            <span className={active || complete ? 'font-medium text-foreground' : 'text-muted-foreground'}>
+            <span
+                className={cn(
+                    'font-medium transition-colors duration-200',
+                    active && 'text-primary-foreground',
+                    complete && !active && 'text-primary',
+                    !active && !complete && 'text-muted-foreground'
+                )}
+            >
                 {label}
             </span>
         </div>
@@ -59,6 +87,7 @@ export default function OnboardingRoute() {
     const [lastName, setLastName] = useState('')
     const [country, setCountry] = useState('')
     const [historySortOrder, setHistorySortOrder] = useState<HistorySortOrder>(DEFAULT_HISTORY_SORT_ORDER)
+    const [preferredCurrency, setPreferredCurrency] = useState<PreferredCurrencyCode>('USD')
     const [reminderEmailEnabled, setReminderEmailEnabled] = useState(true)
     const [reminderDigestEnabled, setReminderDigestEnabled] = useState(true)
     const [reminderDaysThreshold, setReminderDaysThreshold] = useState('14')
@@ -66,6 +95,8 @@ export default function OnboardingRoute() {
     const [loadingPreferences, setLoadingPreferences] = useState(true)
     const [submitting, setSubmitting] = useState(false)
     const [error, setError] = useState('')
+    const [renderedStep, setRenderedStep] = useState(step)
+    const [isStepVisible, setIsStepVisible] = useState(true)
     const notificationPreference: NotificationPreference =
         reminderEmailEnabled && reminderDigestEnabled ? 'enabled' : 'disabled'
 
@@ -92,7 +123,26 @@ export default function OnboardingRoute() {
         setLastName(auth.user.lastName ?? '')
         setCountry(auth.user.country ?? '')
         setHistorySortOrder(auth.user.historySortOrder)
+        setPreferredCurrency(auth.user.preferredCurrency)
     }, [auth.user, navigate, redirectTo])
+
+    useEffect(() => {
+        if (step === renderedStep) {
+            setIsStepVisible(true)
+            return
+        }
+
+        setIsStepVisible(false)
+
+        const timeoutId = window.setTimeout(() => {
+            setRenderedStep(step)
+            setIsStepVisible(true)
+        }, 140)
+
+        return () => {
+            window.clearTimeout(timeoutId)
+        }
+    }, [renderedStep, step])
 
     useEffect(() => {
         if (!auth.user || hasCompletedOnboarding(auth.user)) {
@@ -193,7 +243,8 @@ export default function OnboardingRoute() {
                     firstName,
                     lastName,
                     country,
-                    historySortOrder
+                    historySortOrder,
+                    preferredCurrency
                 }),
                 api.updateReminderPreferences({
                     reminderEmailEnabled,
@@ -225,6 +276,7 @@ export default function OnboardingRoute() {
     }
 
     const profileStepActive = step === 'profile'
+    const renderedProfileStep = renderedStep === 'profile'
 
     return (
         <main className='min-h-screen bg-linear-to-b from-background via-secondary/15 to-background px-4 py-8 sm:px-6 lg:px-10'>
@@ -263,21 +315,14 @@ export default function OnboardingRoute() {
                         </p>
                     ) : null}
 
-                    <section className='flex flex-col gap-6'>
-                        {profileStepActive ? (
+                    <section
+                        className={cn(
+                            'flex flex-col gap-6 transition-all duration-200 ease-out',
+                            isStepVisible ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0'
+                        )}
+                    >
+                        {renderedProfileStep ? (
                             <>
-                                <div className='flex items-start gap-3 rounded-2xl border bg-background/80 p-4'>
-                                    <div className='rounded-xl border bg-muted/40 p-2'>
-                                        <UserRound className='h-4 w-4' />
-                                    </div>
-                                    <div className='flex flex-col gap-1'>
-                                        <p className='font-medium text-foreground'>Profile details</p>
-                                        <p className='text-sm text-muted-foreground'>
-                                            These appear in your account surfaces and make the garage feel personal.
-                                        </p>
-                                    </div>
-                                </div>
-
                                 <div className='grid gap-4 sm:grid-cols-2'>
                                     <div className='flex flex-col gap-2 sm:col-span-1'>
                                         <label
@@ -358,6 +403,32 @@ export default function OnboardingRoute() {
                                             <SelectContent>
                                                 <SelectItem value='newest_first'>Newest first</SelectItem>
                                                 <SelectItem value='oldest_first'>Oldest first</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className='flex flex-col gap-2'>
+                                        <label
+                                            htmlFor='onboarding-preferred-currency'
+                                            className='text-sm font-medium text-foreground'
+                                        >
+                                            Preferred currency
+                                        </label>
+                                        <Select
+                                            value={preferredCurrency}
+                                            onValueChange={value =>
+                                                setPreferredCurrency(value as PreferredCurrencyCode)
+                                            }
+                                        >
+                                            <SelectTrigger id='onboarding-preferred-currency'>
+                                                <SelectValue placeholder='Select a currency' />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {PREFERRED_CURRENCIES.map(currency => (
+                                                    <SelectItem key={currency.value} value={currency.value}>
+                                                        {getCurrencyLabel(currency.value)}
+                                                    </SelectItem>
+                                                ))}
                                             </SelectContent>
                                         </Select>
                                     </div>

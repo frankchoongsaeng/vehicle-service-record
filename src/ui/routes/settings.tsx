@@ -8,6 +8,7 @@ import { ApiError } from '../api/client.js'
 import { buildOnboardingUrl, hasCompletedOnboarding } from '../auth/onboarding.js'
 import { useAuth } from '../auth/useAuth.js'
 import { getUserDisplayName, getUserInitials } from '../lib/account.js'
+import { EMPTY_COUNTRY_VALUE, getCountryOptions } from '../lib/countries.js'
 import { getCurrencyLabel } from '../lib/currency.js'
 import { AuthenticatedShell } from '../components/AuthenticatedShell.js'
 import BrandedLoadingScreen from '../components/BrandedLoadingScreen.js'
@@ -15,7 +16,7 @@ import { PageHeader } from '../components/PageHeader.js'
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar.js'
 import { Button } from '../components/ui/button.js'
 import { Input } from '../components/ui/input.js'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select.js'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select.js'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs.js'
 import {
     DEFAULT_HISTORY_SORT_ORDER,
@@ -65,6 +66,7 @@ export default function SettingsRoute() {
     const [uploadingImage, setUploadingImage] = useState(false)
     const [removingImage, setRemovingImage] = useState(false)
     const fileInputRef = useRef<HTMLInputElement | null>(null)
+    const availableCountries = getCountryOptions(country)
 
     useEffect(() => {
         if (auth.status === 'loading') {
@@ -405,12 +407,24 @@ export default function SettingsRoute() {
                                 <label htmlFor='settings-country' className='text-sm font-medium text-foreground'>
                                     Country
                                 </label>
-                                <Input
-                                    id='settings-country'
-                                    value={country}
-                                    onChange={event => setCountry(event.target.value)}
-                                    placeholder='e.g. United States'
-                                />
+                                <Select
+                                    value={country.trim() || EMPTY_COUNTRY_VALUE}
+                                    onValueChange={value => setCountry(value === EMPTY_COUNTRY_VALUE ? '' : value)}
+                                >
+                                    <SelectTrigger id='settings-country'>
+                                        <SelectValue placeholder='Select a country' />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectGroup>
+                                            <SelectItem value={EMPTY_COUNTRY_VALUE}>Not set</SelectItem>
+                                            {availableCountries.map(option => (
+                                                <SelectItem key={option} value={option}>
+                                                    {option}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectGroup>
+                                    </SelectContent>
+                                </Select>
                             </div>
 
                             <div className='flex flex-col gap-2'>
@@ -493,11 +507,13 @@ export default function SettingsRoute() {
                                         <SelectValue placeholder='Select a currency' />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {PREFERRED_CURRENCIES.map(currency => (
-                                            <SelectItem key={currency.value} value={currency.value}>
-                                                {getCurrencyLabel(currency.value)}
-                                            </SelectItem>
-                                        ))}
+                                        <SelectGroup>
+                                            {PREFERRED_CURRENCIES.map(currency => (
+                                                <SelectItem key={currency.value} value={currency.value}>
+                                                    {getCurrencyLabel(currency.value)}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectGroup>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -522,11 +538,13 @@ export default function SettingsRoute() {
                                         <SelectValue placeholder='Select a sort order' />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {HISTORY_SORT_ORDERS.map(order => (
-                                            <SelectItem key={order} value={order}>
-                                                {order === 'newest_first' ? 'Newest first' : 'Oldest first'}
-                                            </SelectItem>
-                                        ))}
+                                        <SelectGroup>
+                                            {HISTORY_SORT_ORDERS.map(order => (
+                                                <SelectItem key={order} value={order}>
+                                                    {order === 'newest_first' ? 'Newest first' : 'Oldest first'}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectGroup>
                                     </SelectContent>
                                 </Select>
                                 <p className='text-sm text-muted-foreground'>
@@ -554,8 +572,10 @@ export default function SettingsRoute() {
                                                 <SelectValue placeholder='Select reminder status' />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value='enabled'>Enabled</SelectItem>
-                                                <SelectItem value='disabled'>Disabled</SelectItem>
+                                                <SelectGroup>
+                                                    <SelectItem value='enabled'>Enabled</SelectItem>
+                                                    <SelectItem value='disabled'>Disabled</SelectItem>
+                                                </SelectGroup>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -570,8 +590,10 @@ export default function SettingsRoute() {
                                                 <SelectValue placeholder='Select digest status' />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value='enabled'>Enabled</SelectItem>
-                                                <SelectItem value='disabled'>Disabled</SelectItem>
+                                                <SelectGroup>
+                                                    <SelectItem value='enabled'>Enabled</SelectItem>
+                                                    <SelectItem value='disabled'>Disabled</SelectItem>
+                                                </SelectGroup>
                                             </SelectContent>
                                         </Select>
                                     </div>

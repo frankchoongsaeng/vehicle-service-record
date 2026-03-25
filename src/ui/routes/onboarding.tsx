@@ -16,7 +16,8 @@ import BrandedLoadingScreen from '../components/BrandedLoadingScreen.js'
 import { Badge } from '../components/ui/badge.js'
 import { Button } from '../components/ui/button.js'
 import { Input } from '../components/ui/input.js'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select.js'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select.js'
+import { EMPTY_COUNTRY_VALUE, getCountryOptions } from '../lib/countries.js'
 import { cn } from '../lib/utils.js'
 import {
     DEFAULT_HISTORY_SORT_ORDER,
@@ -99,6 +100,7 @@ export default function OnboardingRoute() {
     const [isStepVisible, setIsStepVisible] = useState(true)
     const notificationPreference: NotificationPreference =
         reminderEmailEnabled && reminderDigestEnabled ? 'enabled' : 'disabled'
+    const availableCountries = getCountryOptions(country)
 
     useEffect(() => {
         if (auth.status !== 'unauthenticated') {
@@ -362,12 +364,28 @@ export default function OnboardingRoute() {
                                         >
                                             Country
                                         </label>
-                                        <Input
-                                            id='onboarding-country'
-                                            value={country}
-                                            onChange={event => setCountry(event.target.value)}
-                                            placeholder='e.g. United States'
-                                        />
+                                        <Select
+                                            value={country.trim() || EMPTY_COUNTRY_VALUE}
+                                            onValueChange={value =>
+                                                setCountry(value === EMPTY_COUNTRY_VALUE ? '' : value)
+                                            }
+                                        >
+                                            <SelectTrigger id='onboarding-country'>
+                                                <SelectValue placeholder='Select a country' />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectGroup>
+                                                    <SelectItem value={EMPTY_COUNTRY_VALUE}>
+                                                        Prefer not to say
+                                                    </SelectItem>
+                                                    {availableCountries.map(option => (
+                                                        <SelectItem key={option} value={option}>
+                                                            {option}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectGroup>
+                                            </SelectContent>
+                                        </Select>
                                     </div>
                                 </div>
                             </>
@@ -401,8 +419,10 @@ export default function OnboardingRoute() {
                                                 <SelectValue placeholder='Select a sort order' />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value='newest_first'>Newest first</SelectItem>
-                                                <SelectItem value='oldest_first'>Oldest first</SelectItem>
+                                                <SelectGroup>
+                                                    <SelectItem value='newest_first'>Newest first</SelectItem>
+                                                    <SelectItem value='oldest_first'>Oldest first</SelectItem>
+                                                </SelectGroup>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -424,11 +444,13 @@ export default function OnboardingRoute() {
                                                 <SelectValue placeholder='Select a currency' />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {PREFERRED_CURRENCIES.map(currency => (
-                                                    <SelectItem key={currency.value} value={currency.value}>
-                                                        {getCurrencyLabel(currency.value)}
-                                                    </SelectItem>
-                                                ))}
+                                                <SelectGroup>
+                                                    {PREFERRED_CURRENCIES.map(currency => (
+                                                        <SelectItem key={currency.value} value={currency.value}>
+                                                            {getCurrencyLabel(currency.value)}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectGroup>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -469,8 +491,10 @@ export default function OnboardingRoute() {
                                                 <SelectValue placeholder='Choose a reminder default' />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value='enabled'>Recommended reminders</SelectItem>
-                                                <SelectItem value='disabled'>No reminders yet</SelectItem>
+                                                <SelectGroup>
+                                                    <SelectItem value='enabled'>Recommended reminders</SelectItem>
+                                                    <SelectItem value='disabled'>No reminders yet</SelectItem>
+                                                </SelectGroup>
                                             </SelectContent>
                                         </Select>
                                     </div>

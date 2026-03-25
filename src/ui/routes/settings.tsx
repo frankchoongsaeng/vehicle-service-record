@@ -559,6 +559,11 @@ export default function SettingsRoute() {
                                         Daily maintenance digests are sent by email first. SMS and WhatsApp can be added
                                         later without changing the underlying reminder rules.
                                     </p>
+                                    {!auth.user.emailVerifiedAt ? (
+                                        <p className='text-sm text-muted-foreground'>
+                                            Your reminder preferences can be saved now, but Duralog will not deliver email digests until you verify {auth.user.email}.
+                                        </p>
+                                    ) : null}
                                 </div>
 
                                 <div className='mt-4 grid gap-4 md:grid-cols-2'>

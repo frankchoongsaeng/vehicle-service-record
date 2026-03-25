@@ -9,6 +9,7 @@ Duralog is a web app to track maintenance and service history for your vehicles 
 - **Rich record details** — service type, date, mileage at service, cost, and notes
 - **Manage workshop contacts** — keep a reusable directory of workshop names, addresses, and phone numbers
 - **Email reminder digests** — evaluate maintenance plans daily, queue due and overdue reminders, and retry delivery with logged attempts
+- **Email verification workflow** — new signups are asked to verify their email before reminder delivery and other email-based services are enabled
 - **Cross-device access** — data is stored on the backend server, accessible from any device
 - **Comprehensive seed data** — demo vehicles and service records cover dashboards, filters, empty states, and auth isolation checks
 - **Workshop-ready development data** — seeded workshops populate the workshop directory and service-record suggestions immediately
@@ -169,6 +170,9 @@ Important variables:
 - `OPENAUTH_SECRET`: signing secret for the login session token
 - `OPENAUTH_ISSUER`: token issuer value, defaults to `vehicle-service-record-openauth`
 - `OPENAUTH_AUDIENCE`: token audience value, defaults to `vehicle-service-record-client`
+- `APP_ORIGIN`: optional canonical app origin used when generating email verification links; defaults to the incoming request origin
+- `EMAIL_VERIFICATION_TTL_HOURS`: how long verification links stay valid, defaults to `24`
+- `EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS`: minimum delay between resend requests, defaults to `60`
 - `DEV_USER_EMAIL`: seeded development login email
 - `DEV_USER_PASSWORD`: seeded development login password
 - `PRISMA_BASELINE_ON_P3005`: when `true`, container startup will mark the initial migration as applied if Prisma finds a non-empty MySQL schema without migration history

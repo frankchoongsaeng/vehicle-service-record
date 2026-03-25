@@ -50,6 +50,9 @@ function shouldTriggerRule(
 export async function evaluateReminderNotifications(now = new Date()) {
     const users = await prisma.user.findMany({
         where: {
+            email_verified_at: {
+                not: null
+            },
             reminder_email_enabled: true,
             reminder_digest_enabled: true
         },
@@ -204,7 +207,8 @@ export async function processPendingReminderNotifications(now = new Date()) {
             user: {
                 select: {
                     id: true,
-                    email: true
+                    email: true,
+                    email_verified_at: true
                 }
             }
         },
@@ -215,6 +219,23 @@ export async function processPendingReminderNotifications(now = new Date()) {
     let failedCount = 0
 
     for (const notification of notifications) {
+        if (!notification.user.email_verified_at) {
+            await prisma.notification.update({
+                where: { id: notification.id },
+                data: {
+                    status: 'cancelled',
+                    last_error: 'Email address is not verified.',
+                    next_retry_at: null
+                }
+            })
+
+            reminderEngineLogger.info('reminders.delivery_cancelled_unverified_email', {
+                notificationId: notification.id,
+                userId: notification.user_id
+            })
+            continue
+        }
+
         try {
             await sendReminderNotification(
                 {

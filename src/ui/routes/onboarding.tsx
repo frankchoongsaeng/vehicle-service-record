@@ -504,6 +504,12 @@ export default function OnboardingRoute() {
                                         Recommended reminders send an email digest when maintenance is about 14 days or
                                         750 miles away. You can fine-tune this later in Settings.
                                     </p>
+
+                                    {!auth.user.emailVerifiedAt ? (
+                                        <p className='text-sm text-muted-foreground'>
+                                            These reminder defaults will stay paused until you verify {auth.user.email}.
+                                        </p>
+                                    ) : null}
                                 </div>
                             </>
                         )}

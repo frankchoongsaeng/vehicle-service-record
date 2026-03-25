@@ -6,7 +6,7 @@ import { AuthScreen } from '../components/AuthScreen.js'
 import BrandedLoadingScreen from '../components/BrandedLoadingScreen.js'
 import { Button } from '../components/ui/button.js'
 import { Input } from '../components/ui/input.js'
-import { getPostAuthenticationDestination } from '../auth/onboarding.js'
+import { buildVerifyEmailUrl, getPostAuthenticationDestination } from '../auth/onboarding.js'
 import { useAuth } from '../auth/useAuth.js'
 import { getSafeRedirectTarget } from '../auth/redirect.js'
 import { ApiError } from '../api/client.js'
@@ -60,7 +60,10 @@ export default function SignupRoute() {
 
         try {
             const nextUser = await auth.signup({ email, password })
-            navigate(getPostAuthenticationDestination(nextUser, redirectTo), { replace: true })
+            navigate(
+                nextUser.emailVerifiedAt ? getPostAuthenticationDestination(nextUser, redirectTo) : buildVerifyEmailUrl(redirectTo),
+                { replace: true }
+            )
         } catch (submitError) {
             if (submitError instanceof ApiError) {
                 setError(submitError.message)
@@ -81,7 +84,7 @@ export default function SignupRoute() {
     return (
         <AuthScreen
             title='Create your account'
-            description='Set up your account to start tracking vehicles, service history, and upcoming work.'
+            description='Set up your account to start tracking vehicles, service history, and upcoming work. We will ask you to verify your email before email-based features turn on.'
             topAction={
                 <Button
                     type='button'

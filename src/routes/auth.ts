@@ -8,11 +8,90 @@ import { issueOpenAuthToken } from '../openauth/token.js'
 import { clearSessionCookie, serializeSessionCookie } from '../auth/cookie.js'
 import { authUserSelect, serializeAuthUser } from '../auth/authUser.js'
 import { requireAuth } from '../middleware/auth.js'
+import {
+    buildEmailVerificationUrl,
+    createEmailVerificationChallenge,
+    hashEmailVerificationToken,
+    sendEmailVerificationEmail
+} from '../services/emailVerification.js'
 
 const router = Router()
 const MIN_PASSWORD_LENGTH = 8
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const authLogger = createLogger({ component: 'auth-routes' })
+const DEFAULT_EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS = 60
+
+function getEmailVerificationResendCooldownSeconds(): number {
+    const configured = Number(
+        process.env.EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS ??
+            DEFAULT_EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS
+    )
+
+    return Number.isFinite(configured) && configured > 0
+        ? configured
+        : DEFAULT_EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS
+}
+
+function resolveAppOrigin(req: Request): string {
+    const configuredOrigin = process.env.APP_ORIGIN?.trim()
+
+    if (configuredOrigin) {
+        return configuredOrigin.replace(/\/+$/, '')
+    }
+
+    return `${req.protocol}://${req.get('host')}`
+}
+
+async function issueVerificationEmailForUser(params: {
+    userId: string
+    email: string
+    origin: string
+    requestId?: string
+}): Promise<{ sentAt: Date | null }> {
+    const challenge = createEmailVerificationChallenge()
+
+    await prisma.user.update({
+        where: { id: params.userId },
+        data: {
+            email_verification_token_hash: challenge.tokenHash,
+            email_verification_expires_at: challenge.expiresAt,
+            email_verification_sent_at: null
+        }
+    })
+
+    try {
+        await sendEmailVerificationEmail({
+            to: params.email,
+            verificationUrl: buildEmailVerificationUrl(params.origin, challenge.token)
+        })
+
+        const sentAt = new Date()
+        await prisma.user.update({
+            where: { id: params.userId },
+            data: {
+                email_verification_sent_at: sentAt
+            }
+        })
+
+        authLogger.info('auth.email_verification_issued', {
+            requestId: params.requestId,
+            userId: params.userId,
+            email: params.email,
+            expiresAt: challenge.expiresAt.toISOString()
+        })
+
+        return { sentAt }
+    } catch (error) {
+        authLogger.error('auth.email_verification_issue_failed', {
+            requestId: params.requestId,
+            userId: params.userId,
+            email: params.email,
+            error
+        })
+
+        return { sentAt: null }
+    }
+}
 
 function normalizeCredentials(body: unknown): { email: string; password: string } | null {
     const { email, password } = (body ?? {}) as {
@@ -140,14 +219,30 @@ router.post(
                 select: authUserSelect
             })
 
+            const verificationResult = await issueVerificationEmailForUser({
+                userId: user.id,
+                email: user.email,
+                origin: resolveAppOrigin(req),
+                requestId: req.requestId
+            })
+
+            const responseUser =
+                verificationResult.sentAt == null
+                    ? user
+                    : await prisma.user.findUniqueOrThrow({
+                          where: { id: user.id },
+                          select: authUserSelect
+                      })
+
             const token = issueOpenAuthToken({ id: user.id, email: user.email })
             res.setHeader('Set-Cookie', serializeSessionCookie(token))
             authLogger.info('auth.signup_succeeded', {
                 requestId: req.requestId,
                 userId: user.id,
-                email: user.email
+                email: user.email,
+                verificationEmailSent: Boolean(verificationResult.sentAt)
             })
-            res.status(201).json({ user: serializeAuthUser(user) })
+            res.status(201).json({ user: serializeAuthUser(responseUser) })
         } catch (error) {
             if (
                 error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -165,6 +260,123 @@ router.post(
 
             throw error
         }
+    })
+)
+
+router.post(
+    '/verify-email',
+    asyncHandler(async (req: Request, res: Response) => {
+        const token = typeof req.body?.token === 'string' ? req.body.token.trim() : ''
+
+        if (!token) {
+            res.status(400).json({ error: 'Verification token is required.' })
+            return
+        }
+
+        const tokenHash = hashEmailVerificationToken(token)
+        const now = new Date()
+        const matchingUser = await prisma.user.findFirst({
+            where: {
+                email_verification_token_hash: tokenHash
+            },
+            select: {
+                id: true,
+                email: true,
+                email_verified_at: true,
+                email_verification_expires_at: true
+            }
+        })
+
+        if (
+            !matchingUser ||
+            matchingUser.email_verified_at ||
+            !matchingUser.email_verification_expires_at ||
+            matchingUser.email_verification_expires_at <= now
+        ) {
+            authLogger.warn('auth.email_verification_invalid_token', {
+                requestId: req.requestId,
+                userId: req.authUser?.id ?? undefined
+            })
+            res.status(400).json({ error: 'This verification link is invalid or has expired.' })
+            return
+        }
+
+        const verifiedUser = await prisma.user.update({
+            where: { id: matchingUser.id },
+            data: {
+                email_verified_at: now,
+                email_verification_token_hash: null,
+                email_verification_expires_at: null
+            },
+            select: authUserSelect
+        })
+
+        const sessionUpdated = req.authUser?.id === verifiedUser.id
+
+        authLogger.info('auth.email_verified', {
+            requestId: req.requestId,
+            userId: verifiedUser.id,
+            email: verifiedUser.email,
+            sessionUpdated
+        })
+
+        res.json({
+            verified: true,
+            email: verifiedUser.email,
+            sessionUpdated,
+            user: sessionUpdated ? serializeAuthUser(verifiedUser) : null
+        })
+    })
+)
+
+router.post(
+    '/verification/resend',
+    requireAuth,
+    asyncHandler(async (req: Request, res: Response) => {
+        const authUser = req.authUser!
+        const user = await prisma.user.findUnique({
+            where: { id: authUser.id },
+            select: {
+                id: true,
+                email: true,
+                email_verified_at: true,
+                email_verification_sent_at: true
+            }
+        })
+
+        if (!user) {
+            res.status(404).json({ error: 'User not found' })
+            return
+        }
+
+        if (user.email_verified_at) {
+            res.status(409).json({ error: 'Your email address is already verified.' })
+            return
+        }
+
+        const resendCooldownMs = getEmailVerificationResendCooldownSeconds() * 1000
+        const lastSentAt = user.email_verification_sent_at
+
+        if (lastSentAt && Date.now() - lastSentAt.getTime() < resendCooldownMs) {
+            res.status(429).json({
+                error: 'A verification email was sent recently. Please wait a minute before trying again.'
+            })
+            return
+        }
+
+        await issueVerificationEmailForUser({
+            userId: user.id,
+            email: user.email,
+            origin: resolveAppOrigin(req),
+            requestId: req.requestId
+        })
+
+        const refreshedUser = await prisma.user.findUniqueOrThrow({
+            where: { id: user.id },
+            select: authUserSelect
+        })
+
+        res.status(202).json({ user: serializeAuthUser(refreshedUser) })
     })
 )
 

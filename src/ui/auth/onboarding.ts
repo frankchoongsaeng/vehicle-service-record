@@ -2,6 +2,7 @@ import type { AuthUser } from '../types/index.js'
 import { getSafeRedirectTarget } from './redirect.js'
 
 export const ONBOARDING_PATH = '/onboarding'
+export const VERIFY_EMAIL_PATH = '/verify-email'
 
 export const ONBOARDING_STEPS = ['profile', 'preferences'] as const
 
@@ -9,6 +10,10 @@ export type OnboardingStep = (typeof ONBOARDING_STEPS)[number]
 
 export function hasCompletedOnboarding(user: Pick<AuthUser, 'onboardingCompletedAt'> | null | undefined): boolean {
     return Boolean(user?.onboardingCompletedAt)
+}
+
+export function hasVerifiedEmail(user: Pick<AuthUser, 'emailVerifiedAt'> | null | undefined): boolean {
+    return Boolean(user?.emailVerifiedAt)
 }
 
 export function resolveOnboardingStep(value: string | null): OnboardingStep {
@@ -33,6 +38,16 @@ export function buildOnboardingUrl(redirectTo: string): string {
     }
 
     return `${ONBOARDING_PATH}?redirectTo=${encodeURIComponent(nextTarget)}`
+}
+
+export function buildVerifyEmailUrl(redirectTo: string): string {
+    const nextTarget = getSafeRedirectTarget(redirectTo)
+
+    if (nextTarget === '/garage') {
+        return VERIFY_EMAIL_PATH
+    }
+
+    return `${VERIFY_EMAIL_PATH}?redirectTo=${encodeURIComponent(nextTarget)}`
 }
 
 export function getPostAuthenticationDestination(

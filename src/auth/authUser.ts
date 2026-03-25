@@ -11,6 +11,8 @@ import type { AuthUser } from '../types/auth.js'
 export const authUserSelect = {
     id: true,
     email: true,
+    email_verified_at: true,
+    email_verification_sent_at: true,
     first_name: true,
     last_name: true,
     country: true,
@@ -33,6 +35,8 @@ export function serializeAuthUser(user: AuthUserRecord): AuthUser {
     return {
         id: user.id,
         email: user.email,
+        emailVerifiedAt: user.email_verified_at?.toISOString() ?? null,
+        emailVerificationSentAt: user.email_verification_sent_at?.toISOString() ?? null,
         firstName: user.first_name,
         lastName: user.last_name,
         country: user.country,

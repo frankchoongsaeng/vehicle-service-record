@@ -138,6 +138,23 @@ export const signup = async (input: SignupInput): Promise<AuthUser> => {
     return data.user
 }
 
+export const resendEmailVerification = async (): Promise<AuthUser> => {
+    const data = await request<{ user: AuthUser }>('/auth/verification/resend', {
+        method: 'POST'
+    })
+
+    return data.user
+}
+
+export const verifyEmail = async (
+    token: string
+): Promise<{ verified: boolean; email: string; sessionUpdated: boolean; user: AuthUser | null }> => {
+    return request('/auth/verify-email', {
+        method: 'POST',
+        body: JSON.stringify({ token })
+    })
+}
+
 export const logout = (): Promise<void> => request('/auth/logout', { method: 'POST' })
 
 export const updateSettings = async (input: UserSettingsInput): Promise<AuthUser> => {

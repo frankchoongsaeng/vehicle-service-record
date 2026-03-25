@@ -1,7 +1,7 @@
 import type { MetaFunction } from '@remix-run/node'
 import { Link, useNavigate, useSearchParams } from '@remix-run/react'
-import { ArrowRight, MailCheck, Moon, Sun } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { ArrowRight, CircleAlert, MailCheck, Moon, Sun } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import * as api from '../api/client.js'
 import { ApiError } from '../api/client.js'
@@ -25,6 +25,27 @@ export const meta: MetaFunction = () => {
 
 type VerificationState = 'idle' | 'verifying' | 'verified' | 'error'
 
+const verificationRequestCache = new Map<
+    string,
+    Promise<{ verified: boolean; email: string; sessionUpdated: boolean; user: api.AuthUser | null }>
+>()
+
+function getVerificationRequest(token: string): Promise<{
+    verified: boolean
+    email: string
+    sessionUpdated: boolean
+    user: api.AuthUser | null
+}> {
+    const existingRequest = verificationRequestCache.get(token)
+    if (existingRequest) {
+        return existingRequest
+    }
+
+    const request = api.verifyEmail(token)
+    verificationRequestCache.set(token, request)
+    return request
+}
+
 export default function VerifyEmailRoute() {
     const auth = useAuth()
     const { theme, toggleTheme } = useTheme()
@@ -36,6 +57,11 @@ export default function VerifyEmailRoute() {
     const [message, setMessage] = useState<string | null>(null)
     const [error, setError] = useState<string | null>(null)
     const loginLink = `/login?redirectTo=${encodeURIComponent(redirectTo)}`
+    const replaceUserRef = useRef(auth.replaceUser)
+
+    useEffect(() => {
+        replaceUserRef.current = auth.replaceUser
+    }, [auth.replaceUser])
 
     useEffect(() => {
         if (!token) {
@@ -43,19 +69,19 @@ export default function VerifyEmailRoute() {
             return
         }
 
-        let cancelled = false
+        let active = true
         setVerificationState('verifying')
         setError(null)
         setMessage(null)
 
-        api.verifyEmail(token)
+        getVerificationRequest(token)
             .then(result => {
-                if (cancelled) {
+                if (!active) {
                     return
                 }
 
                 if (result.user) {
-                    auth.replaceUser(result.user)
+                    replaceUserRef.current(result.user)
                 }
 
                 setVerificationState('verified')
@@ -66,7 +92,7 @@ export default function VerifyEmailRoute() {
                 )
             })
             .catch(verificationError => {
-                if (cancelled) {
+                if (!active) {
                     return
                 }
 
@@ -79,13 +105,15 @@ export default function VerifyEmailRoute() {
             })
 
         return () => {
-            cancelled = true
+            active = false
         }
-    }, [auth, token])
+    }, [token])
 
     const continueTarget = useMemo(() => {
         return getPostAuthenticationDestination(auth.user, redirectTo)
     }, [auth.user, redirectTo])
+
+    const hasExpiredOrInvalidLinkError = error === 'This verification link is invalid or has expired.'
 
     useEffect(() => {
         if (auth.status !== 'loading' && !token) {
@@ -103,10 +131,19 @@ export default function VerifyEmailRoute() {
 
     const alreadyVerified = Boolean(auth.user?.emailVerifiedAt)
     const verificationSentAt = auth.user?.emailVerificationSentAt
+    const isFailureState = verificationState === 'error'
+    const verificationStatusDescription = alreadyVerified
+        ? `Verified for ${auth.user?.email ?? 'your account'}.`
+        : hasExpiredOrInvalidLinkError
+        ? 'This verification link is no longer valid. Sign in to request a new verification email.'
+        : verificationSentAt
+        ? `We sent a verification email to ${auth.user?.email ?? 'your address'}. Open that link to finish setup.`
+        : auth.user
+        ? `We have not confirmed a sent verification email for ${auth.user.email} yet. Send another one below.`
+        : 'Open the verification link from your email. If you are not signed in, you can still complete verification from that link.'
 
     return (
         <AuthScreen
-            eyebrow='Email Verification'
             title={alreadyVerified ? 'Email verified' : 'Verify your email'}
             description={
                 alreadyVerified
@@ -125,24 +162,15 @@ export default function VerifyEmailRoute() {
                     {theme === 'dark' ? <Sun /> : <Moon />}
                 </Button>
             }
-            footer={auth.user ? undefined : <p><Link to={loginLink} className='font-semibold text-foreground hover:underline'>Sign in</Link>.</p>}
         >
             <div className='flex flex-col gap-4'>
                 <div className='flex items-start gap-3 rounded-xl border bg-muted/40 px-4 py-4'>
-                    <div className='rounded-full bg-primary/10 p-2 text-primary'>
-                        <MailCheck data-icon='inline-start' />
+                    <div className={isFailureState ? 'rounded-full bg-destructive/10 p-2 text-destructive' : 'rounded-full bg-primary/10 p-2 text-primary'}>
+                        {isFailureState ? <CircleAlert data-icon='inline-start' /> : <MailCheck data-icon='inline-start' />}
                     </div>
                     <div className='flex flex-col gap-1'>
                         <p className='font-medium text-foreground'>Verification status</p>
-                        <p className='text-sm text-muted-foreground'>
-                            {alreadyVerified
-                                ? `Verified for ${auth.user?.email ?? 'your account'}.`
-                                : verificationSentAt
-                                ? `We sent a verification email to ${auth.user?.email ?? 'your address'}. Open that link to finish setup.`
-                                : auth.user
-                                ? `We have not confirmed a sent verification email for ${auth.user.email} yet. Send another one below.`
-                                : 'Open the verification link from your email. If you are not signed in, you can still complete verification from that link.'}
-                        </p>
+                        <p className='text-sm text-muted-foreground'>{verificationStatusDescription}</p>
                     </div>
                 </div>
 
@@ -158,7 +186,7 @@ export default function VerifyEmailRoute() {
                     </p>
                 ) : null}
 
-                {error ? (
+                {error && !hasExpiredOrInvalidLinkError ? (
                     <p className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'>
                         {error}
                     </p>

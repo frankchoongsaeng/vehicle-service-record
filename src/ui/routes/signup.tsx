@@ -1,6 +1,7 @@
 import type { MetaFunction } from '@remix-run/node'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from '@remix-run/react'
+import { ArrowRight, Moon, Sun } from 'lucide-react'
 import { AuthScreen } from '../components/AuthScreen.js'
 import BrandedLoadingScreen from '../components/BrandedLoadingScreen.js'
 import { Button } from '../components/ui/button.js'
@@ -8,6 +9,7 @@ import { Input } from '../components/ui/input.js'
 import { useAuth } from '../auth/useAuth.js'
 import { getSafeRedirectTarget } from '../auth/redirect.js'
 import { ApiError } from '../api/client.js'
+import { useTheme } from '../theme/theme.js'
 
 const MIN_PASSWORD_LENGTH = 8
 
@@ -20,6 +22,7 @@ export const meta: MetaFunction = () => {
 
 export default function SignupRoute() {
     const auth = useAuth()
+    const { theme, toggleTheme } = useTheme()
     const navigate = useNavigate()
     const [searchParams] = useSearchParams()
     const redirectTo = getSafeRedirectTarget(searchParams.get('redirectTo'))
@@ -76,9 +79,20 @@ export default function SignupRoute() {
 
     return (
         <AuthScreen
-            eyebrow='Get started'
-            title='Create your account.'
-            description='Sign up with your email and password to manage your vehicles and service history.'
+            title='Create your account'
+            description='Set up your account to start tracking vehicles, service history, and upcoming work.'
+            topAction={
+                <Button
+                    type='button'
+                    variant='ghost'
+                    size='icon'
+                    onClick={toggleTheme}
+                    aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                    title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                >
+                    {theme === 'dark' ? <Sun /> : <Moon />}
+                </Button>
+            }
             footer={
                 <p>
                     Already have an account?{' '}
@@ -89,28 +103,29 @@ export default function SignupRoute() {
                 </p>
             }
         >
-            <form className='space-y-4' onSubmit={handleSubmit}>
+            <form className='flex flex-col gap-4' onSubmit={handleSubmit}>
                 {(error || auth.bootstrapError) && (
                     <div className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'>
                         {error ?? auth.bootstrapError}
                     </div>
                 )}
 
-                <div className='space-y-2'>
+                <div className='flex flex-col gap-2'>
                     <label htmlFor='email' className='text-sm font-medium text-foreground'>
-                        Email
+                        Email address
                     </label>
                     <Input
                         id='email'
                         type='email'
                         autoComplete='email'
+                        placeholder='you@example.com'
                         value={email}
                         onChange={event => setEmail(event.target.value)}
                         required
                     />
                 </div>
 
-                <div className='space-y-2'>
+                <div className='flex flex-col gap-2'>
                     <label htmlFor='password' className='text-sm font-medium text-foreground'>
                         Password
                     </label>
@@ -118,6 +133,7 @@ export default function SignupRoute() {
                         id='password'
                         type='password'
                         autoComplete='new-password'
+                        placeholder='Create a password'
                         value={password}
                         onChange={event => setPassword(event.target.value)}
                         minLength={MIN_PASSWORD_LENGTH}
@@ -125,7 +141,7 @@ export default function SignupRoute() {
                     />
                 </div>
 
-                <div className='space-y-2'>
+                <div className='flex flex-col gap-2'>
                     <label htmlFor='confirm-password' className='text-sm font-medium text-foreground'>
                         Confirm password
                     </label>
@@ -133,6 +149,7 @@ export default function SignupRoute() {
                         id='confirm-password'
                         type='password'
                         autoComplete='new-password'
+                        placeholder='Re-enter your password'
                         value={confirmPassword}
                         onChange={event => setConfirmPassword(event.target.value)}
                         minLength={MIN_PASSWORD_LENGTH}
@@ -140,8 +157,15 @@ export default function SignupRoute() {
                     />
                 </div>
 
-                <Button className='w-full' type='submit' disabled={submitting}>
-                    {submitting ? 'Creating account…' : 'Create account'}
+                <Button className='w-full' size='lg' type='submit' disabled={submitting}>
+                    {submitting ? (
+                        'Creating account…'
+                    ) : (
+                        <>
+                            Create account
+                            <ArrowRight data-icon='inline-end' />
+                        </>
+                    )}
                 </Button>
             </form>
         </AuthScreen>

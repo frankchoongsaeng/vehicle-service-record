@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react'
+import { Link } from '@remix-run/react'
+import { ChevronLeft } from 'lucide-react'
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card.js'
 import { cn } from '../lib/utils.js'
@@ -22,10 +24,14 @@ export function AuthScreen({ eyebrow, title, description, children, footer, topA
             <section className='relative flex min-h-screen items-center justify-center px-4 py-8 sm:px-6 lg:px-10'>
                 <div className='flex w-full max-w-md flex-col items-center gap-4'>
                     <div className='flex w-full items-center justify-between gap-3'>
-                        <div className='flex items-center gap-3'>
+                        <Link
+                            to='/'
+                            className='flex items-center gap-3 rounded-md outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+                        >
+                            <ChevronLeft className='size-4 text-muted-foreground' aria-hidden='true' />
                             <Logo className='size-7' />
                             <p className='text-sm font-semibold tracking-tight text-foreground'>Duralog</p>
-                        </div>
+                        </Link>
                         {topAction}
                     </div>
 

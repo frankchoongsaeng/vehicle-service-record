@@ -134,6 +134,7 @@ What the app container does on startup:
 
 - regenerates the Prisma client for MySQL
 - waits for the database and applies MySQL migrations with `prisma migrate deploy`
+- if Prisma reports `P3005` for an already-populated schema, marks the initial MySQL migration as applied once and retries deployment
 - optionally runs `npm run db:seed` when `SEED_ON_STARTUP=true`
 - starts the production server on <http://localhost:3001>
 
@@ -170,6 +171,7 @@ Important variables:
 - `OPENAUTH_AUDIENCE`: token audience value, defaults to `vehicle-service-record-client`
 - `DEV_USER_EMAIL`: seeded development login email
 - `DEV_USER_PASSWORD`: seeded development login password
+- `PRISMA_BASELINE_ON_P3005`: when `true`, container startup will mark the initial migration as applied if Prisma finds a non-empty MySQL schema without migration history
 - `LOG_LEVEL`: backend log threshold, for example `debug`, `info`, `warn`, or `error`
 - `LOG_READ_REQUEST_SAMPLE_RATE`: production sampling rate for successful read-request lifecycle logs between `0` and `1`
 - `LOG_FILE_PATH`: optional NDJSON backend log file path, useful for searching `requestId` values outside the terminal

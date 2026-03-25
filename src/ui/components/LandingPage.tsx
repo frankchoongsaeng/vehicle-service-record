@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from '@remix-run/react'
 import {
     Bell,
@@ -15,7 +15,6 @@ import {
 import { Button } from './ui/button.js'
 import { Card, CardContent } from './ui/card.js'
 import Logo from './ui/logo.js'
-import Mascot from './ui/mascot.js'
 
 const features = [
     {
@@ -72,6 +71,59 @@ const steps = [
         description: 'Set maintenance plans, track what is complete or overdue, and always know what is due next.'
     }
 ] as const
+
+const heroImages = [
+    { src: '/images/add-car.webp', alt: 'Car' },
+    { src: '/images/add-truck.webp', alt: 'Truck' },
+    { src: '/images/add-motorcycle.webp', alt: 'Motorcycle' },
+    { src: '/images/add-suv.webp', alt: 'SUV' },
+    { src: '/images/add-van.webp', alt: 'Van' },
+    { src: '/images/add-boat.webp', alt: 'Boat' },
+    { src: '/images/add-rv.webp', alt: 'RV' },
+    { src: '/images/add-atv.webp', alt: 'ATV' }
+] as const
+
+function VehicleShowcase() {
+    const [current, setCurrent] = useState(0)
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrent(prev => (prev + 1) % heroImages.length)
+        }, 3000)
+        return () => clearInterval(timer)
+    }, [])
+
+    return (
+        <div className='relative h-80 w-80 xl:h-96 xl:w-96'>
+            {heroImages.map((image, i) => (
+                <img
+                    key={image.src}
+                    src={image.src}
+                    alt={image.alt}
+                    className={`absolute inset-0 h-full w-full rounded-2xl object-contain transition-all duration-700 ease-in-out ${
+                        i === current ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
+                    }`}
+                />
+            ))}
+            {/* Dots indicator */}
+            <div className='absolute -bottom-6 left-1/2 flex -translate-x-1/2 gap-1.5'>
+                {heroImages.map((image, i) => (
+                    <button
+                        key={image.src}
+                        type='button'
+                        aria-label={`Show ${image.alt}`}
+                        onClick={() => setCurrent(i)}
+                        className={`h-1.5 rounded-full transition-all duration-300 ${
+                            i === current
+                                ? 'w-5 bg-primary'
+                                : 'w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/50'
+                        }`}
+                    />
+                ))}
+            </div>
+        </div>
+    )
+}
 
 function useScrollReveal() {
     const ref = useRef<HTMLDivElement>(null)
@@ -167,8 +219,8 @@ function HeroSection() {
                         </Button>
                     </div>
                 </div>
-                <div className='landing-hero-enter-delay-3 hidden w-56 lg:block xl:w-64'>
-                    <Mascot className='h-auto w-full' />
+                <div className='landing-hero-enter-delay-3 hidden lg:block'>
+                    <VehicleShowcase />
                 </div>
             </div>
         </section>

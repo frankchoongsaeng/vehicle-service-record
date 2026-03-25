@@ -193,6 +193,14 @@ export const removeProfileImage = async (): Promise<AuthUser> => {
     return data.user
 }
 
+export const completeOnboarding = async (): Promise<AuthUser> => {
+    const data = await request<{ user: AuthUser }>('/settings/onboarding/complete', {
+        method: 'POST'
+    })
+
+    return data.user
+}
+
 // ── Workshops ───────────────────────────────────────────────────────────────
 
 export const getWorkshops = (): Promise<Workshop[]> => request('/workshops')

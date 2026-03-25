@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 
 import * as api from '../api/client.js'
 import { ApiError } from '../api/client.js'
+import { buildOnboardingUrl, hasCompletedOnboarding } from '../auth/onboarding.js'
 import { useAuth } from '../auth/useAuth.js'
 import { AuthenticatedShell } from '../components/AuthenticatedShell.js'
 import BrandedLoadingScreen from '../components/BrandedLoadingScreen.js'
@@ -203,13 +204,21 @@ export default function WorkshopsRoute() {
     }, [initialWorkshops])
 
     useEffect(() => {
-        if (auth.status !== 'unauthenticated') {
+        if (auth.status === 'loading') {
             return
         }
 
         const redirectTo = `${location.pathname}${location.search}${location.hash}` || '/workshops'
-        navigate(`/login?redirectTo=${encodeURIComponent(redirectTo)}`, { replace: true })
-    }, [auth.status, location.hash, location.pathname, location.search, navigate])
+
+        if (auth.status === 'unauthenticated') {
+            navigate(`/login?redirectTo=${encodeURIComponent(redirectTo)}`, { replace: true })
+            return
+        }
+
+        if (!hasCompletedOnboarding(auth.user)) {
+            navigate(buildOnboardingUrl(redirectTo), { replace: true })
+        }
+    }, [auth.status, auth.user, location.hash, location.pathname, location.search, navigate])
 
     const setViewAndSyncUrl = (nextView: View, replace = false) => {
         const nextParams = mergeViewSearchParams(searchParams, nextView)
@@ -318,6 +327,16 @@ export default function WorkshopsRoute() {
 
     if (auth.status === 'loading') {
         return <BrandedLoadingScreen message='Checking your session…' />
+    }
+
+    if (!auth.user) {
+        return <div className='grid min-h-screen place-items-center text-muted-foreground'>Redirecting to login…</div>
+    }
+
+    if (!hasCompletedOnboarding(auth.user)) {
+        return (
+            <div className='grid min-h-screen place-items-center text-muted-foreground'>Redirecting to onboarding…</div>
+        )
     }
 
     if (!auth.user) {

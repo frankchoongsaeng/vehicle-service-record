@@ -6,7 +6,7 @@ import {
 } from '../../types/serviceTypes.js'
 import type { DistanceUnit } from '../../types/distance.js'
 import type { ReminderChannel, ReminderPreferenceMode } from '../../types/reminders.js'
-import type { PreferredCurrencyCode } from '../../types/userSettings.js'
+import type { HistorySortOrder, PreferredCurrencyCode } from '../../types/userSettings.js'
 
 export { SERVICE_TYPES, getServiceTypeLabel, isServiceTypeValue }
 export type { ServiceTypeValue }
@@ -93,6 +93,8 @@ export interface AuthUser {
     country?: string | null
     profileImageUrl?: string | null
     preferredCurrency: PreferredCurrencyCode
+    historySortOrder: HistorySortOrder
+    onboardingCompletedAt: string | null
 }
 
 export interface UserSettingsInput {
@@ -101,6 +103,7 @@ export interface UserSettingsInput {
     country?: string
     profileImageUrl?: string
     preferredCurrency?: PreferredCurrencyCode
+    historySortOrder?: HistorySortOrder
 }
 
 export interface ProfileImageUploadResult {

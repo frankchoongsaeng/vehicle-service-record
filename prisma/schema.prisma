@@ -16,8 +16,10 @@ model User {
     country                 String?
     profile_image_url       String?
     preferred_currency      String   @default("USD")
+    history_sort_order      String   @default("newest_first")
     reminder_email_enabled  Boolean  @default(true)
     reminder_digest_enabled Boolean  @default(true)
+    onboarding_completed_at DateTime?
     created_at              DateTime @default(now())
     updated_at              DateTime @updatedAt
 

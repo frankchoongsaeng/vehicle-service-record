@@ -221,15 +221,16 @@ export default function OnboardingRoute() {
         syncStep('preferences')
     }
 
+    const handleSkipProfileForNow = () => {
+        setError('')
+        syncStep('preferences')
+    }
+
     const handleFinish = async () => {
         setSubmitting(true)
         setError('')
 
         try {
-            if (!firstName.trim()) {
-                throw new Error('Add at least your first name so your profile feels personal across the app.')
-            }
-
             const trimmedDaysThreshold = reminderDaysThreshold.trim()
             const trimmedMileageThreshold = reminderMileageThreshold.trim()
             const reminderRule =
@@ -526,7 +527,11 @@ export default function OnboardingRoute() {
                                     <ArrowLeft data-icon='inline-start' />
                                     Back
                                 </Button>
-                            ) : null}
+                            ) : (
+                                <Button type='button' variant='outline' onClick={handleSkipProfileForNow}>
+                                    Skip for now
+                                </Button>
+                            )}
 
                             {step === 'profile' ? (
                                 <Button type='button' onClick={handleContinueToPreferences}>

@@ -1,6 +1,6 @@
 import type { MetaFunction } from '@remix-run/node'
 import { Link, useLocation, useNavigate, useSearchParams } from '@remix-run/react'
-import { BellRing, Globe, Settings2, Upload, UserRound, X } from 'lucide-react'
+import { BellRing, ChevronLeft, Globe, Settings2, Upload, UserRound, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import * as api from '../api/client.js'
@@ -293,7 +293,10 @@ export default function SettingsRoute() {
                     variant='plain'
                     actions={
                         <Button asChild variant='outline'>
-                            <Link to='/garage'>Back to Garage</Link>
+                            <Link to='/garage'>
+                                <ChevronLeft data-icon='inline-start' />
+                                Back to Garage
+                            </Link>
                         </Button>
                     }
                 />

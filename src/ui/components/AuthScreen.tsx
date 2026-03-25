@@ -1,47 +1,54 @@
 import type { ReactNode } from 'react'
 
-import { Card, CardContent } from './ui/card.js'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card.js'
+import { cn } from '../lib/utils.js'
 import Logo from './ui/logo.js'
 
 type AuthScreenProps = {
-    eyebrow: string
+    eyebrow?: string
     title: string
     description: string
     children: ReactNode
     footer: ReactNode
+    topAction?: ReactNode
 }
 
-export function AuthScreen({ eyebrow, title, description, children, footer }: AuthScreenProps) {
+export function AuthScreen({ eyebrow, title, description, children, footer, topAction }: AuthScreenProps) {
     return (
-        <main className='min-h-screen bg-background'>
-            <section className='flex min-h-screen items-center justify-center px-4 py-8 sm:px-6 lg:px-10'>
-                <div className='flex w-full max-w-md flex-col items-center gap-5'>
-                    <div className='flex flex-col items-center gap-3 text-center'>
-                        <div className='flex size-12 items-center justify-center rounded-2xl border bg-card shadow-sm'>
-                            <Logo className='size-8' />
+        <main className='relative min-h-screen overflow-hidden bg-linear-to-b from-background via-secondary/20 to-background'>
+            <div className='absolute inset-x-0 top-0 h-56 bg-linear-to-b from-secondary/35 to-transparent' />
+            <div className='absolute left-1/2 top-16 size-72 -translate-x-1/2 rounded-full bg-primary/8 blur-3xl' />
+
+            <section className='relative flex min-h-screen items-center justify-center px-4 py-8 sm:px-6 lg:px-10'>
+                <div className='flex w-full max-w-md flex-col items-center gap-4'>
+                    <div className='flex w-full items-center justify-between gap-3'>
+                        <div className='flex items-center gap-3'>
+                            <Logo className='size-7' />
+                            <p className='text-sm font-semibold tracking-tight text-foreground'>Duralog</p>
                         </div>
-                        <div className='flex flex-col gap-1'>
-                            <p className='text-lg font-semibold tracking-tight text-foreground'>Duralog</p>
-                            <p className='text-sm text-muted-foreground'>Vehicle service records</p>
-                        </div>
+                        {topAction}
                     </div>
 
-                    <Card className='w-full shadow-lg shadow-secondary/20'>
-                        <CardContent className='flex flex-col gap-6 p-6 sm:p-7'>
-                            <div className='flex flex-col gap-2 text-center'>
-                                <p className='text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground'>
+                    <Card className='w-full border-border/70 bg-card/95 shadow-xl shadow-secondary/15 backdrop-blur'>
+                        <CardHeader
+                            className={cn('space-y-0 items-center text-center', eyebrow ? 'gap-3' : 'gap-2 pb-5')}
+                        >
+                            {eyebrow ? (
+                                <div className='inline-flex items-center rounded-full border bg-secondary px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-secondary-foreground'>
                                     {eyebrow}
-                                </p>
-                                <div className='flex flex-col gap-1'>
-                                    <h2 className='text-2xl font-semibold tracking-tight text-foreground'>{title}</h2>
-                                    <p className='text-sm leading-6 text-muted-foreground'>{description}</p>
                                 </div>
+                            ) : null}
+                            <div className='flex flex-col gap-1'>
+                                <CardTitle className='text-2xl tracking-tight'>{title}</CardTitle>
+                                <CardDescription className='leading-6'>{description}</CardDescription>
                             </div>
+                        </CardHeader>
 
-                            {children}
+                        <CardContent className='flex flex-col gap-5'>{children}</CardContent>
 
-                            <div className='border-t pt-4 text-center text-sm text-muted-foreground'>{footer}</div>
-                        </CardContent>
+                        <CardFooter className='justify-center border-t pt-4 text-center text-sm text-muted-foreground'>
+                            {footer}
+                        </CardFooter>
                     </Card>
                 </div>
             </section>

@@ -1,4 +1,4 @@
-import type { PreferredCurrencyCode } from './userSettings.js'
+import type { HistorySortOrder, PreferredCurrencyCode } from './userSettings.js'
 
 export type AuthUser = {
     id: string
@@ -8,4 +8,6 @@ export type AuthUser = {
     country: string | null
     profileImageUrl: string | null
     preferredCurrency: PreferredCurrencyCode
+    historySortOrder: HistorySortOrder
+    onboardingCompletedAt: string | null
 }

@@ -312,6 +312,8 @@ async function main() {
             last_name: 'Driver',
             country: 'United States',
             preferred_currency: 'USD',
+            history_sort_order: 'newest_first',
+            onboarding_completed_at: new Date(),
             profile_image_url:
                 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=256&q=80'
         },
@@ -322,6 +324,8 @@ async function main() {
             last_name: 'Driver',
             country: 'United States',
             preferred_currency: 'USD',
+            history_sort_order: 'newest_first',
+            onboarding_completed_at: new Date(),
             profile_image_url:
                 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=256&q=80'
         }
@@ -334,7 +338,9 @@ async function main() {
             first_name: 'Hidden',
             last_name: 'Owner',
             country: 'Canada',
-            preferred_currency: 'CAD'
+            preferred_currency: 'CAD',
+            history_sort_order: 'newest_first',
+            onboarding_completed_at: new Date()
         },
         create: {
             email: secondaryEmail,
@@ -342,7 +348,9 @@ async function main() {
             first_name: 'Hidden',
             last_name: 'Owner',
             country: 'Canada',
-            preferred_currency: 'CAD'
+            preferred_currency: 'CAD',
+            history_sort_order: 'newest_first',
+            onboarding_completed_at: new Date()
         }
     })
 

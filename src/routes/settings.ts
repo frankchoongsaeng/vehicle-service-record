@@ -8,6 +8,7 @@ import { asyncHandler } from '../middleware/asyncHandler.js'
 import { requireAuth } from '../middleware/auth.js'
 import { uploadBufferImage } from '../services/imageUpload.js'
 import {
+    isHistorySortOrder,
     isPreferredCurrencyCode,
     isProfileImageMimeType,
     PROFILE_IMAGE_MAX_BYTES,
@@ -23,6 +24,7 @@ type SettingsUpdatePayload = {
     lastName?: unknown
     country?: unknown
     preferredCurrency?: unknown
+    historySortOrder?: unknown
 }
 
 function normalizeOptionalText(value: unknown, field: string, maxLength: number): string | null {
@@ -207,6 +209,16 @@ router.put(
                 preferredCurrency = body.preferredCurrency
             }
 
+            let historySortOrder: string | undefined
+            if (body.historySortOrder != null) {
+                if (!isHistorySortOrder(body.historySortOrder)) {
+                    res.status(400).json({ error: 'historySortOrder must be newest_first or oldest_first' })
+                    return
+                }
+
+                historySortOrder = body.historySortOrder
+            }
+
             const user = await prisma.user.update({
                 where: { id: authUser.id },
                 data: {
@@ -214,7 +226,8 @@ router.put(
                     ...(body.lastName !== undefined ? { last_name: lastName } : {}),
                     ...(body.country !== undefined ? { country } : {}),
                     ...(body.profileImageUrl !== undefined ? { profile_image_url: profileImageUrl } : {}),
-                    ...(preferredCurrency !== undefined ? { preferred_currency: preferredCurrency } : {})
+                    ...(preferredCurrency !== undefined ? { preferred_currency: preferredCurrency } : {}),
+                    ...(historySortOrder !== undefined ? { history_sort_order: historySortOrder } : {})
                 },
                 select: authUserSelect
             })
@@ -235,6 +248,27 @@ router.put(
 
             res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid settings payload' })
         }
+    })
+)
+
+router.post(
+    '/onboarding/complete',
+    asyncHandler(async (req: Request, res: Response) => {
+        const authUser = req.authUser!
+        const user = await prisma.user.update({
+            where: { id: authUser.id },
+            data: {
+                onboarding_completed_at: new Date()
+            },
+            select: authUserSelect
+        })
+
+        settingsLogger.info('settings.onboarding_completed', {
+            requestId: req.requestId,
+            userId: authUser.id
+        })
+
+        res.json({ user: serializeAuthUser(user) })
     })
 )
 

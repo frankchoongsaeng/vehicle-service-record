@@ -6,6 +6,7 @@ import { AuthScreen } from '../components/AuthScreen.js'
 import BrandedLoadingScreen from '../components/BrandedLoadingScreen.js'
 import { Button } from '../components/ui/button.js'
 import { Input } from '../components/ui/input.js'
+import { getPostAuthenticationDestination } from '../auth/onboarding.js'
 import { useAuth } from '../auth/useAuth.js'
 import { getSafeRedirectTarget } from '../auth/redirect.js'
 import { ApiError } from '../api/client.js'
@@ -32,9 +33,9 @@ export default function LoginRoute() {
 
     useEffect(() => {
         if (auth.status === 'authenticated') {
-            navigate(redirectTo, { replace: true })
+            navigate(getPostAuthenticationDestination(auth.user, redirectTo), { replace: true })
         }
-    }, [auth.status, navigate, redirectTo])
+    }, [auth.status, auth.user, navigate, redirectTo])
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
@@ -42,8 +43,8 @@ export default function LoginRoute() {
         setError(null)
 
         try {
-            await auth.login({ email, password })
-            navigate(redirectTo, { replace: true })
+            const nextUser = await auth.login({ email, password })
+            navigate(getPostAuthenticationDestination(nextUser, redirectTo), { replace: true })
         } catch (submitError) {
             if (submitError instanceof ApiError) {
                 setError(submitError.message)

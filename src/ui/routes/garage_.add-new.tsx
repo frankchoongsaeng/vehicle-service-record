@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from '@remix-run/react'
 
 import * as api from '../api/client.js'
+import { buildOnboardingUrl, hasCompletedOnboarding } from '../auth/onboarding.js'
 import { useAuth } from '../auth/useAuth.js'
 import BrandedLoadingScreen from '../components/BrandedLoadingScreen'
 import { AuthenticatedShell } from '../components/AuthenticatedShell'
@@ -26,13 +27,21 @@ export default function AddNewVehicleRoute() {
     const heroImage = getVehicleTypeImage(selectedVehicleType)
 
     useEffect(() => {
-        if (auth.status !== 'unauthenticated') {
+        if (auth.status === 'loading') {
             return
         }
 
         const redirectTo = `${location.pathname}${location.search}${location.hash}` || '/garage/add-new'
-        navigate(`/login?redirectTo=${encodeURIComponent(redirectTo)}`, { replace: true })
-    }, [auth.status, location.hash, location.pathname, location.search, navigate])
+
+        if (auth.status === 'unauthenticated') {
+            navigate(`/login?redirectTo=${encodeURIComponent(redirectTo)}`, { replace: true })
+            return
+        }
+
+        if (!hasCompletedOnboarding(auth.user)) {
+            navigate(buildOnboardingUrl(redirectTo), { replace: true })
+        }
+    }, [auth.status, auth.user, location.hash, location.pathname, location.search, navigate])
 
     const handleSubmitVehicle = async (data: VehicleInput) => {
         await api.createVehicle(data)
@@ -45,6 +54,12 @@ export default function AddNewVehicleRoute() {
 
     if (!auth.user) {
         return <div className='grid min-h-screen place-items-center text-muted-foreground'>Redirecting to login…</div>
+    }
+
+    if (!hasCompletedOnboarding(auth.user)) {
+        return (
+            <div className='grid min-h-screen place-items-center text-muted-foreground'>Redirecting to onboarding…</div>
+        )
     }
 
     return (

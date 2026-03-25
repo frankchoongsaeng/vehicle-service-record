@@ -22,6 +22,7 @@ import type {
 import type { AuthUser } from '../types/index.js'
 import { DEFAULT_PREFERRED_CURRENCY, formatCurrencyAmount, type PreferredCurrencyCode } from './currency.js'
 import { formatDistance, type DistanceUnit } from './distance.js'
+import { DEFAULT_HISTORY_SORT_ORDER, type HistorySortOrder } from '../../types/userSettings.js'
 
 type UpcomingCandidate = UpcomingItem & { urgency: number }
 
@@ -172,10 +173,17 @@ export function buildDisplayServiceRecords(
     records: ApiServiceRecord[],
     now: Date,
     currency: PreferredCurrencyCode = DEFAULT_PREFERRED_CURRENCY,
-    distanceUnit: DistanceUnit = 'mi'
+    distanceUnit: DistanceUnit = 'mi',
+    historySortOrder: HistorySortOrder = DEFAULT_HISTORY_SORT_ORDER
 ): ServiceRecord[] {
     return [...records]
-        .sort((left, right) => right.date.localeCompare(left.date) || right.id - left.id)
+        .sort((left, right) => {
+            if (historySortOrder === 'oldest_first') {
+                return left.date.localeCompare(right.date) || left.id - right.id
+            }
+
+            return right.date.localeCompare(left.date) || right.id - left.id
+        })
         .map(record => ({
             id: String(record.id),
             date: formatDate(record.date),

@@ -1,5 +1,16 @@
 import { NavLink } from '@remix-run/react'
-import { BriefcaseBusiness, CarFront, LogOut, MailCheck, Menu, Moon, Plus, Settings, Sun, UserCircle2 } from 'lucide-react'
+import {
+    BriefcaseBusiness,
+    CarFront,
+    LogOut,
+    MailCheck,
+    Menu,
+    Moon,
+    Plus,
+    Settings,
+    Sun,
+    UserCircle2
+} from 'lucide-react'
 import { useState } from 'react'
 
 import * as api from '../api/client.js'
@@ -87,20 +98,28 @@ export function AuthenticatedShell({
                                 <div className='flex flex-col gap-1'>
                                     <p className='font-semibold'>Verify your email to unlock email-based features</p>
                                     <p className='max-w-3xl text-sm text-amber-900/80 dark:text-amber-100/80'>
-                                        You can keep using Duralog now, but reminder emails and other email services stay paused until {currentUser.email} is verified.
+                                        You can keep using Duralog now, but reminder emails and other email services
+                                        stay paused until {currentUser.email} is verified.
                                     </p>
                                 </div>
                             </div>
 
                             <div className='flex flex-wrap gap-2'>
-                                <Button type='button' variant='outline' onClick={handleResendVerification} disabled={resendingVerification}>
+                                <Button
+                                    type='button'
+                                    variant='outline'
+                                    onClick={handleResendVerification}
+                                    disabled={resendingVerification}
+                                >
                                     {resendingVerification ? 'Sending…' : 'Resend email'}
                                 </Button>
                             </div>
                         </div>
 
                         {verificationMessage ? <p className='text-sm'>{verificationMessage}</p> : null}
-                        {verificationError ? <p className='text-sm text-destructive dark:text-red-200'>{verificationError}</p> : null}
+                        {verificationError ? (
+                            <p className='text-sm text-destructive dark:text-red-200'>{verificationError}</p>
+                        ) : null}
                     </div>
                 </div>
             ) : null}
@@ -116,7 +135,7 @@ export function AuthenticatedShell({
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align='start' sideOffset={8}>
-                                    <DropdownMenuLabel>Navigation</DropdownMenuLabel>
+                                    <DropdownMenuLabel>Menu</DropdownMenuLabel>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuGroup>
                                         <DropdownMenuItem asChild>
@@ -188,9 +207,6 @@ export function AuthenticatedShell({
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align='end' sideOffset={8}>
                                     <DropdownMenuLabel className='flex flex-col gap-0.5'>
-                                        <span className='truncate text-sm font-semibold text-foreground'>
-                                            {displayName}
-                                        </span>
                                         <span className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
                                             Signed in as
                                         </span>

@@ -149,10 +149,6 @@ export default function ForgotPasswordRoute() {
                         )}
                     </Button>
                 </form>
-
-                <Button asChild variant='outline'>
-                    <Link to={returnLink}>{returnLabel}</Link>
-                </Button>
             </div>
         </AuthScreen>
     )

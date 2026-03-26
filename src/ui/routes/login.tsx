@@ -30,6 +30,9 @@ export default function LoginRoute() {
     const [password, setPassword] = useState('')
     const [submitting, setSubmitting] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const forgotPasswordLink = `/forgot-password?redirectTo=${encodeURIComponent(redirectTo)}${
+        email.trim() ? `&email=${encodeURIComponent(email.trim())}` : ''
+    }`
 
     useEffect(() => {
         if (auth.status === 'authenticated') {
@@ -111,9 +114,14 @@ export default function LoginRoute() {
                 </div>
 
                 <div className='flex flex-col gap-2'>
-                    <label htmlFor='password' className='text-sm font-medium text-foreground'>
-                        Password
-                    </label>
+                    <div className='flex items-center justify-between gap-3'>
+                        <label htmlFor='password' className='text-sm font-medium text-foreground'>
+                            Password
+                        </label>
+                        <Link to={forgotPasswordLink} className='text-sm font-medium text-primary hover:underline'>
+                            Forgot password?
+                        </Link>
+                    </div>
                     <Input
                         id='password'
                         type='password'

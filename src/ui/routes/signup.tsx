@@ -81,7 +81,7 @@ export default function SignupRoute() {
     return (
         <AuthScreen
             title='Create your account'
-            description='Set up your account to start tracking vehicles, service history, and upcoming work.'
+            description='Set up your account to start tracking vehicles, service history, and upcoming work. We will ask you to verify your email before email-based features turn on.'
             topAction={
                 <Button
                     type='button'

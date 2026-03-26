@@ -9,6 +9,7 @@ Duralog is a web app to track maintenance and service history for your vehicles 
 - **Rich record details** — service type, date, mileage at service, cost, and notes
 - **Manage workshop contacts** — keep a reusable directory of workshop names, addresses, and phone numbers
 - **Email reminder digests** — evaluate maintenance plans daily, queue due and overdue reminders, and retry delivery with logged attempts
+- **Email verification workflow** — new signups are asked to verify their email before reminder delivery and other email-based services are enabled
 - **Cross-device access** — data is stored on the backend server, accessible from any device
 - **Comprehensive seed data** — demo vehicles and service records cover dashboards, filters, empty states, and auth isolation checks
 - **Workshop-ready development data** — seeded workshops populate the workshop directory and service-record suggestions immediately
@@ -163,33 +164,60 @@ Copy `.env.example` to `.env` and adjust values for your environment.
 
 Important variables:
 
+- Database
 - `DATABASE_PROVIDER`: optional override for Prisma provider selection. Leave unset to infer from `DATABASE_URL`.
 - `DATABASE_URL`: database connection string. Use `file:./prisma/dev.db` for local SQLite, `libsql://...` for remote libSQL-compatible SQLite, or `mysql://...` for MySQL.
 - `DATABASE_AUTH_TOKEN`: optional auth token for remote libSQL providers that require bearer-style authentication
+
+- Auth
 - `OPENAUTH_SECRET`: signing secret for the login session token
 - `OPENAUTH_ISSUER`: token issuer value, defaults to `vehicle-service-record-openauth`
 - `OPENAUTH_AUDIENCE`: token audience value, defaults to `vehicle-service-record-client`
+
+- App links and account email flows
+- `APP_ORIGIN`: optional canonical app origin used when generating email verification links; defaults to the incoming request origin
+- `EMAIL_VERIFICATION_TTL_HOURS`: how long verification links stay valid, defaults to `24`
+- `EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS`: minimum delay between resend requests, defaults to `60`
+- `PASSWORD_RESET_TTL_HOURS`: how long password reset links stay valid, defaults to `2`
+- `PASSWORD_RESET_RESEND_COOLDOWN_SECONDS`: minimum delay between password reset requests, defaults to `60`
+
+- Development seed user
 - `DEV_USER_EMAIL`: seeded development login email
 - `DEV_USER_PASSWORD`: seeded development login password
+
+- Prisma bootstrap
 - `PRISMA_BASELINE_ON_P3005`: when `true`, container startup will mark the initial migration as applied if Prisma finds a non-empty MySQL schema without migration history
+
+- Logging
 - `LOG_LEVEL`: backend log threshold, for example `debug`, `info`, `warn`, or `error`
 - `LOG_READ_REQUEST_SAMPLE_RATE`: production sampling rate for successful read-request lifecycle logs between `0` and `1`
 - `LOG_FILE_PATH`: optional NDJSON backend log file path, useful for searching `requestId` values outside the terminal
+
+- Reminder scheduler and alerts
 - `REMINDER_SCHEDULER_ENABLED`: enable or disable the reminder scheduler, defaults to `true`
 - `REMINDER_RUN_ON_STARTUP`: run reminder evaluation when the server boots, defaults to `true`
 - `REMINDER_EVALUATION_HOUR_UTC`: daily UTC hour for maintenance digest evaluation, defaults to `8`
 - `REMINDER_RETRY_INTERVAL_MINUTES`: cadence for retrying queued reminder notifications, defaults to `15`
 - `REMINDER_RETRY_BACKOFF_MINUTES`: base backoff between failed delivery attempts, defaults to `15`
 - `REMINDER_MAX_RETRIES`: maximum delivery attempts before a reminder stays failed, defaults to `3`
+
+- SMTP transport
 - `SMTP_HOST`: optional SMTP host used for real email delivery; if unset, reminder emails are logged locally instead of sent
 - `SMTP_PORT`: SMTP port, defaults to `587`
 - `SMTP_SECURE`: set to `true` for implicit TLS SMTP transports
 - `SMTP_USER`: optional SMTP username
 - `SMTP_PASS`: optional SMTP password
-- `SMTP_FROM`: sender address for reminder emails; required for SMTP delivery
+- `SMTP_FROM`: fallback sender address used when a category-specific sender is not set
+- `SMTP_FROM_ALERTS`: sender address for reminder and alert emails
+- `SMTP_FROM_SECURITY`: sender address for password resets and other security-sensitive emails
+- `SMTP_FROM_WELCOME`: sender address for welcome and email verification emails
+
+- AI image services
 - `OPENAI_API_KEY`: required for the async vehicle image generation service
 - `OPENAI_IMAGE_MODEL`: optional OpenAI image model override, defaults to `gpt-image-1`
 - `OPENAI_IMAGE_CLASSIFIER_MODEL`: optional OpenAI model override for the image classifier service, defaults to `gpt-4.1-mini`
+
+- Bunny storage
 - `BUNNY_STORAGE_ZONE_NAME`: Bunny Storage zone name used by the image upload service
 - `BUNNY_STORAGE_ACCESS_KEY`: Bunny Storage API access key used by the image upload service
 - `BUNNY_STORAGE_REGION`: Bunny Storage region identifier, defaults to `Falkenstein`

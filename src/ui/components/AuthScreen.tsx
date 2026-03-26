@@ -11,7 +11,7 @@ type AuthScreenProps = {
     title: string
     description: string
     children: ReactNode
-    footer: ReactNode
+    footer?: ReactNode
     topAction?: ReactNode
 }
 
@@ -52,9 +52,11 @@ export function AuthScreen({ eyebrow, title, description, children, footer, topA
 
                         <CardContent className='flex flex-col gap-5'>{children}</CardContent>
 
-                        <CardFooter className='justify-center border-t pt-4 text-center text-sm text-muted-foreground'>
-                            {footer}
-                        </CardFooter>
+                        {footer ? (
+                            <CardFooter className='justify-center border-t pt-4 text-center text-sm text-muted-foreground'>
+                                {footer}
+                            </CardFooter>
+                        ) : null}
                     </Card>
                 </div>
             </section>

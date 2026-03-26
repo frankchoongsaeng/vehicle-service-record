@@ -141,6 +141,7 @@ router.get(
             prisma.user.findUnique({
                 where: { id: authUser.id },
                 select: {
+                    email_verified_at: true,
                     reminder_email_enabled: true,
                     reminder_digest_enabled: true
                 }
@@ -161,6 +162,7 @@ router.get(
         }
 
         res.json({
+            emailVerificationRequired: user.email_verified_at == null,
             reminderEmailEnabled: user.reminder_email_enabled,
             reminderDigestEnabled: user.reminder_digest_enabled,
             rule: serializeRule(rule)
@@ -202,6 +204,7 @@ router.put(
             })
 
             res.json({
+                emailVerificationRequired: authUser.emailVerifiedAt == null,
                 reminderEmailEnabled: user.reminder_email_enabled,
                 reminderDigestEnabled: user.reminder_digest_enabled,
                 rule: serializeRule(createdRule)

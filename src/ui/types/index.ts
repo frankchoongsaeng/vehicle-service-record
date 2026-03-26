@@ -88,6 +88,8 @@ export interface VinLookupResult {
 export interface AuthUser {
     id: string
     email: string
+    emailVerifiedAt: string | null
+    emailVerificationSentAt: string | null
     firstName?: string | null
     lastName?: string | null
     country?: string | null
@@ -207,6 +209,7 @@ export interface ReminderRuleInput {
 }
 
 export interface WorkspaceReminderPreferences {
+    emailVerificationRequired: boolean
     reminderEmailEnabled: boolean
     reminderDigestEnabled: boolean
     rule: ReminderRule | null

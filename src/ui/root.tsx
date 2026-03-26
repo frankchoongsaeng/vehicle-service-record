@@ -1,4 +1,4 @@
-import { Links, LiveReload, Meta, Outlet, Scripts, ScrollRestoration } from '@remix-run/react'
+import { Links, Meta, Outlet, Scripts, ScrollRestoration } from '@remix-run/react'
 import type { LinksFunction } from '@remix-run/node'
 
 import globalStyles from './index.css?url'
@@ -29,7 +29,6 @@ export default function App() {
                 </ThemeProvider>
                 <ScrollRestoration />
                 <Scripts />
-                <LiveReload />
             </body>
         </html>
     )

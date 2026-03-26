@@ -11,6 +11,10 @@ export function hasCompletedOnboarding(user: Pick<AuthUser, 'onboardingCompleted
     return Boolean(user?.onboardingCompletedAt)
 }
 
+export function hasVerifiedEmail(user: Pick<AuthUser, 'emailVerifiedAt'> | null | undefined): boolean {
+    return Boolean(user?.emailVerifiedAt)
+}
+
 export function resolveOnboardingStep(value: string | null): OnboardingStep {
     return value === 'preferences' ? 'preferences' : 'profile'
 }

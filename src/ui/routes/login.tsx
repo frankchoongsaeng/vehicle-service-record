@@ -4,9 +4,12 @@ import { Link, useNavigate, useSearchParams } from '@remix-run/react'
 import { ArrowRight, Moon, Sun } from 'lucide-react'
 import { AuthScreen } from '../components/AuthScreen.js'
 import BrandedLoadingScreen from '../components/BrandedLoadingScreen.js'
+import { GoogleIcon } from '../components/GoogleIcon.js'
 import { Button } from '../components/ui/button.js'
 import { Input } from '../components/ui/input.js'
+import { Separator } from '../components/ui/separator.js'
 import { getPostAuthenticationDestination } from '../auth/onboarding.js'
+import { buildGoogleAuthStartUrl, getGoogleAuthErrorMessage } from '../auth/google.js'
 import { useAuth } from '../auth/useAuth.js'
 import { getSafeRedirectTarget } from '../auth/redirect.js'
 import { ApiError } from '../api/client.js'
@@ -26,10 +29,12 @@ export default function LoginRoute() {
     const [searchParams] = useSearchParams()
     const redirectTo = getSafeRedirectTarget(searchParams.get('redirectTo'))
     const signupLink = `/signup?redirectTo=${encodeURIComponent(redirectTo)}`
+    const googleAuthHref = buildGoogleAuthStartUrl(redirectTo, '/login')
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [submitting, setSubmitting] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [callbackError, setCallbackError] = useState<string | null>(null)
     const forgotPasswordLink = `/forgot-password?redirectTo=${encodeURIComponent(redirectTo)}${
         email.trim() ? `&email=${encodeURIComponent(email.trim())}` : ''
     }`
@@ -40,10 +45,15 @@ export default function LoginRoute() {
         }
     }, [auth.status, auth.user, navigate, redirectTo])
 
+    useEffect(() => {
+        setCallbackError(getGoogleAuthErrorMessage(searchParams.get('authError')))
+    }, [searchParams])
+
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
         setSubmitting(true)
         setError(null)
+        setCallbackError(null)
 
         try {
             const nextUser = await auth.login({ email, password })
@@ -91,10 +101,27 @@ export default function LoginRoute() {
                 </p>
             }
         >
+            <div className='flex flex-col gap-4'>
+                <Button asChild className='w-full' size='lg' type='button' variant='outline'>
+                    <a href={googleAuthHref}>
+                        <GoogleIcon data-icon='inline-start' />
+                        Sign in with Google
+                    </a>
+                </Button>
+
+                <div className='flex items-center gap-3'>
+                    <Separator className='flex-1' />
+                    <span className='rounded-full bg-muted px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground'>
+                        Or continue with email
+                    </span>
+                    <Separator className='flex-1' />
+                </div>
+            </div>
+
             <form className='flex flex-col gap-4' onSubmit={handleSubmit}>
-                {(error || auth.bootstrapError) && (
+                {(error || callbackError || auth.bootstrapError) && (
                     <div className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'>
-                        {error ?? auth.bootstrapError}
+                        {error ?? callbackError ?? auth.bootstrapError}
                     </div>
                 )}
 

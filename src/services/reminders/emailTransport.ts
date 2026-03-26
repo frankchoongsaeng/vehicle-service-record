@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer'
 
 import { createLogger } from '../../logging/logger.js'
+import { getSmtpConfig } from '../emailConfig.js'
 
 const emailLogger = createLogger({ component: 'reminder-email-transport' })
 
@@ -22,12 +23,7 @@ export type ReminderEmailTransport = {
 }
 
 export function createReminderEmailTransport(): ReminderEmailTransport {
-    const host = process.env.SMTP_HOST?.trim()
-    const port = Number(process.env.SMTP_PORT ?? '587')
-    const secure = process.env.SMTP_SECURE === 'true'
-    const user = process.env.SMTP_USER?.trim()
-    const pass = process.env.SMTP_PASS?.trim()
-    const from = process.env.SMTP_FROM?.trim()
+    const { host, port, secure, user, pass, from } = getSmtpConfig('alerts')
 
     if (!host || !from) {
         return {

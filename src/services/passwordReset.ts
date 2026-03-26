@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto'
 import nodemailer from 'nodemailer'
 
+import { getSmtpConfig } from './emailConfig.js'
 import { createLogger } from '../logging/logger.js'
 
 const passwordResetLogger = createLogger({ component: 'password-reset' })
@@ -45,12 +46,7 @@ export async function sendPasswordResetEmail(input: SendPasswordResetEmailInput)
     provider: 'log' | 'smtp'
     response: string
 }> {
-    const host = process.env.SMTP_HOST?.trim()
-    const port = Number(process.env.SMTP_PORT ?? '587')
-    const secure = process.env.SMTP_SECURE === 'true'
-    const user = process.env.SMTP_USER?.trim()
-    const pass = process.env.SMTP_PASS?.trim()
-    const from = process.env.SMTP_FROM?.trim()
+    const { host, port, secure, user, pass, from } = getSmtpConfig('security')
 
     const subject = 'Reset your Duralog password'
     const text = [

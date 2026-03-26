@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import nodemailer from 'nodemailer'
 
 import { getSmtpConfig } from './emailConfig.js'
+import { buildCalloutCard, buildParagraphBlock, renderEmailLayout } from './emailLayout.js'
 import { createLogger } from '../logging/logger.js'
 
 const verificationLogger = createLogger({ component: 'email-verification' })
@@ -52,18 +53,37 @@ export async function sendEmailVerificationEmail(input: SendVerificationEmailInp
     const text = [
         'Welcome to Duralog.',
         '',
-        'Verify your email address to unlock reminder emails and other email-based features:',
+        'Verify your email address to unlock reminder emails and other email-based features.',
+        '',
+        `This verification link expires in ${getTokenTtlHours()} hours.`,
+        '',
+        'Open this link to verify your email:',
         input.verificationUrl,
         '',
         `If you did not create this account, you can ignore this email.`
     ].join('\n')
-    const html = [
-        '<p>Welcome to <strong>Duralog</strong>.</p>',
-        '<p>Verify your email address to unlock reminder emails and other email-based features.</p>',
-        `<p><a href="${input.verificationUrl}">Verify your email</a></p>`,
-        `<p>If the button does not work, copy this URL into your browser:<br /><a href="${input.verificationUrl}">${input.verificationUrl}</a></p>`,
-        '<p>If you did not create this account, you can ignore this email.</p>'
-    ].join('')
+    const html = renderEmailLayout({
+        previewText: 'Verify your email to enable reminders and secure your Duralog account.',
+        categoryLabel: 'Welcome',
+        title: 'Verify your email',
+        intro: 'Finish setting up your Duralog account so reminders and account updates can reach you.',
+        bodyHtml:
+            buildParagraphBlock([
+                'Welcome to Duralog.',
+                'Confirm your email address to unlock reminder emails and other email-based features.'
+            ]) +
+            buildCalloutCard('What happens next', [
+                `This verification link expires in ${getTokenTtlHours()} hours.`,
+                'Once verified, your account can receive maintenance reminders and security notices.',
+                'If you did not create this account, you can safely ignore this message.'
+            ]),
+        action: {
+            label: 'Verify your email',
+            url: input.verificationUrl
+        },
+        actionHint: 'Use the button above to confirm your address in one step.',
+        footerNote: 'This message was sent because a Duralog account was created with this email address.'
+    })
 
     if (!host || !from) {
         verificationLogger.info('email_verification.logged', {

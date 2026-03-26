@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import nodemailer from 'nodemailer'
 
 import { getSmtpConfig } from './emailConfig.js'
+import { buildCalloutCard, buildParagraphBlock, renderEmailLayout } from './emailLayout.js'
 import { createLogger } from '../logging/logger.js'
 
 const passwordResetLogger = createLogger({ component: 'password-reset' })
@@ -52,17 +53,35 @@ export async function sendPasswordResetEmail(input: SendPasswordResetEmailInput)
     const text = [
         'We received a request to reset your Duralog password.',
         '',
+        `This reset link expires in ${getPasswordResetTtlHours()} hours.`,
+        '',
         'Choose a new password with this link:',
         input.resetUrl,
         '',
         'If you did not request a password reset, you can ignore this email.'
     ].join('\n')
-    const html = [
-        '<p>We received a request to reset your <strong>Duralog</strong> password.</p>',
-        `<p><a href="${input.resetUrl}">Choose a new password</a></p>`,
-        `<p>If the button does not work, copy this URL into your browser:<br /><a href="${input.resetUrl}">${input.resetUrl}</a></p>`,
-        '<p>If you did not request a password reset, you can ignore this email.</p>'
-    ].join('')
+    const html = renderEmailLayout({
+        previewText: 'Choose a new Duralog password with this secure reset link.',
+        categoryLabel: 'Security',
+        title: 'Reset your password',
+        intro: 'A request was made to reset the password for your Duralog account.',
+        bodyHtml:
+            buildParagraphBlock([
+                'Use the secure link below to choose a new password.',
+                'For your protection, this email only gives access to the reset flow and does not change anything until you submit a new password.'
+            ]) +
+            buildCalloutCard('Security details', [
+                `This reset link expires in ${getPasswordResetTtlHours()} hours.`,
+                'If you did not request a password reset, no further action is required.',
+                'You can keep using your current password unless you complete the reset.'
+            ]),
+        action: {
+            label: 'Choose a new password',
+            url: input.resetUrl
+        },
+        actionHint: 'Open the secure reset link above to set a new password.',
+        footerNote: 'This message was sent because a password reset request was submitted for your Duralog account.'
+    })
 
     if (!host || !from) {
         passwordResetLogger.info('password_reset.logged', {

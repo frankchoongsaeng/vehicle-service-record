@@ -1,6 +1,6 @@
 import type { MetaFunction } from '@remix-run/node'
 import { Link, useLocation, useNavigate, useSearchParams } from '@remix-run/react'
-import { BellRing, ChevronLeft, Globe, Settings2, Upload, UserRound, X } from 'lucide-react'
+import { BellRing, ChevronLeft, Globe, KeyRound, Settings2, Upload, UserRound, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import * as api from '../api/client.js'
@@ -15,6 +15,7 @@ import BrandedLoadingScreen from '../components/BrandedLoadingScreen.js'
 import { PageHeader } from '../components/PageHeader.js'
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar.js'
 import { Button } from '../components/ui/button.js'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card.js'
 import { Input } from '../components/ui/input.js'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select.js'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs.js'
@@ -65,6 +66,9 @@ export default function SettingsRoute() {
     const [savingPreferences, setSavingPreferences] = useState(false)
     const [uploadingImage, setUploadingImage] = useState(false)
     const [removingImage, setRemovingImage] = useState(false)
+    const [sendingPasswordReset, setSendingPasswordReset] = useState(false)
+    const [passwordResetError, setPasswordResetError] = useState('')
+    const [passwordResetMessage, setPasswordResetMessage] = useState('')
     const fileInputRef = useRef<HTMLInputElement | null>(null)
     const availableCountries = getCountryOptions(country)
 
@@ -287,6 +291,27 @@ export default function SettingsRoute() {
         }
     }
 
+    const handleSendPasswordReset = async () => {
+        setSendingPasswordReset(true)
+        setPasswordResetError('')
+        setPasswordResetMessage('')
+
+        try {
+            await api.requestPasswordReset(auth.user!.email)
+            setPasswordResetMessage(
+                `We sent a password reset link to ${auth.user!.email}. Open that email to choose a new password.`
+            )
+        } catch (error) {
+            if (error instanceof ApiError || error instanceof Error) {
+                setPasswordResetError(error.message)
+            } else {
+                setPasswordResetError('Unable to send a password reset email right now.')
+            }
+        } finally {
+            setSendingPasswordReset(false)
+        }
+    }
+
     if (auth.status === 'loading') {
         return <BrandedLoadingScreen message='Checking your session…' />
     }
@@ -463,6 +488,41 @@ export default function SettingsRoute() {
                                 <p className='text-xs text-muted-foreground'>JPG, PNG, WebP, or GIF up to 5 MB.</p>
                             </div>
 
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Security</CardTitle>
+                                    <CardDescription>
+                                        Send yourself a reset email, then use that link to choose a new password.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className='flex flex-col gap-4'>
+                                    {passwordResetError ? (
+                                        <p className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'>
+                                            {passwordResetError}
+                                        </p>
+                                    ) : null}
+                                    {passwordResetMessage ? (
+                                        <p className='rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground'>
+                                            {passwordResetMessage}
+                                        </p>
+                                    ) : null}
+                                    <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
+                                        <p className='text-sm text-muted-foreground'>
+                                            The reset link will be sent to {auth.user.email}.
+                                        </p>
+                                        <Button
+                                            type='button'
+                                            variant='outline'
+                                            onClick={handleSendPasswordReset}
+                                            disabled={sendingPasswordReset}
+                                        >
+                                            <KeyRound data-icon='inline-start' />
+                                            {sendingPasswordReset ? 'Sending reset link…' : 'Send reset link'}
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
                             <div className='flex justify-end'>
                                 <Button type='button' onClick={handleSaveAccount} disabled={savingAccount}>
                                     <UserRound data-icon='inline-start' />
@@ -561,7 +621,8 @@ export default function SettingsRoute() {
                                     </p>
                                     {!auth.user.emailVerifiedAt ? (
                                         <p className='text-sm text-muted-foreground'>
-                                            Your reminder preferences can be saved now, but Duralog will not deliver email digests until you verify {auth.user.email}.
+                                            Your reminder preferences can be saved now, but Duralog will not deliver
+                                            email digests until you verify {auth.user.email}.
                                         </p>
                                     ) : null}
                                 </div>

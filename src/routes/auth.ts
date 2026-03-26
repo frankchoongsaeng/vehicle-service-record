@@ -14,22 +14,36 @@ import {
     hashEmailVerificationToken,
     sendEmailVerificationEmail
 } from '../services/emailVerification.js'
+import {
+    buildPasswordResetUrl,
+    createPasswordResetChallenge,
+    hashPasswordResetToken,
+    sendPasswordResetEmail
+} from '../services/passwordReset.js'
 
 const router = Router()
 const MIN_PASSWORD_LENGTH = 8
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const authLogger = createLogger({ component: 'auth-routes' })
 const DEFAULT_EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS = 60
+const DEFAULT_PASSWORD_RESET_RESEND_COOLDOWN_SECONDS = 60
 
 function getEmailVerificationResendCooldownSeconds(): number {
     const configured = Number(
-        process.env.EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS ??
-            DEFAULT_EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS
+        process.env.EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS ?? DEFAULT_EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS
     )
 
     return Number.isFinite(configured) && configured > 0
         ? configured
         : DEFAULT_EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS
+}
+
+function getPasswordResetResendCooldownSeconds(): number {
+    const configured = Number(
+        process.env.PASSWORD_RESET_RESEND_COOLDOWN_SECONDS ?? DEFAULT_PASSWORD_RESET_RESEND_COOLDOWN_SECONDS
+    )
+
+    return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_PASSWORD_RESET_RESEND_COOLDOWN_SECONDS
 }
 
 function resolveAppOrigin(req: Request): string {
@@ -93,13 +107,73 @@ async function issueVerificationEmailForUser(params: {
     }
 }
 
+async function issuePasswordResetEmailForUser(params: {
+    userId: string
+    email: string
+    origin: string
+    requestId?: string
+}): Promise<{ sentAt: Date | null }> {
+    const challenge = createPasswordResetChallenge()
+
+    await prisma.user.update({
+        where: { id: params.userId },
+        data: {
+            password_reset_token_hash: challenge.tokenHash,
+            password_reset_expires_at: challenge.expiresAt,
+            password_reset_sent_at: null
+        }
+    })
+
+    try {
+        await sendPasswordResetEmail({
+            to: params.email,
+            resetUrl: buildPasswordResetUrl(params.origin, challenge.token)
+        })
+
+        const sentAt = new Date()
+        await prisma.user.update({
+            where: { id: params.userId },
+            data: {
+                password_reset_sent_at: sentAt
+            }
+        })
+
+        authLogger.info('auth.password_reset_issued', {
+            requestId: params.requestId,
+            userId: params.userId,
+            email: params.email,
+            expiresAt: challenge.expiresAt.toISOString()
+        })
+
+        return { sentAt }
+    } catch (error) {
+        authLogger.error('auth.password_reset_issue_failed', {
+            requestId: params.requestId,
+            userId: params.userId,
+            email: params.email,
+            error
+        })
+
+        return { sentAt: null }
+    }
+}
+
+function normalizeEmailAddress(value: unknown): string | null {
+    if (typeof value !== 'string') {
+        return null
+    }
+
+    const normalizedEmail = value.trim().toLowerCase()
+    return normalizedEmail || null
+}
+
 function normalizeCredentials(body: unknown): { email: string; password: string } | null {
     const { email, password } = (body ?? {}) as {
         email?: string
         password?: string
     }
 
-    const normalizedEmail = email?.trim().toLowerCase()
+    const normalizedEmail = normalizeEmailAddress(email)
     if (!normalizedEmail || !password) {
         return null
     }
@@ -155,6 +229,68 @@ router.post(
         res.json({
             user: serializeAuthUser(user)
         })
+    })
+)
+
+router.post(
+    '/password-reset/request',
+    asyncHandler(async (req: Request, res: Response) => {
+        const email = normalizeEmailAddress(req.body?.email)
+
+        if (!email) {
+            res.status(400).json({ error: 'Email is required.' })
+            return
+        }
+
+        if (!EMAIL_PATTERN.test(email)) {
+            res.status(400).json({ error: 'Please provide a valid email address.' })
+            return
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { email },
+            select: {
+                id: true,
+                email: true,
+                password_reset_sent_at: true
+            }
+        })
+
+        if (!user) {
+            authLogger.info('auth.password_reset_requested_for_unknown_email', {
+                requestId: req.requestId,
+                email
+            })
+            res.status(202).json({ accepted: true })
+            return
+        }
+
+        const resendCooldownMs = getPasswordResetResendCooldownSeconds() * 1000
+        const lastSentAt = user.password_reset_sent_at
+
+        if (lastSentAt && Date.now() - lastSentAt.getTime() < resendCooldownMs) {
+            authLogger.info('auth.password_reset_request_cooled_down', {
+                requestId: req.requestId,
+                userId: user.id,
+                email
+            })
+            res.status(202).json({ accepted: true })
+            return
+        }
+
+        const result = await issuePasswordResetEmailForUser({
+            userId: user.id,
+            email: user.email,
+            origin: resolveAppOrigin(req),
+            requestId: req.requestId
+        })
+
+        if (result.sentAt == null && req.authUser?.id === user.id) {
+            res.status(500).json({ error: 'Unable to send a password reset email right now.' })
+            return
+        }
+
+        res.status(202).json({ accepted: true })
     })
 )
 
@@ -260,6 +396,78 @@ router.post(
 
             throw error
         }
+    })
+)
+
+router.post(
+    '/password-reset/confirm',
+    asyncHandler(async (req: Request, res: Response) => {
+        const token = typeof req.body?.token === 'string' ? req.body.token.trim() : ''
+        const password = typeof req.body?.password === 'string' ? req.body.password : ''
+
+        if (!token) {
+            res.status(400).json({ error: 'Password reset token is required.' })
+            return
+        }
+
+        if (password.length < MIN_PASSWORD_LENGTH) {
+            res.status(400).json({ error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters long.` })
+            return
+        }
+
+        const tokenHash = hashPasswordResetToken(token)
+        const now = new Date()
+        const matchingUser = await prisma.user.findFirst({
+            where: {
+                password_reset_token_hash: tokenHash
+            },
+            select: {
+                id: true,
+                email: true,
+                password_reset_expires_at: true
+            }
+        })
+
+        if (!matchingUser || !matchingUser.password_reset_expires_at || matchingUser.password_reset_expires_at <= now) {
+            authLogger.warn('auth.password_reset_invalid_token', {
+                requestId: req.requestId,
+                userId: req.authUser?.id ?? undefined
+            })
+            res.status(400).json({ error: 'This password reset link is invalid or has expired.' })
+            return
+        }
+
+        const updatedUser = await prisma.user.update({
+            where: { id: matchingUser.id },
+            data: {
+                password_hash: hashPassword(password),
+                password_reset_token_hash: null,
+                password_reset_expires_at: null,
+                password_reset_sent_at: null
+            },
+            select: authUserSelect
+        })
+
+        const sessionUpdated = req.authUser?.id === updatedUser.id
+
+        if (sessionUpdated) {
+            const token = issueOpenAuthToken({ id: updatedUser.id, email: updatedUser.email })
+            res.setHeader('Set-Cookie', serializeSessionCookie(token))
+        }
+
+        authLogger.info('auth.password_reset_completed', {
+            requestId: req.requestId,
+            userId: updatedUser.id,
+            email: updatedUser.email,
+            sessionUpdated
+        })
+
+        res.json({
+            reset: true,
+            email: updatedUser.email,
+            sessionUpdated,
+            user: sessionUpdated ? serializeAuthUser(updatedUser) : null
+        })
     })
 )
 

@@ -146,6 +146,23 @@ export const resendEmailVerification = async (): Promise<AuthUser> => {
     return data.user
 }
 
+export const requestPasswordReset = async (email: string): Promise<void> => {
+    await request('/auth/password-reset/request', {
+        method: 'POST',
+        body: JSON.stringify({ email })
+    })
+}
+
+export const confirmPasswordReset = async (
+    token: string,
+    password: string
+): Promise<{ reset: boolean; email: string; sessionUpdated: boolean; user: AuthUser | null }> => {
+    return request('/auth/password-reset/confirm', {
+        method: 'POST',
+        body: JSON.stringify({ token, password })
+    })
+}
+
 export const verifyEmail = async (
     token: string
 ): Promise<{ verified: boolean; email: string; sessionUpdated: boolean; user: AuthUser | null }> => {

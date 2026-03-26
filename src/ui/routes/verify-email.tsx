@@ -25,6 +25,19 @@ export const meta: MetaFunction = () => {
 
 type VerificationState = 'idle' | 'verifying' | 'verified' | 'error'
 
+type VerificationFeedback =
+    | {
+          token: string
+          state: 'verified'
+          message: string
+      }
+    | {
+          token: string
+          state: 'error'
+          error: string
+      }
+    | null
+
 const verificationRequestCache = new Map<
     string,
     Promise<{ verified: boolean; email: string; sessionUpdated: boolean; user: api.AuthUser | null }>
@@ -53,9 +66,7 @@ export default function VerifyEmailRoute() {
     const [searchParams] = useSearchParams()
     const redirectTo = getSafeRedirectTarget(searchParams.get('redirectTo'))
     const token = searchParams.get('token')?.trim() ?? ''
-    const [verificationState, setVerificationState] = useState<VerificationState>(token ? 'verifying' : 'idle')
-    const [message, setMessage] = useState<string | null>(null)
-    const [error, setError] = useState<string | null>(null)
+    const [verificationFeedback, setVerificationFeedback] = useState<VerificationFeedback>(null)
     const loginLink = `/login?redirectTo=${encodeURIComponent(redirectTo)}`
     const replaceUserRef = useRef(auth.replaceUser)
 
@@ -65,14 +76,10 @@ export default function VerifyEmailRoute() {
 
     useEffect(() => {
         if (!token) {
-            setVerificationState('idle')
             return
         }
 
         let active = true
-        setVerificationState('verifying')
-        setError(null)
-        setMessage(null)
 
         getVerificationRequest(token)
             .then(result => {
@@ -84,24 +91,27 @@ export default function VerifyEmailRoute() {
                     replaceUserRef.current(result.user)
                 }
 
-                setVerificationState('verified')
-                setMessage(
-                    result.sessionUpdated
+                setVerificationFeedback({
+                    token,
+                    state: 'verified',
+                    message: result.sessionUpdated
                         ? `Verified ${result.email}. Email reminders are now available.`
                         : `Verified ${result.email}. Sign in to that account to continue.`
-                )
+                })
             })
             .catch(verificationError => {
                 if (!active) {
                     return
                 }
 
-                setVerificationState('error')
-                if (verificationError instanceof ApiError || verificationError instanceof Error) {
-                    setError(verificationError.message)
-                } else {
-                    setError('Unable to verify this email address right now.')
-                }
+                setVerificationFeedback({
+                    token,
+                    state: 'error',
+                    error:
+                        verificationError instanceof ApiError || verificationError instanceof Error
+                            ? verificationError.message
+                            : 'Unable to verify this email address right now.'
+                })
             })
 
         return () => {
@@ -112,8 +122,6 @@ export default function VerifyEmailRoute() {
     const continueTarget = useMemo(() => {
         return getPostAuthenticationDestination(auth.user, redirectTo)
     }, [auth.user, redirectTo])
-
-    const hasExpiredOrInvalidLinkError = error === 'This verification link is invalid or has expired.'
 
     useEffect(() => {
         if (auth.status !== 'loading' && !token) {
@@ -128,6 +136,21 @@ export default function VerifyEmailRoute() {
     if (!token) {
         return <BrandedLoadingScreen message='Redirecting…' />
     }
+
+    const verificationState: VerificationState = !token
+        ? 'idle'
+        : !verificationFeedback || verificationFeedback.token !== token
+        ? 'verifying'
+        : verificationFeedback.state
+    const message =
+        verificationFeedback && verificationFeedback.token === token && verificationFeedback.state === 'verified'
+            ? verificationFeedback.message
+            : null
+    const error =
+        verificationFeedback && verificationFeedback.token === token && verificationFeedback.state === 'error'
+            ? verificationFeedback.error
+            : null
+    const hasExpiredOrInvalidLinkError = error === 'This verification link is invalid or has expired.'
 
     const alreadyVerified = Boolean(auth.user?.emailVerifiedAt)
     const verificationSentAt = auth.user?.emailVerificationSentAt
@@ -165,8 +188,18 @@ export default function VerifyEmailRoute() {
         >
             <div className='flex flex-col gap-4'>
                 <div className='flex items-start gap-3 rounded-xl border bg-muted/40 px-4 py-4'>
-                    <div className={isFailureState ? 'rounded-full bg-destructive/10 p-2 text-destructive' : 'rounded-full bg-primary/10 p-2 text-primary'}>
-                        {isFailureState ? <CircleAlert data-icon='inline-start' /> : <MailCheck data-icon='inline-start' />}
+                    <div
+                        className={
+                            isFailureState
+                                ? 'rounded-full bg-destructive/10 p-2 text-destructive'
+                                : 'rounded-full bg-primary/10 p-2 text-primary'
+                        }
+                    >
+                        {isFailureState ? (
+                            <CircleAlert data-icon='inline-start' />
+                        ) : (
+                            <MailCheck data-icon='inline-start' />
+                        )}
                     </div>
                     <div className='flex flex-col gap-1'>
                         <p className='font-medium text-foreground'>Verification status</p>

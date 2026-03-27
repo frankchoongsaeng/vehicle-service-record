@@ -9,6 +9,7 @@ import { getSafeRedirectTarget } from '../auth/redirect.js'
 import { useAuth } from '../auth/useAuth.js'
 import { AuthenticatedShell } from '../components/AuthenticatedShell.js'
 import { PageHeader } from '../components/PageHeader.js'
+import { PublicFooter } from '../components/PublicFooter.js'
 import { Badge } from '../components/ui/badge.js'
 import { Button } from '../components/ui/button.js'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card.js'
@@ -411,7 +412,8 @@ function PricingContent() {
                     </div>
                 </nav>
             </header>
-            <div className='mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8'>{layout}</div>
+            <main className='mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8'>{layout}</main>
+            <PublicFooter />
         </div>
     )
 }

@@ -29,7 +29,15 @@ function normalizeOptionalThreshold(value: unknown, field: string): number | nul
     const normalized = Number(value)
 
     if (!Number.isInteger(normalized) || normalized <= 0) {
-        throw new Error(`${field} must be a positive whole number when provided`)
+        if (field === 'reminderRule.daysThreshold') {
+            throw new Error('Reminder days must be a positive whole number.')
+        }
+
+        if (field === 'reminderRule.mileageThreshold') {
+            throw new Error('Reminder mileage must be a positive whole number.')
+        }
+
+        throw new Error('Reminder values must be positive whole numbers.')
     }
 
     return normalized
@@ -376,7 +384,7 @@ router.post(
                 userId: authUser.id,
                 bodyKeys: Object.keys((req.body ?? {}) as Record<string, unknown>)
             })
-            res.status(400).json({ error: 'make, model, year, trim, transmission, and fuel type are required' })
+            res.status(400).json({ error: 'Enter the make, model, year, trim, transmission, and fuel type.' })
             return
         }
 
@@ -386,7 +394,7 @@ router.post(
                 userId: authUser.id,
                 distanceUnit
             })
-            res.status(400).json({ error: 'distanceUnit must be either km or mi' })
+            res.status(400).json({ error: 'Choose miles or kilometers for distance tracking.' })
             return
         }
 
@@ -467,7 +475,9 @@ router.post(
                 })
             }
         } catch (error) {
-            res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid vehicle reminder rule' })
+            res.status(400).json({
+                error: error instanceof Error ? error.message : 'Check your reminder settings and try again.'
+            })
         }
     })
 )
@@ -520,7 +530,7 @@ router.put(
                 vehicleId: Number(req.params.id),
                 bodyKeys: Object.keys((req.body ?? {}) as Record<string, unknown>)
             })
-            res.status(400).json({ error: 'make, model, year, trim, transmission, and fuel type are required' })
+            res.status(400).json({ error: 'Enter the make, model, year, trim, transmission, and fuel type.' })
             return
         }
 
@@ -531,7 +541,7 @@ router.put(
                 vehicleId: Number(req.params.id),
                 distanceUnit
             })
-            res.status(400).json({ error: 'distanceUnit must be either km or mi' })
+            res.status(400).json({ error: 'Choose miles or kilometers for distance tracking.' })
             return
         }
 
@@ -626,7 +636,9 @@ router.put(
 
             res.json(serializeVehicle(updated))
         } catch (error) {
-            res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid vehicle reminder rule' })
+            res.status(400).json({
+                error: error instanceof Error ? error.message : 'Check your reminder settings and try again.'
+            })
         }
     })
 )

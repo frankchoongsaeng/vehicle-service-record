@@ -10,6 +10,7 @@ Duralog is a web app to track maintenance and service history for your vehicles 
 - **Manage workshop contacts** — keep a reusable directory of workshop names, addresses, and phone numbers
 - **Email reminder digests** — evaluate maintenance plans daily, queue due and overdue reminders, and retry delivery with logged attempts
 - **Email verification workflow** — new signups are asked to verify their email before reminder delivery and other email-based services are enabled
+- **Google sign-in** — start or link an account with Google while still using the existing session and onboarding flow
 - **Cross-device access** — data is stored on the backend server, accessible from any device
 - **Comprehensive seed data** — demo vehicles and service records cover dashboards, filters, empty states, and auth isolation checks
 - **Workshop-ready development data** — seeded workshops populate the workshop directory and service-record suggestions immediately
@@ -173,9 +174,12 @@ Important variables:
 - `OPENAUTH_SECRET`: signing secret for the login session token
 - `OPENAUTH_ISSUER`: token issuer value, defaults to `vehicle-service-record-openauth`
 - `OPENAUTH_AUDIENCE`: token audience value, defaults to `vehicle-service-record-client`
+- `GOOGLE_OAUTH_CLIENT_ID`: OAuth client ID for Google sign-in
+- `GOOGLE_OAUTH_CLIENT_SECRET`: OAuth client secret for Google sign-in
 
 - App links and account email flows
 - `APP_ORIGIN`: optional canonical app origin used when generating email verification links; defaults to the incoming request origin
+- Google OAuth callback URL: configure `${APP_ORIGIN or current origin}/api/auth/google/callback` in the Google Cloud console. For local development this is usually `http://localhost:3001/api/auth/google/callback`.
 - `EMAIL_VERIFICATION_TTL_HOURS`: how long verification links stay valid, defaults to `24`
 - `EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS`: minimum delay between resend requests, defaults to `60`
 - `PASSWORD_RESET_TTL_HOURS`: how long password reset links stay valid, defaults to `2`

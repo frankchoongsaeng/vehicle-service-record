@@ -10,7 +10,8 @@ datasource db {
 model User {
     id                      String   @id @default(cuid())
     email                   String   @unique
-    password_hash           String
+    password_hash           String?
+    google_subject          String?  @unique
     email_verified_at       DateTime?
     email_verification_token_hash String?  @unique
     email_verification_expires_at DateTime?

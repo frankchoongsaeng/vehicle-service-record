@@ -261,7 +261,7 @@ router.put(
             const mode = body.mode
 
             if (!isReminderPreferenceMode(mode)) {
-                res.status(400).json({ error: 'mode must be inherit, custom, or disabled' })
+                res.status(400).json({ error: 'Choose a valid reminder setting.' })
                 return
             }
 

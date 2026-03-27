@@ -4,8 +4,11 @@ import { Link, useNavigate, useSearchParams } from '@remix-run/react'
 import { ArrowRight, Moon, Sun } from 'lucide-react'
 import { AuthScreen } from '../components/AuthScreen.js'
 import BrandedLoadingScreen from '../components/BrandedLoadingScreen.js'
+import { GoogleIcon } from '../components/GoogleIcon.js'
 import { Button } from '../components/ui/button.js'
 import { Input } from '../components/ui/input.js'
+import { Separator } from '../components/ui/separator.js'
+import { buildGoogleAuthStartUrl, getGoogleAuthErrorMessage } from '../auth/google.js'
 import { getPostAuthenticationDestination } from '../auth/onboarding.js'
 import { useAuth } from '../auth/useAuth.js'
 import { getSafeRedirectTarget } from '../auth/redirect.js'
@@ -28,12 +31,14 @@ export default function SignupRoute() {
     const [searchParams] = useSearchParams()
     const redirectTo = getSafeRedirectTarget(searchParams.get('redirectTo'))
     const loginLink = `/login?redirectTo=${encodeURIComponent(redirectTo)}`
+    const googleAuthHref = buildGoogleAuthStartUrl(redirectTo, '/signup')
 
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [confirmPassword, setConfirmPassword] = useState('')
     const [submitting, setSubmitting] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [callbackError, setCallbackError] = useState<string | null>(null)
 
     useEffect(() => {
         if (auth.status === 'authenticated') {
@@ -41,10 +46,15 @@ export default function SignupRoute() {
         }
     }, [auth.status, auth.user, navigate, redirectTo])
 
+    useEffect(() => {
+        setCallbackError(getGoogleAuthErrorMessage(searchParams.get('authError')))
+    }, [searchParams])
+
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
         setSubmitting(true)
         setError(null)
+        setCallbackError(null)
 
         if (password.length < MIN_PASSWORD_LENGTH) {
             setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters long.`)
@@ -104,10 +114,27 @@ export default function SignupRoute() {
                 </p>
             }
         >
+            <div className='flex flex-col gap-4'>
+                <Button asChild className='w-full' size='lg' type='button' variant='outline'>
+                    <a href={googleAuthHref}>
+                        <GoogleIcon data-icon='inline-start' />
+                        Continue with Google
+                    </a>
+                </Button>
+
+                <div className='flex items-center gap-3'>
+                    <Separator className='flex-1' />
+                    <span className='rounded-full bg-muted px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground'>
+                        Or continue with email
+                    </span>
+                    <Separator className='flex-1' />
+                </div>
+            </div>
+
             <form className='flex flex-col gap-4' onSubmit={handleSubmit}>
-                {(error || auth.bootstrapError) && (
+                {(error || callbackError || auth.bootstrapError) && (
                     <div className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'>
-                        {error ?? auth.bootstrapError}
+                        {error ?? callbackError ?? auth.bootstrapError}
                     </div>
                 )}
 

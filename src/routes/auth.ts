@@ -1,3 +1,4 @@
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import { Router, Request, Response } from 'express'
 import { Prisma } from '@prisma/client'
 import { prisma } from '../db.js'
@@ -5,7 +6,13 @@ import { createLogger } from '../logging/logger.js'
 import { asyncHandler } from '../middleware/asyncHandler.js'
 import { hashPassword, verifyPassword } from '../openauth/password.js'
 import { issueOpenAuthToken } from '../openauth/token.js'
-import { clearSessionCookie, serializeSessionCookie } from '../auth/cookie.js'
+import {
+    clearCookie,
+    clearSessionCookie,
+    readCookieValue,
+    serializeCookie,
+    serializeSessionCookie
+} from '../auth/cookie.js'
 import { authUserSelect, serializeAuthUser } from '../auth/authUser.js'
 import { requireAuth } from '../middleware/auth.js'
 import {
@@ -20,6 +27,13 @@ import {
     hashPasswordResetToken,
     sendPasswordResetEmail
 } from '../services/passwordReset.js'
+import {
+    buildGoogleAuthorizationUrl,
+    exchangeGoogleCodeForAccessToken,
+    fetchGoogleUserProfile,
+    isGoogleAuthConfigured,
+    type GoogleUserProfile
+} from '../services/googleAuth.js'
 
 const router = Router()
 const MIN_PASSWORD_LENGTH = 8
@@ -27,6 +41,18 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const authLogger = createLogger({ component: 'auth-routes' })
 const DEFAULT_EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS = 60
 const DEFAULT_PASSWORD_RESET_RESEND_COOLDOWN_SECONDS = 60
+const GOOGLE_AUTH_STATE_COOKIE_NAME = 'vsr_google_oauth_state'
+const GOOGLE_AUTH_STATE_TTL_SECONDS = 10 * 60
+const GOOGLE_AUTH_STATE_MAX_AGE_MS = GOOGLE_AUTH_STATE_TTL_SECONDS * 1000
+
+type GoogleAuthState = {
+    authPath: '/login' | '/signup'
+    nonce: string
+    redirectTo: string
+    issuedAt: number
+}
+
+type GoogleAuthUserRecord = Prisma.UserGetPayload<{ select: typeof authUserSelect }>
 
 function getEmailVerificationResendCooldownSeconds(): number {
     const configured = Number(
@@ -54,6 +80,205 @@ function resolveAppOrigin(req: Request): string {
     }
 
     return `${req.protocol}://${req.get('host')}`
+}
+
+function getSafeRedirectTarget(value: string | null | undefined): string {
+    if (!value || !value.startsWith('/') || value.startsWith('//')) {
+        return '/garage'
+    }
+
+    if (value === '/login' || value.startsWith('/login?') || value === '/signup' || value.startsWith('/signup?')) {
+        return '/garage'
+    }
+
+    return value
+}
+
+function buildOnboardingUrl(redirectTo: string): string {
+    const nextTarget = getSafeRedirectTarget(redirectTo)
+
+    if (nextTarget === '/garage') {
+        return '/onboarding'
+    }
+
+    return `/onboarding?redirectTo=${encodeURIComponent(nextTarget)}`
+}
+
+function getPostAuthenticationDestination(user: { onboarding_completed_at: Date | null }, redirectTo: string): string {
+    return user.onboarding_completed_at ? getSafeRedirectTarget(redirectTo) : buildOnboardingUrl(redirectTo)
+}
+
+function resolveGoogleAuthEntryPath(value: string | null | undefined): '/login' | '/signup' {
+    return value === '/signup' ? '/signup' : '/login'
+}
+
+function toBase64Url(value: string): string {
+    return Buffer.from(value, 'utf8').toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
+}
+
+function fromBase64Url(value: string): string {
+    const padding = value.length % 4 === 0 ? '' : '='.repeat(4 - (value.length % 4))
+    return Buffer.from(value.replace(/-/g, '+').replace(/_/g, '/') + padding, 'base64').toString('utf8')
+}
+
+function signGoogleAuthState(state: GoogleAuthState): string {
+    const payload = toBase64Url(JSON.stringify(state))
+    const signature = createHmac('sha256', process.env.OPENAUTH_SECRET || 'dev-only-openauth-secret-change-me')
+        .update(payload)
+        .digest('base64')
+        .replace(/=/g, '')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+
+    return `${payload}.${signature}`
+}
+
+function parseGoogleAuthState(token: string): GoogleAuthState | null {
+    const [payload, providedSignature] = token.split('.')
+    if (!payload || !providedSignature) {
+        return null
+    }
+
+    const expectedSignature = createHmac('sha256', process.env.OPENAUTH_SECRET || 'dev-only-openauth-secret-change-me')
+        .update(payload)
+        .digest()
+    const actualSignature = Buffer.from(
+        providedSignature.replace(/-/g, '+').replace(/_/g, '/') +
+            (providedSignature.length % 4 === 0 ? '' : '='.repeat(4 - (providedSignature.length % 4))),
+        'base64'
+    )
+
+    if (expectedSignature.length !== actualSignature.length || !timingSafeEqual(expectedSignature, actualSignature)) {
+        return null
+    }
+
+    try {
+        const parsed = JSON.parse(fromBase64Url(payload)) as Partial<GoogleAuthState>
+        if (
+            (parsed.authPath !== '/login' && parsed.authPath !== '/signup') ||
+            typeof parsed.nonce !== 'string' ||
+            typeof parsed.redirectTo !== 'string' ||
+            typeof parsed.issuedAt !== 'number'
+        ) {
+            return null
+        }
+
+        return {
+            authPath: parsed.authPath,
+            nonce: parsed.nonce,
+            redirectTo: getSafeRedirectTarget(parsed.redirectTo),
+            issuedAt: parsed.issuedAt
+        }
+    } catch {
+        return null
+    }
+}
+
+function serializeGoogleAuthStateCookie(nonce: string): string {
+    return serializeCookie(GOOGLE_AUTH_STATE_COOKIE_NAME, nonce, GOOGLE_AUTH_STATE_TTL_SECONDS)
+}
+
+function clearGoogleAuthStateCookie(): string {
+    return clearCookie(GOOGLE_AUTH_STATE_COOKIE_NAME)
+}
+
+function buildGoogleRedirectUri(req: Request): string {
+    return `${resolveAppOrigin(req)}/api/auth/google/callback`
+}
+
+function buildAuthErrorRedirectPath(authPath: '/login' | '/signup', redirectTo: string, authError: string): string {
+    const params = new URLSearchParams({ authError })
+    const nextTarget = getSafeRedirectTarget(redirectTo)
+
+    if (nextTarget !== '/garage') {
+        params.set('redirectTo', nextTarget)
+    }
+
+    return `${authPath}?${params.toString()}`
+}
+
+async function resolveGoogleAuthUser(profile: GoogleUserProfile): Promise<GoogleAuthUserRecord> {
+    const now = new Date()
+
+    return prisma.$transaction(async transaction => {
+        const matchingGoogleUser = await transaction.user.findUnique({
+            where: { google_subject: profile.subject },
+            select: {
+                id: true,
+                email: true,
+                first_name: true,
+                last_name: true,
+                profile_image_url: true,
+                email_verified_at: true
+            }
+        })
+
+        if (matchingGoogleUser) {
+            return transaction.user.update({
+                where: { id: matchingGoogleUser.id },
+                data: {
+                    email: profile.email,
+                    email_verified_at: matchingGoogleUser.email_verified_at ?? now,
+                    email_verification_token_hash: null,
+                    email_verification_expires_at: null,
+                    email_verification_sent_at: null,
+                    first_name: matchingGoogleUser.first_name ?? profile.givenName,
+                    last_name: matchingGoogleUser.last_name ?? profile.familyName,
+                    profile_image_url: matchingGoogleUser.profile_image_url ?? profile.picture
+                },
+                select: authUserSelect
+            })
+        }
+
+        const matchingEmailUser = await transaction.user.findUnique({
+            where: { email: profile.email },
+            select: {
+                id: true,
+                google_subject: true,
+                first_name: true,
+                last_name: true,
+                profile_image_url: true,
+                email_verified_at: true
+            }
+        })
+
+        if (matchingEmailUser) {
+            if (matchingEmailUser.google_subject && matchingEmailUser.google_subject !== profile.subject) {
+                throw new Error('Google account conflict for the requested email address.')
+            }
+
+            return transaction.user.update({
+                where: { id: matchingEmailUser.id },
+                data: {
+                    google_subject: profile.subject,
+                    email_verified_at: matchingEmailUser.email_verified_at ?? now,
+                    email_verification_token_hash: null,
+                    email_verification_expires_at: null,
+                    email_verification_sent_at: null,
+                    first_name: matchingEmailUser.first_name ?? profile.givenName,
+                    last_name: matchingEmailUser.last_name ?? profile.familyName,
+                    profile_image_url: matchingEmailUser.profile_image_url ?? profile.picture
+                },
+                select: authUserSelect
+            })
+        }
+
+        return transaction.user.create({
+            data: {
+                email: profile.email,
+                password_hash: null,
+                google_subject: profile.subject,
+                email_verified_at: now,
+                email_verification_token_hash: null,
+                email_verification_expires_at: null,
+                email_verification_sent_at: null,
+                first_name: profile.givenName,
+                last_name: profile.familyName,
+                profile_image_url: profile.picture
+            },
+            select: authUserSelect
+        })
+    })
 }
 
 async function issueVerificationEmailForUser(params: {
@@ -193,7 +418,7 @@ router.post(
                 requestId: req.requestId,
                 bodyKeys: Object.keys((req.body ?? {}) as Record<string, unknown>)
             })
-            res.status(400).json({ error: 'email and password are required' })
+            res.status(400).json({ error: 'Enter both your email address and password.' })
             return
         }
 
@@ -210,7 +435,7 @@ router.post(
             }
         })
 
-        if (!user || !verifyPassword(credentials.password, user.password_hash)) {
+        if (!user || !user.password_hash || !verifyPassword(credentials.password, user.password_hash)) {
             authLogger.warn('auth.login_failed', {
                 requestId: req.requestId,
                 email: credentials.email
@@ -229,6 +454,149 @@ router.post(
         res.json({
             user: serializeAuthUser(user)
         })
+    })
+)
+
+router.get(
+    '/google/start',
+    asyncHandler(async (req: Request, res: Response) => {
+        const redirectTo = getSafeRedirectTarget(
+            typeof req.query.redirectTo === 'string' ? req.query.redirectTo : undefined
+        )
+        const authPath = resolveGoogleAuthEntryPath(typeof req.query.authPath === 'string' ? req.query.authPath : null)
+
+        if (!isGoogleAuthConfigured()) {
+            authLogger.warn('auth.google_unavailable', {
+                requestId: req.requestId,
+                redirectTo,
+                authPath
+            })
+            res.redirect(buildAuthErrorRedirectPath(authPath, redirectTo, 'google_unavailable'))
+            return
+        }
+
+        const nonce = randomBytes(24).toString('hex')
+        const state = signGoogleAuthState({
+            authPath,
+            nonce,
+            redirectTo,
+            issuedAt: Date.now()
+        })
+
+        authLogger.info('auth.google_start', {
+            requestId: req.requestId,
+            authPath,
+            redirectTo
+        })
+
+        res.setHeader('Set-Cookie', serializeGoogleAuthStateCookie(nonce))
+        res.redirect(
+            buildGoogleAuthorizationUrl({
+                redirectUri: buildGoogleRedirectUri(req),
+                state
+            })
+        )
+    })
+)
+
+router.get(
+    '/google/callback',
+    asyncHandler(async (req: Request, res: Response) => {
+        const state = typeof req.query.state === 'string' ? parseGoogleAuthState(req.query.state) : null
+        const authPath = state?.authPath ?? '/login'
+        const redirectTo = state?.redirectTo ?? '/garage'
+        const callbackError = typeof req.query.error === 'string' ? req.query.error : null
+        const stateCookieNonce = readCookieValue(req.headers.cookie, GOOGLE_AUTH_STATE_COOKIE_NAME)
+        const clearStateCookieHeader = clearGoogleAuthStateCookie()
+
+        if (callbackError) {
+            authLogger.warn('auth.google_cancelled', {
+                requestId: req.requestId,
+                authPath,
+                redirectTo,
+                error: callbackError
+            })
+            res.setHeader('Set-Cookie', clearStateCookieHeader)
+            res.redirect(buildAuthErrorRedirectPath(authPath, redirectTo, 'google_cancelled'))
+            return
+        }
+
+        const isStateExpired = state == null || Date.now() - state.issuedAt > GOOGLE_AUTH_STATE_MAX_AGE_MS
+        const hasMatchingNonce =
+            state != null &&
+            typeof stateCookieNonce === 'string' &&
+            Buffer.byteLength(state.nonce) === Buffer.byteLength(stateCookieNonce) &&
+            timingSafeEqual(Buffer.from(state.nonce), Buffer.from(stateCookieNonce))
+
+        if (isStateExpired || !hasMatchingNonce) {
+            authLogger.warn('auth.google_invalid_state', {
+                requestId: req.requestId,
+                authPath,
+                redirectTo,
+                hasCookieNonce: Boolean(stateCookieNonce)
+            })
+            res.setHeader('Set-Cookie', clearStateCookieHeader)
+            res.redirect(buildAuthErrorRedirectPath(authPath, redirectTo, 'google_state_invalid'))
+            return
+        }
+
+        const code = typeof req.query.code === 'string' ? req.query.code.trim() : ''
+        if (!code || !isGoogleAuthConfigured()) {
+            authLogger.warn('auth.google_failed_precondition', {
+                requestId: req.requestId,
+                authPath,
+                redirectTo,
+                hasCode: Boolean(code),
+                configured: isGoogleAuthConfigured()
+            })
+            res.setHeader('Set-Cookie', clearStateCookieHeader)
+            res.redirect(
+                buildAuthErrorRedirectPath(authPath, redirectTo, code ? 'google_unavailable' : 'google_failed')
+            )
+            return
+        }
+
+        try {
+            const accessToken = await exchangeGoogleCodeForAccessToken({
+                code,
+                redirectUri: buildGoogleRedirectUri(req)
+            })
+            const profile = await fetchGoogleUserProfile(accessToken)
+
+            if (!profile.emailVerified) {
+                authLogger.warn('auth.google_unverified_email', {
+                    requestId: req.requestId,
+                    authPath,
+                    redirectTo,
+                    email: profile.email
+                })
+                res.setHeader('Set-Cookie', clearStateCookieHeader)
+                res.redirect(buildAuthErrorRedirectPath(authPath, redirectTo, 'google_unverified_email'))
+                return
+            }
+
+            const user = await resolveGoogleAuthUser(profile)
+            const sessionToken = issueOpenAuthToken({ id: user.id, email: user.email })
+
+            authLogger.info('auth.google_succeeded', {
+                requestId: req.requestId,
+                userId: user.id,
+                email: user.email,
+                redirectTo
+            })
+
+            res.setHeader('Set-Cookie', [clearStateCookieHeader, serializeSessionCookie(sessionToken)])
+            res.redirect(getPostAuthenticationDestination(user, redirectTo))
+        } catch (error) {
+            authLogger.error('auth.google_failed', {
+                requestId: req.requestId,
+                authPath,
+                redirectTo,
+                error
+            })
+            res.setHeader('Set-Cookie', clearStateCookieHeader)
+            res.redirect(buildAuthErrorRedirectPath(authPath, redirectTo, 'google_failed'))
+        }
     })
 )
 
@@ -303,7 +671,7 @@ router.post(
                 requestId: req.requestId,
                 bodyKeys: Object.keys((req.body ?? {}) as Record<string, unknown>)
             })
-            res.status(400).json({ error: 'email and password are required' })
+            res.status(400).json({ error: 'Enter both your email address and password.' })
             return
         }
 

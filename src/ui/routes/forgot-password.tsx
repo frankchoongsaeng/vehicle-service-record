@@ -34,8 +34,6 @@ export default function ForgotPasswordRoute() {
     const [error, setError] = useState<string | null>(null)
     const [successMessage, setSuccessMessage] = useState<string | null>(null)
     const loginLink = `/login?redirectTo=${encodeURIComponent(redirectTo)}`
-    const returnLink = auth.user ? '/settings' : loginLink
-    const returnLabel = auth.user ? 'Back to settings' : 'Back to sign in'
 
     useEffect(() => {
         if (!initialEmail && auth.user?.email && !email) {

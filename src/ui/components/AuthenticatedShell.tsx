@@ -2,6 +2,7 @@ import { NavLink } from '@remix-run/react'
 import {
     BriefcaseBusiness,
     CarFront,
+    CreditCard,
     LogOut,
     MailCheck,
     Menu,
@@ -216,6 +217,12 @@ export function AuthenticatedShell({
                                     </DropdownMenuLabel>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuGroup>
+                                        <DropdownMenuItem asChild>
+                                            <NavLink to='/settings?tab=billing'>
+                                                <CreditCard />
+                                                Billing
+                                            </NavLink>
+                                        </DropdownMenuItem>
                                         <DropdownMenuItem asChild>
                                             <NavLink to='/settings'>
                                                 <Settings />

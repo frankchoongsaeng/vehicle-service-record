@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express'
 
+import { isBillingAccessError, sendBillingError } from '../billing/error.js'
+import { assertCanManageMaintenancePlans } from '../billing/service.js'
 import { prisma } from '../db.js'
 import { createLogger } from '../logging/logger.js'
 import { asyncHandler } from '../middleware/asyncHandler.js'
@@ -241,6 +243,17 @@ router.post(
             return
         }
 
+        try {
+            await assertCanManageMaintenancePlans(authUser.id)
+        } catch (billingError) {
+            if (isBillingAccessError(billingError)) {
+                sendBillingError(res, billingError)
+                return
+            }
+
+            throw billingError
+        }
+
         const createdPlan = await prisma.maintenancePlan.create({
             data: {
                 user_id: authUser.id,
@@ -286,6 +299,17 @@ router.put(
             })
             res.status(400).json({ error })
             return
+        }
+
+        try {
+            await assertCanManageMaintenancePlans(authUser.id)
+        } catch (billingError) {
+            if (isBillingAccessError(billingError)) {
+                sendBillingError(res, billingError)
+                return
+            }
+
+            throw billingError
         }
 
         const existingPlan = await prisma.maintenancePlan.findFirst({
@@ -356,6 +380,17 @@ router.delete(
             })
             res.status(404).json({ error: 'Maintenance plan not found' })
             return
+        }
+
+        try {
+            await assertCanManageMaintenancePlans(authUser.id)
+        } catch (billingError) {
+            if (isBillingAccessError(billingError)) {
+                sendBillingError(res, billingError)
+                return
+            }
+
+            throw billingError
         }
 
         await prisma.maintenancePlan.delete({ where: { id: planId } })

@@ -1,4 +1,5 @@
 import { getSafeRedirectTarget } from './redirect.js'
+import type { BillingSignupIntent } from './onboarding.js'
 
 const GOOGLE_AUTH_ENTRY_PATHS = new Set(['/login', '/signup'])
 
@@ -10,11 +11,20 @@ const GOOGLE_AUTH_ERROR_MESSAGES: Record<string, string> = {
     google_unverified_email: 'The selected Google account does not have a verified email address.'
 }
 
-export function buildGoogleAuthStartUrl(redirectTo: string, authPath: string): string {
+export function buildGoogleAuthStartUrl(
+    redirectTo: string,
+    authPath: string,
+    billingIntent: BillingSignupIntent = null
+): string {
     const params = new URLSearchParams({
         redirectTo: getSafeRedirectTarget(redirectTo),
         authPath: GOOGLE_AUTH_ENTRY_PATHS.has(authPath) ? authPath : '/login'
     })
+
+    if (billingIntent) {
+        params.set('plan', billingIntent.planCode)
+        params.set('billing', billingIntent.billingInterval)
+    }
 
     return `/api/auth/google/start?${params.toString()}`
 }

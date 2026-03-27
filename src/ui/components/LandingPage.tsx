@@ -170,6 +170,9 @@ function Navbar() {
                 </Link>
                 <div className='flex items-center gap-3'>
                     <Button variant='ghost' size='sm' asChild>
+                        <Link to='/pricing'>Pricing</Link>
+                    </Button>
+                    <Button variant='ghost' size='sm' asChild>
                         <Link to='/login'>Sign in</Link>
                     </Button>
                     <Button size='sm' asChild>
@@ -213,6 +216,9 @@ function HeroSection() {
                                 Get started
                                 <ChevronRight />
                             </Link>
+                        </Button>
+                        <Button variant='outline' size='lg' asChild>
+                            <Link to='/pricing'>See pricing</Link>
                         </Button>
                         <Button variant='outline' size='lg' asChild>
                             <Link to='/login'>Sign in</Link>

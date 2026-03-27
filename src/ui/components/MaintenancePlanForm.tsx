@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { CalendarClock, Milestone, Trash2 } from 'lucide-react'
 
+import * as api from '../api/client.js'
 import {
     SERVICE_TYPES,
     getServiceTypeLabel,
@@ -9,6 +10,7 @@ import {
     type MaintenancePlanInput,
     type ServiceTypeValue
 } from '../types/index.js'
+import { BillingGateNotice } from './BillingGateNotice.js'
 import { Button } from './ui/button.js'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card.js'
 import { DatePicker } from './ui/date-picker.js'
@@ -49,6 +51,7 @@ function toFormState(initial?: MaintenancePlan): FormState {
 export default function MaintenancePlanForm({ initial, onSubmit, onCancel, onDelete }: Props) {
     const [form, setForm] = useState<FormState>(() => toFormState(initial))
     const [error, setError] = useState('')
+    const [billingError, setBillingError] = useState<ReturnType<typeof api.getBillingGateResponse>>(null)
     const [isSaving, setIsSaving] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
     const today = new Date()
@@ -84,6 +87,7 @@ export default function MaintenancePlanForm({ initial, onSubmit, onCancel, onDel
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault()
         setError('')
+        setBillingError(null)
 
         const serviceType = form.serviceType
 
@@ -112,6 +116,7 @@ export default function MaintenancePlanForm({ initial, onSubmit, onCancel, onDel
                 lastCompletedMileage: form.lastCompletedMileage ? Number(form.lastCompletedMileage) : undefined
             })
         } catch (submitError) {
+            setBillingError(api.getBillingGateResponse(submitError))
             setError(submitError instanceof Error ? submitError.message : 'Something went wrong')
         } finally {
             setIsSaving(false)
@@ -132,11 +137,13 @@ export default function MaintenancePlanForm({ initial, onSubmit, onCancel, onDel
         }
 
         setError('')
+        setBillingError(null)
         setIsDeleting(true)
 
         try {
             await onDelete()
         } catch (deleteError) {
+            setBillingError(api.getBillingGateResponse(deleteError))
             setError(deleteError instanceof Error ? deleteError.message : 'Something went wrong')
         } finally {
             setIsDeleting(false)
@@ -154,6 +161,7 @@ export default function MaintenancePlanForm({ initial, onSubmit, onCancel, onDel
             </CardHeader>
             <CardContent>
                 <form className='flex flex-col gap-5' onSubmit={handleSubmit}>
+                    {billingError ? <BillingGateNotice billingError={billingError} compact /> : null}
                     {error ? (
                         <p className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'>
                             {error}

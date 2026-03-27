@@ -4,6 +4,7 @@ import cors from 'cors'
 import rateLimit from 'express-rate-limit'
 import { createRequestHandler } from '@remix-run/express'
 import authRouter from './routes/auth.js'
+import billingRouter, { stripeWebhookHandler, stripeWebhookRawParser } from './routes/billing.js'
 import maintenancePlansRouter from './routes/maintenancePlans.js'
 import remindersRouter from './routes/reminders.js'
 import settingsRouter from './routes/settings.js'
@@ -28,6 +29,7 @@ process.on('uncaughtException', error => {
 
 app.set('trust proxy', 1)
 app.use(cors())
+app.post('/api/billing/webhooks/stripe', stripeWebhookRawParser, stripeWebhookHandler)
 app.use(express.json())
 app.use(requestLoggingMiddleware)
 app.use(attachAuthUser)
@@ -57,6 +59,7 @@ app.use('/api', apiLimiter)
 
 // Routes
 app.use('/api/auth', authRouter)
+app.use('/api/billing', billingRouter)
 app.use('/api/reminders', remindersRouter)
 app.use('/api/settings', settingsRouter)
 app.use('/api/vehicles', vehiclesRouter)

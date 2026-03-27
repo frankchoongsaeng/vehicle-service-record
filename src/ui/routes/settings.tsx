@@ -1,6 +1,6 @@
 import type { MetaFunction } from '@remix-run/node'
 import { Link, useLocation, useNavigate, useSearchParams } from '@remix-run/react'
-import { BellRing, ChevronLeft, Globe, KeyRound, Settings2, Upload, UserRound, X } from 'lucide-react'
+import { BellRing, ChevronLeft, CreditCard, Globe, KeyRound, Settings2, Upload, UserRound, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import * as api from '../api/client.js'
@@ -8,17 +8,20 @@ import { ApiError } from '../api/client.js'
 import { buildOnboardingUrl, hasCompletedOnboarding } from '../auth/onboarding.js'
 import { useAuth } from '../auth/useAuth.js'
 import { getUserDisplayName, getUserInitials } from '../lib/account.js'
+import { BillingGateNotice } from '../components/BillingGateNotice.js'
 import { EMPTY_COUNTRY_VALUE, getCountryOptions } from '../lib/countries.js'
 import { getCurrencyLabel } from '../lib/currency.js'
 import { AuthenticatedShell } from '../components/AuthenticatedShell.js'
 import BrandedLoadingScreen from '../components/BrandedLoadingScreen.js'
 import { PageHeader } from '../components/PageHeader.js'
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar.js'
+import { Badge } from '../components/ui/badge.js'
 import { Button } from '../components/ui/button.js'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card.js'
 import { Input } from '../components/ui/input.js'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select.js'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs.js'
+import type { BillingGateResponse, BillingSubscriptionState } from '../types/index.js'
 import {
     DEFAULT_HISTORY_SORT_ORDER,
     HISTORY_SORT_ORDERS,
@@ -33,9 +36,9 @@ export const meta: MetaFunction = () => {
     return [{ title: 'Settings | Duralog' }, { name: 'description', content: 'Manage account and preferences.' }]
 }
 
-type SettingsTab = 'account' | 'preferences'
+type SettingsTab = 'account' | 'preferences' | 'billing'
 
-const settingsTabs: ReadonlySet<SettingsTab> = new Set(['account', 'preferences'])
+const settingsTabs: ReadonlySet<SettingsTab> = new Set(['account', 'preferences', 'billing'])
 
 function resolveSettingsTab(value: string | null): SettingsTab {
     return value && settingsTabs.has(value as SettingsTab) ? (value as SettingsTab) : 'account'
@@ -60,10 +63,16 @@ export default function SettingsRoute() {
     const [reminderMileageThreshold, setReminderMileageThreshold] = useState('')
     const [accountError, setAccountError] = useState('')
     const [preferencesError, setPreferencesError] = useState('')
+    const [preferencesBillingError, setPreferencesBillingError] = useState<BillingGateResponse | null>(null)
     const [accountSaved, setAccountSaved] = useState('')
     const [preferencesSaved, setPreferencesSaved] = useState('')
+    const [billingState, setBillingState] = useState<BillingSubscriptionState | null>(null)
+    const [billingError, setBillingError] = useState('')
+    const [billingMessage, setBillingMessage] = useState('')
     const [savingAccount, setSavingAccount] = useState(false)
     const [savingPreferences, setSavingPreferences] = useState(false)
+    const [loadingBilling, setLoadingBilling] = useState(false)
+    const [billingAction, setBillingAction] = useState<'plus' | 'garage' | 'portal' | null>(null)
     const [uploadingImage, setUploadingImage] = useState(false)
     const [removingImage, setRemovingImage] = useState(false)
     const [sendingPasswordReset, setSendingPasswordReset] = useState(false)
@@ -141,6 +150,55 @@ export default function SettingsRoute() {
         }
     }, [auth.user])
 
+    useEffect(() => {
+        if (!auth.user) {
+            return
+        }
+
+        let active = true
+        setLoadingBilling(true)
+
+        api.getBillingSubscription()
+            .then(state => {
+                if (!active) {
+                    return
+                }
+
+                setBillingState(state)
+            })
+            .catch(error => {
+                if (!active) {
+                    return
+                }
+
+                setBillingError(api.getUserFacingErrorMessage(error, 'Unable to load billing details right now.'))
+            })
+            .finally(() => {
+                if (active) {
+                    setLoadingBilling(false)
+                }
+            })
+
+        return () => {
+            active = false
+        }
+    }, [auth.user])
+
+    useEffect(() => {
+        const checkoutState = searchParams.get('checkout')
+
+        if (checkoutState === 'success') {
+            setBillingMessage(
+                'Your billing session completed. Duralog will refresh your plan as Stripe webhooks arrive.'
+            )
+            return
+        }
+
+        if (checkoutState === 'canceled') {
+            setBillingMessage('Your checkout session was canceled. Your existing plan has not changed.')
+        }
+    }, [searchParams])
+
     const syncTab = (nextTab: SettingsTab) => {
         const nextParams = new URLSearchParams(searchParams)
 
@@ -181,6 +239,7 @@ export default function SettingsRoute() {
     const handleSavePreferences = async () => {
         setSavingPreferences(true)
         setPreferencesError('')
+        setPreferencesBillingError(null)
         setPreferencesSaved('')
 
         try {
@@ -215,6 +274,12 @@ export default function SettingsRoute() {
             auth.replaceUser(updatedUser)
             setPreferencesSaved('Preferences saved.')
         } catch (error) {
+            const billingGateResponse = api.getBillingGateResponse(error)
+
+            if (billingGateResponse) {
+                setPreferencesBillingError(billingGateResponse)
+            }
+
             if (error instanceof ApiError || error instanceof Error) {
                 setPreferencesError(error.message)
             } else {
@@ -312,6 +377,34 @@ export default function SettingsRoute() {
         }
     }
 
+    const handleStartCheckout = async (planCode: 'plus' | 'garage') => {
+        setBillingAction(planCode)
+        setBillingError('')
+
+        try {
+            const result = await api.createBillingCheckoutSession(planCode, 'month')
+            window.location.assign(result.url)
+        } catch (error) {
+            setBillingError(api.getUserFacingErrorMessage(error, 'Unable to start checkout right now.'))
+        } finally {
+            setBillingAction(null)
+        }
+    }
+
+    const handleManageBilling = async () => {
+        setBillingAction('portal')
+        setBillingError('')
+
+        try {
+            const result = await api.createBillingCustomerPortalSession()
+            window.location.assign(result.url)
+        } catch (error) {
+            setBillingError(api.getUserFacingErrorMessage(error, 'Unable to open the billing portal right now.'))
+        } finally {
+            setBillingAction(null)
+        }
+    }
+
     if (auth.status === 'loading') {
         return <BrandedLoadingScreen message='Checking your session…' />
     }
@@ -366,6 +459,12 @@ export default function SettingsRoute() {
                                 className='w-full justify-start rounded-none border-l-2 border-transparent px-4 py-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none'
                             >
                                 Preferences
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value='billing'
+                                className='w-full justify-start rounded-none border-l-2 border-transparent px-4 py-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none'
+                            >
+                                Billing
                             </TabsTrigger>
                         </TabsList>
                     </div>
@@ -546,6 +645,9 @@ export default function SettingsRoute() {
                                     {preferencesError}
                                 </p>
                             ) : null}
+                            {preferencesBillingError ? (
+                                <BillingGateNotice billingError={preferencesBillingError} />
+                            ) : null}
                             {preferencesSaved ? (
                                 <p className='rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground'>
                                     {preferencesSaved}
@@ -714,6 +816,160 @@ export default function SettingsRoute() {
                                     {savingPreferences ? 'Saving…' : 'Save Preferences'}
                                 </Button>
                             </div>
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value='billing' className='mt-0'>
+                        <div className='flex max-w-3xl flex-col gap-6'>
+                            <div className='flex flex-col gap-2'>
+                                <h2 className='text-xl font-semibold text-foreground'>Billing</h2>
+                                <p className='text-sm text-muted-foreground'>
+                                    See your current plan, usage limits, and upgrade options.
+                                </p>
+                            </div>
+
+                            {billingMessage ? (
+                                <p className='rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground'>
+                                    {billingMessage}
+                                </p>
+                            ) : null}
+                            {billingError ? (
+                                <p className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'>
+                                    {billingError}
+                                </p>
+                            ) : null}
+
+                            <Card>
+                                <CardHeader>
+                                    <div className='flex flex-wrap items-center justify-between gap-3'>
+                                        <div>
+                                            <CardTitle className='flex items-center gap-2'>
+                                                <CreditCard data-icon='inline-start' />
+                                                Current plan
+                                            </CardTitle>
+                                            <CardDescription>
+                                                Stripe manages subscription purchase, renewals, and self-serve changes.
+                                            </CardDescription>
+                                        </div>
+                                        <div className='flex flex-wrap gap-2'>
+                                            <Badge>{billingState?.planName ?? 'Free'}</Badge>
+                                            {billingState?.billingInterval ? (
+                                                <Badge variant='outline'>
+                                                    {billingState.billingInterval === 'year' ? 'Annual' : 'Monthly'}
+                                                </Badge>
+                                            ) : null}
+                                        </div>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className='grid gap-4 md:grid-cols-2'>
+                                    <div className='rounded-lg border bg-muted/40 p-4 text-sm text-muted-foreground'>
+                                        <p className='font-medium text-foreground'>Plan status</p>
+                                        <p className='mt-1'>
+                                            {loadingBilling
+                                                ? 'Loading billing details…'
+                                                : billingState
+                                                ? `${billingState.subscriptionStatus.replace(/_/g, ' ')}${
+                                                      billingState.currentPeriodEnd
+                                                          ? ` until ${new Date(
+                                                                billingState.currentPeriodEnd
+                                                            ).toLocaleDateString()}`
+                                                          : ''
+                                                  }`
+                                                : 'Free plan active'}
+                                        </p>
+                                        {billingState?.cancelAtPeriodEnd ? (
+                                            <p className='mt-2'>
+                                                Your subscription will end at the close of the current period.
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                    <div className='rounded-lg border bg-muted/40 p-4 text-sm text-muted-foreground'>
+                                        <p className='font-medium text-foreground'>Current usage</p>
+                                        <p className='mt-1'>
+                                            Vehicles: {billingState?.entitlements.usage.vehicles ?? 0}/
+                                            {billingState?.entitlements.limits.vehicles ?? 'unlimited'}
+                                        </p>
+                                        <p>
+                                            Service records: {billingState?.entitlements.usage.serviceRecords ?? 0}/
+                                            {billingState?.entitlements.limits.serviceRecords ?? 'unlimited'}
+                                        </p>
+                                        <p>
+                                            Workshops: {billingState?.entitlements.usage.workshops ?? 0}/
+                                            {billingState?.entitlements.limits.workshops ?? 'unlimited'}
+                                        </p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Upgrade options</CardTitle>
+                                    <CardDescription>
+                                        Plus is the default paid plan. Garage expands the vehicle cap for larger
+                                        households.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className='grid gap-4 md:grid-cols-2'>
+                                    <div className='rounded-lg border p-4'>
+                                        <div className='flex items-center justify-between gap-2'>
+                                            <p className='font-medium text-foreground'>Plus</p>
+                                            <Badge variant='secondary'>$4.99/mo</Badge>
+                                        </div>
+                                        <p className='mt-2 text-sm text-muted-foreground'>
+                                            Up to 5 vehicles, unlimited records, reminders, maintenance plans, VIN
+                                            lookup, and generated vehicle images.
+                                        </p>
+                                        <div className='mt-4 flex flex-wrap gap-2'>
+                                            <Button
+                                                type='button'
+                                                onClick={() => handleStartCheckout('plus')}
+                                                disabled={billingAction != null || billingState?.planCode === 'plus'}
+                                            >
+                                                {billingAction === 'plus' ? 'Redirecting…' : 'Upgrade to Plus'}
+                                            </Button>
+                                            <Button asChild variant='outline' type='button'>
+                                                <Link to='/pricing?billing=year'>View annual pricing</Link>
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    <div className='rounded-lg border p-4'>
+                                        <div className='flex items-center justify-between gap-2'>
+                                            <p className='font-medium text-foreground'>Garage</p>
+                                            <Badge variant='secondary'>$8.99/mo</Badge>
+                                        </div>
+                                        <p className='mt-2 text-sm text-muted-foreground'>
+                                            Everything in Plus with a 15-vehicle cap for enthusiast and multi-vehicle
+                                            households.
+                                        </p>
+                                        <div className='mt-4 flex flex-wrap gap-2'>
+                                            <Button
+                                                type='button'
+                                                onClick={() => handleStartCheckout('garage')}
+                                                disabled={billingAction != null || billingState?.planCode === 'garage'}
+                                            >
+                                                {billingAction === 'garage' ? 'Redirecting…' : 'Upgrade to Garage'}
+                                            </Button>
+                                            <Button asChild variant='outline' type='button'>
+                                                <Link to='/pricing'>Compare plans</Link>
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {billingState?.canManageBilling ? (
+                                <div className='flex justify-end'>
+                                    <Button
+                                        type='button'
+                                        variant='outline'
+                                        onClick={handleManageBilling}
+                                        disabled={billingAction != null}
+                                    >
+                                        {billingAction === 'portal' ? 'Opening billing portal…' : 'Manage billing'}
+                                    </Button>
+                                </div>
+                            ) : null}
                         </div>
                     </TabsContent>
                 </Tabs>

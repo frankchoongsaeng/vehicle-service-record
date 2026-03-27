@@ -1,4 +1,5 @@
 import { prisma } from '../../db.js'
+import { hasFeatureAccess, resolveCurrentPlanFromUser } from '../../billing/service.js'
 import { createLogger } from '../../logging/logger.js'
 import { evaluateMaintenancePlan } from '../../lib/maintenanceEvaluation.js'
 import { buildMaintenanceDigest, type DigestCandidate } from './digest.js'
@@ -80,6 +81,12 @@ export async function evaluateReminderNotifications(now = new Date()) {
     let queuedCount = 0
 
     for (const user of users) {
+        const currentPlan = resolveCurrentPlanFromUser(user)
+
+        if (!hasFeatureAccess(currentPlan, 'reminderEmails')) {
+            continue
+        }
+
         const workspaceRule = user.reminder_rules[0] ?? null
         const digestCandidates: DigestCandidate[] = []
 

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Info } from 'lucide-react'
 
 import * as api from '../api/client.js'
+import { BillingGateNotice } from './BillingGateNotice.js'
 import { DEFAULT_DISTANCE_UNIT, getDistanceUnitLabel } from '../lib/distance.js'
 import { isKnownVehicleType, vehicleTypeOptions } from '../lib/vehicleTypes.js'
 import { cn } from '../lib/utils.js'
@@ -242,6 +243,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
     const [reminderMileageThreshold, setReminderMileageThreshold] = useState('')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
+    const [billingError, setBillingError] = useState<ReturnType<typeof api.getBillingGateResponse>>(null)
     const [invalidFields, setInvalidFields] = useState<Partial<Record<RequiredVehicleField, true>>>({})
     const [vinLookupStatus, setVinLookupStatus] = useState<VinLookupStatus>('idle')
     const [vinLookupMessage, setVinLookupMessage] = useState(vinHelperText)
@@ -312,6 +314,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
         const timeout = window.setTimeout(async () => {
             setVinLookupStatus('loading')
             setVinLookupMessage('Looking up VIN details…')
+            setBillingError(null)
 
             try {
                 const result = await api.lookupVin(normalizedVin)
@@ -334,6 +337,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
 
                 lastLookedUpVinRef.current = ''
                 setVinLookupStatus('error')
+                setBillingError(api.getBillingGateResponse(lookupError))
                 setVinLookupMessage(
                     lookupError instanceof Error
                         ? lookupError.message
@@ -406,6 +410,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setError('')
+        setBillingError(null)
 
         const missingRequiredFields = getMissingRequiredFields(form)
         if (missingRequiredFields.length > 0) {
@@ -453,6 +458,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
                 notes: form.notes || undefined
             })
         } catch (err) {
+            setBillingError(api.getBillingGateResponse(err))
             setError(err instanceof Error ? err.message : 'Something went wrong')
         } finally {
             setLoading(false)
@@ -470,6 +476,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
                 </div>
 
                 <form className='space-y-6 pt-6' onSubmit={handleSubmit} noValidate>
+                    {billingError ? <BillingGateNotice billingError={billingError} compact /> : null}
                     {error && (
                         <p className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'>
                             {error}
@@ -660,6 +667,10 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
                                 onChange={e => set('color', e.target.value)}
                                 placeholder='e.g. Silver'
                             />
+                            <p className='text-xs text-muted-foreground'>
+                                Generated vehicle images are available on Plus and Garage. The color still saves as
+                                vehicle metadata.
+                            </p>
                         </div>
                         <div className='space-y-2 md:col-span-2'>
                             <label className='text-sm font-medium text-foreground'>Notes</label>
@@ -746,6 +757,7 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
             </CardHeader>
             <CardContent>
                 <form className='space-y-4' onSubmit={handleSubmit} noValidate>
+                    {billingError ? <BillingGateNotice billingError={billingError} compact /> : null}
                     {error && (
                         <p className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'>
                             {error}
@@ -950,6 +962,10 @@ export default function VehicleForm({ initial, onSubmit, onCancel, onVehicleType
                             onChange={e => set('color', e.target.value)}
                             placeholder='e.g. Silver'
                         />
+                        <p className='text-xs text-muted-foreground'>
+                            Generated vehicle images are available on Plus and Garage. The color still saves as vehicle
+                            metadata.
+                        </p>
                     </div>
 
                     <div className='space-y-2'>

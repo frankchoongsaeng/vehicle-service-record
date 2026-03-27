@@ -72,7 +72,13 @@ export default function App({ currentUser, onLogout }: AppProps) {
     useEffect(() => {
         api.getVehicles()
             .then(setVehicles)
-            .catch(() => setError('Could not connect to the server. Make sure the backend is running.'))
+            .catch(loadError => {
+                if (api.isUnauthorizedError(loadError)) {
+                    return
+                }
+
+                setError(api.getUserFacingErrorMessage(loadError, 'Unable to load your vehicles right now.'))
+            })
             .finally(() => setLoadingVehicles(false))
     }, [])
 

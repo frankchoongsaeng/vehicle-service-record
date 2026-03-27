@@ -286,7 +286,7 @@ router.post(
                 vehicleId: Number(req.params.vehicleId),
                 bodyKeys: Object.keys((req.body ?? {}) as Record<string, unknown>)
             })
-            res.status(400).json({ error: 'service_type, description, and date are required' })
+            res.status(400).json({ error: 'Service type, service details, and service date are required.' })
             return
         }
 
@@ -326,7 +326,7 @@ router.post(
                     vehicleId,
                     maintenancePlanId: maintenance_plan_id
                 })
-                res.status(400).json({ error: 'maintenance_plan_id must reference a plan on this vehicle' })
+                res.status(400).json({ error: 'Choose a maintenance plan that belongs to this vehicle.' })
                 return
             }
         }
@@ -389,7 +389,7 @@ router.put(
                 disallowedKeys
             })
             res.status(400).json({
-                error: 'Only workshop, description, cost, and notes can be updated for a service record'
+                error: 'You can only update the workshop, service details, cost, and notes for a service record.'
             })
             return
         }
@@ -409,7 +409,7 @@ router.put(
                 recordId: Number(req.params.id),
                 bodyKeys
             })
-            res.status(400).json({ error: 'description is required' })
+            res.status(400).json({ error: 'Enter service details.' })
             return
         }
 

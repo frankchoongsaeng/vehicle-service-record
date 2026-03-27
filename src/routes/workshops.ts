@@ -22,7 +22,7 @@ function normalizeWorkshopPayload(body: unknown): { data?: WorkshopPayload; erro
     const phone = normalizeOptionalString(raw.phone)
 
     if (!name) {
-        return { error: 'name is required' }
+        return { error: 'Enter a workshop name.' }
     }
 
     return {

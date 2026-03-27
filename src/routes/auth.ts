@@ -418,7 +418,7 @@ router.post(
                 requestId: req.requestId,
                 bodyKeys: Object.keys((req.body ?? {}) as Record<string, unknown>)
             })
-            res.status(400).json({ error: 'email and password are required' })
+            res.status(400).json({ error: 'Enter both your email address and password.' })
             return
         }
 
@@ -671,7 +671,7 @@ router.post(
                 requestId: req.requestId,
                 bodyKeys: Object.keys((req.body ?? {}) as Record<string, unknown>)
             })
-            res.status(400).json({ error: 'email and password are required' })
+            res.status(400).json({ error: 'Enter both your email address and password.' })
             return
         }
 

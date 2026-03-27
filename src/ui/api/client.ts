@@ -22,8 +22,12 @@ import type {
 const BASE = '/api'
 const REQUEST_ID_HEADER = 'x-request-id'
 const REQUEST_ID_STORAGE_KEY = 'duralog.apiRequestSessionId'
+const DEFAULT_REQUEST_ERROR_MESSAGE = 'Something went wrong. Please try again.'
+const DEFAULT_NETWORK_ERROR_MESSAGE = 'We could not complete that request right now. Please try again.'
+const SESSION_EXPIRED_MESSAGE = 'Your session has ended. Please sign in again.'
 
 let requestSequence = 0
+let unauthorizedHandler: (() => void) | null = null
 
 function createRandomId(): string {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -68,6 +72,84 @@ function logApiEvent(level: 'debug' | 'warn', message: string, context: Record<s
     }
 }
 
+function normalizeUserFacingErrorMessage(message: string | null | undefined, fallback: string): string {
+    const trimmedMessage = message?.trim()
+
+    if (!trimmedMessage) {
+        return fallback
+    }
+
+    const normalizedMessage = trimmedMessage.toLowerCase()
+
+    if (normalizedMessage === 'authentication required') {
+        return SESSION_EXPIRED_MESSAGE
+    }
+
+    if (
+        normalizedMessage.includes('failed to fetch') ||
+        normalizedMessage.includes('networkerror') ||
+        normalizedMessage.includes('network error') ||
+        normalizedMessage.includes('load failed') ||
+        normalizedMessage.includes('request failed') ||
+        normalizedMessage.includes('backend') ||
+        normalizedMessage.includes('make sure') ||
+        normalizedMessage.includes('connect to the server') ||
+        normalizedMessage.includes('internal server error') ||
+        normalizedMessage.includes('status code') ||
+        normalizedMessage.includes('cors')
+    ) {
+        return fallback
+    }
+
+    return trimmedMessage
+}
+
+async function readResponseBody(res: Response): Promise<unknown> {
+    const responseText = await res.text()
+
+    if (!responseText) {
+        return null
+    }
+
+    try {
+        return JSON.parse(responseText) as unknown
+    } catch {
+        return { error: responseText }
+    }
+}
+
+function getErrorMessage(data: unknown, fallback: string): string {
+    if (data && typeof data === 'object' && 'error' in data && typeof data.error === 'string') {
+        return normalizeUserFacingErrorMessage(data.error, fallback)
+    }
+
+    return fallback
+}
+
+function notifyUnauthorized(): void {
+    unauthorizedHandler?.()
+}
+
+export function setUnauthorizedHandler(handler: (() => void) | null): void {
+    unauthorizedHandler = handler
+}
+
+export function isUnauthorizedError(error: unknown): error is ApiError {
+    return error instanceof ApiError && error.status === 401
+}
+
+export function getUserFacingErrorMessage(error: unknown, fallback = DEFAULT_REQUEST_ERROR_MESSAGE): string {
+    if (isUnauthorizedError(error)) {
+        return SESSION_EXPIRED_MESSAGE
+    }
+
+    if (error instanceof ApiError || error instanceof Error) {
+        return normalizeUserFacingErrorMessage(error.message, fallback)
+    }
+
+    return fallback
+}
+
 export class ApiError extends Error {
     status: number
     requestId: string
@@ -82,15 +164,21 @@ export class ApiError extends Error {
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
     const requestId = createRequestId()
-    const res = await fetch(`${BASE}${path}`, {
-        credentials: 'same-origin',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            [REQUEST_ID_HEADER]: requestId,
-            ...(options?.headers ?? {})
-        }
-    })
+    let res: Response
+
+    try {
+        res = await fetch(`${BASE}${path}`, {
+            credentials: 'same-origin',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                [REQUEST_ID_HEADER]: requestId,
+                ...(options?.headers ?? {})
+            }
+        })
+    } catch {
+        throw new Error(DEFAULT_NETWORK_ERROR_MESSAGE)
+    }
 
     const responseRequestId = getResponseRequestId(res, requestId)
     logApiEvent('debug', 'request.completed', {
@@ -101,16 +189,25 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     })
 
     if (res.status === 204) return undefined as T
-    const data = await res.json()
+    const data = await readResponseBody(res)
     if (!res.ok) {
+        if (res.status === 401) {
+            notifyUnauthorized()
+        }
+
+        const message = getErrorMessage(
+            data,
+            res.status === 401 ? SESSION_EXPIRED_MESSAGE : DEFAULT_REQUEST_ERROR_MESSAGE
+        )
+
         logApiEvent('warn', 'request.failed', {
             requestId: responseRequestId,
             method: options?.method ?? 'GET',
             path,
             status: res.status,
-            error: data.error ?? 'Request failed'
+            error: message
         })
-        throw new ApiError(data.error ?? 'Request failed', res.status, responseRequestId)
+        throw new ApiError(message, res.status, responseRequestId)
     }
     return data as T
 }
@@ -185,15 +282,21 @@ export const updateSettings = async (input: UserSettingsInput): Promise<AuthUser
 
 export const uploadProfileImage = async (file: File): Promise<AuthUser> => {
     const requestId = createRequestId()
-    const res = await fetch(`${BASE}/settings/profile-image`, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: {
-            [REQUEST_ID_HEADER]: requestId,
-            'Content-Type': file.type || 'application/octet-stream'
-        },
-        body: file
-    })
+    let res: Response
+
+    try {
+        res = await fetch(`${BASE}/settings/profile-image`, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                [REQUEST_ID_HEADER]: requestId,
+                'Content-Type': file.type || 'application/octet-stream'
+            },
+            body: file
+        })
+    } catch {
+        throw new Error(DEFAULT_NETWORK_ERROR_MESSAGE)
+    }
 
     const responseRequestId = getResponseRequestId(res, requestId)
     logApiEvent('debug', 'request.completed', {
@@ -203,17 +306,26 @@ export const uploadProfileImage = async (file: File): Promise<AuthUser> => {
         status: res.status
     })
 
-    const data = await res.json()
+    const data = await readResponseBody(res)
 
     if (!res.ok) {
+        if (res.status === 401) {
+            notifyUnauthorized()
+        }
+
+        const message = getErrorMessage(
+            data,
+            res.status === 401 ? SESSION_EXPIRED_MESSAGE : DEFAULT_REQUEST_ERROR_MESSAGE
+        )
+
         logApiEvent('warn', 'request.failed', {
             requestId: responseRequestId,
             method: 'POST',
             path: '/settings/profile-image',
             status: res.status,
-            error: data.error ?? 'Request failed'
+            error: message
         })
-        throw new ApiError(data.error ?? 'Request failed', res.status, responseRequestId)
+        throw new ApiError(message, res.status, responseRequestId)
     }
 
     return (data as { user: AuthUser }).user

@@ -23,6 +23,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [status, setStatus] = useState<AuthStatus>('loading')
     const [bootstrapError, setBootstrapError] = useState<string | null>(null)
 
+    useEffect(() => {
+        api.setUnauthorizedHandler(() => {
+            setUser(null)
+            setBootstrapError(null)
+            setStatus('unauthenticated')
+        })
+
+        return () => {
+            api.setUnauthorizedHandler(null)
+        }
+    }, [])
+
     async function refreshSession(): Promise<AuthUser | null> {
         setStatus('loading')
         try {
@@ -35,10 +47,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(null)
             if (error instanceof api.ApiError && error.status === 401) {
                 setBootstrapError(null)
-            } else if (error instanceof Error) {
-                setBootstrapError(error.message)
             } else {
-                setBootstrapError('Unable to verify your session right now.')
+                setBootstrapError(api.getUserFacingErrorMessage(error, 'Unable to verify your session right now.'))
             }
             setStatus('unauthenticated')
             return null
@@ -62,7 +72,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     async function logout(): Promise<void> {
-        await api.logout()
+        try {
+            await api.logout()
+        } catch (error) {
+            if (!api.isUnauthorizedError(error)) {
+                throw error
+            }
+        }
+
         setUser(null)
         setBootstrapError(null)
         setStatus('unauthenticated')
@@ -95,10 +112,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setUser(null)
                 if (error instanceof api.ApiError && error.status === 401) {
                     setBootstrapError(null)
-                } else if (error instanceof Error) {
-                    setBootstrapError(error.message)
                 } else {
-                    setBootstrapError('Unable to verify your session right now.')
+                    setBootstrapError(api.getUserFacingErrorMessage(error, 'Unable to verify your session right now.'))
                 }
                 setStatus('unauthenticated')
             })

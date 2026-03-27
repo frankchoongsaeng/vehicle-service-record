@@ -1,5 +1,7 @@
 import { Prisma } from '@prisma/client'
 import { Router, Request, Response } from 'express'
+import { isBillingAccessError, sendBillingError } from '../billing/error.js'
+import { assertCanCreateServiceRecord, assertCanCreateWorkshop } from '../billing/service.js'
 import { prisma } from '../db.js'
 import { createLogger } from '../logging/logger.js'
 import { asyncHandler } from '../middleware/asyncHandler.js'
@@ -21,6 +23,10 @@ type ServiceRecordWriteInput = {
 }
 
 type MaintenancePlanBaselineRecord = ServiceRecordWriteInput
+
+function normalizeWorkshopLookupName(value: string) {
+    return value.trim().toLowerCase().replace(/\s+/g, ' ')
+}
 
 function normalizeMatchText(value: string) {
     return value.trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ')
@@ -307,6 +313,34 @@ router.post(
             return
         }
 
+        try {
+            await assertCanCreateServiceRecord(authUser.id)
+
+            const normalizedWorkshopName = typeof workshop === 'string' ? workshop.trim() : ''
+
+            if (normalizedWorkshopName) {
+                const workshops = await prisma.workshop.findMany({
+                    where: { user_id: authUser.id },
+                    select: { name: true }
+                })
+                const hasMatchingWorkshop = workshops.some(
+                    entry =>
+                        normalizeWorkshopLookupName(entry.name) === normalizeWorkshopLookupName(normalizedWorkshopName)
+                )
+
+                if (!hasMatchingWorkshop) {
+                    await assertCanCreateWorkshop(authUser.id)
+                }
+            }
+        } catch (error) {
+            if (isBillingAccessError(error)) {
+                sendBillingError(res, error)
+                return
+            }
+
+            throw error
+        }
+
         let linkedPlan: { id: number } | null = null
 
         if (maintenance_plan_id != null) {
@@ -431,6 +465,32 @@ router.put(
             })
             res.status(404).json({ error: 'Service record not found' })
             return
+        }
+
+        try {
+            const normalizedWorkshopName = typeof workshop === 'string' ? workshop.trim() : ''
+
+            if (normalizedWorkshopName) {
+                const workshops = await prisma.workshop.findMany({
+                    where: { user_id: authUser.id },
+                    select: { name: true }
+                })
+                const hasMatchingWorkshop = workshops.some(
+                    entry =>
+                        normalizeWorkshopLookupName(entry.name) === normalizeWorkshopLookupName(normalizedWorkshopName)
+                )
+
+                if (!hasMatchingWorkshop) {
+                    await assertCanCreateWorkshop(authUser.id)
+                }
+            }
+        } catch (error) {
+            if (isBillingAccessError(error)) {
+                sendBillingError(res, error)
+                return
+            }
+
+            throw error
         }
 
         const { updated, recomputedPlanCount } = await prisma.$transaction(async transaction => {

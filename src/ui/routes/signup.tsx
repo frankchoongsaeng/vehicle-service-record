@@ -9,7 +9,7 @@ import { Button } from '../components/ui/button.js'
 import { Input } from '../components/ui/input.js'
 import { Separator } from '../components/ui/separator.js'
 import { buildGoogleAuthStartUrl, getGoogleAuthErrorMessage } from '../auth/google.js'
-import { getPostAuthenticationDestination } from '../auth/onboarding.js'
+import { buildAuthRoutePath, getPostAuthenticationDestination, resolveBillingSignupIntent } from '../auth/onboarding.js'
 import { useAuth } from '../auth/useAuth.js'
 import { getSafeRedirectTarget } from '../auth/redirect.js'
 import { ApiError } from '../api/client.js'
@@ -30,8 +30,9 @@ export default function SignupRoute() {
     const navigate = useNavigate()
     const [searchParams] = useSearchParams()
     const redirectTo = getSafeRedirectTarget(searchParams.get('redirectTo'))
-    const loginLink = `/login?redirectTo=${encodeURIComponent(redirectTo)}`
-    const googleAuthHref = buildGoogleAuthStartUrl(redirectTo, '/signup')
+    const billingIntent = resolveBillingSignupIntent(searchParams)
+    const loginLink = buildAuthRoutePath('/login', redirectTo, billingIntent)
+    const googleAuthHref = buildGoogleAuthStartUrl(redirectTo, '/signup', billingIntent)
 
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
@@ -42,9 +43,9 @@ export default function SignupRoute() {
 
     useEffect(() => {
         if (auth.status === 'authenticated') {
-            navigate(getPostAuthenticationDestination(auth.user, redirectTo), { replace: true })
+            navigate(getPostAuthenticationDestination(auth.user, redirectTo, billingIntent), { replace: true })
         }
-    }, [auth.status, auth.user, navigate, redirectTo])
+    }, [auth.status, auth.user, billingIntent, navigate, redirectTo])
 
     useEffect(() => {
         setCallbackError(getGoogleAuthErrorMessage(searchParams.get('authError')))
@@ -70,7 +71,7 @@ export default function SignupRoute() {
 
         try {
             const nextUser = await auth.signup({ email, password })
-            navigate(getPostAuthenticationDestination(nextUser, redirectTo), { replace: true })
+            navigate(getPostAuthenticationDestination(nextUser, redirectTo, billingIntent), { replace: true })
         } catch (submitError) {
             if (submitError instanceof ApiError) {
                 setError(submitError.message)

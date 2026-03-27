@@ -19,6 +19,7 @@ import { Input } from '../components/ui/input.js'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select.js'
 import { EMPTY_COUNTRY_VALUE, getCountryOptions } from '../lib/countries.js'
 import { cn } from '../lib/utils.js'
+import type { BillingSubscriptionState } from '../types/index.js'
 import {
     DEFAULT_HISTORY_SORT_ORDER,
     PREFERRED_CURRENCIES,
@@ -93,14 +94,17 @@ export default function OnboardingRoute() {
     const [reminderDigestEnabled, setReminderDigestEnabled] = useState(true)
     const [reminderDaysThreshold, setReminderDaysThreshold] = useState('14')
     const [reminderMileageThreshold, setReminderMileageThreshold] = useState('750')
+    const [billingState, setBillingState] = useState<BillingSubscriptionState | null>(null)
     const [loadingPreferences, setLoadingPreferences] = useState(true)
     const [submitting, setSubmitting] = useState(false)
     const [error, setError] = useState('')
     const [renderedStep, setRenderedStep] = useState(step)
     const [isStepVisible, setIsStepVisible] = useState(true)
+    const checkoutState = searchParams.get('checkout')
     const notificationPreference: NotificationPreference =
         reminderEmailEnabled && reminderDigestEnabled ? 'enabled' : 'disabled'
     const availableCountries = getCountryOptions(country)
+    const canUseReminderEmails = billingState?.entitlements.features.includes('reminderEmails') ?? false
 
     useEffect(() => {
         if (auth.status !== 'unauthenticated') {
@@ -155,14 +159,17 @@ export default function OnboardingRoute() {
         let active = true
         setLoadingPreferences(true)
 
-        api.getReminderPreferences()
-            .then(preferences => {
+        Promise.all([api.getReminderPreferences(), api.getBillingSubscription()])
+            .then(([preferences, nextBillingState]) => {
                 if (!active) {
                     return
                 }
 
-                setReminderEmailEnabled(preferences.reminderEmailEnabled)
-                setReminderDigestEnabled(preferences.reminderDigestEnabled)
+                const supportsReminderEmails = nextBillingState.entitlements.features.includes('reminderEmails')
+
+                setBillingState(nextBillingState)
+                setReminderEmailEnabled(supportsReminderEmails ? preferences.reminderEmailEnabled : false)
+                setReminderDigestEnabled(supportsReminderEmails ? preferences.reminderDigestEnabled : false)
                 setReminderDaysThreshold(
                     preferences.rule?.daysThreshold != null ? String(preferences.rule.daysThreshold) : '14'
                 )
@@ -233,13 +240,13 @@ export default function OnboardingRoute() {
         try {
             const trimmedDaysThreshold = reminderDaysThreshold.trim()
             const trimmedMileageThreshold = reminderMileageThreshold.trim()
-            const reminderRule =
-                notificationPreference === 'enabled'
-                    ? {
-                          daysThreshold: trimmedDaysThreshold ? Number(trimmedDaysThreshold) : 14,
-                          mileageThreshold: trimmedMileageThreshold ? Number(trimmedMileageThreshold) : 750
-                      }
-                    : null
+            const remindersEnabled = canUseReminderEmails && notificationPreference === 'enabled'
+            const reminderRule = remindersEnabled
+                ? {
+                      daysThreshold: trimmedDaysThreshold ? Number(trimmedDaysThreshold) : 14,
+                      mileageThreshold: trimmedMileageThreshold ? Number(trimmedMileageThreshold) : 750
+                  }
+                : null
 
             await Promise.all([
                 api.updateSettings({
@@ -250,8 +257,8 @@ export default function OnboardingRoute() {
                     preferredCurrency
                 }),
                 api.updateReminderPreferences({
-                    reminderEmailEnabled,
-                    reminderDigestEnabled,
+                    reminderEmailEnabled: remindersEnabled,
+                    reminderDigestEnabled: remindersEnabled,
                     rule: reminderRule
                 })
             ])
@@ -315,6 +322,17 @@ export default function OnboardingRoute() {
                     {error ? (
                         <p className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'>
                             {error}
+                        </p>
+                    ) : null}
+                    {!error && checkoutState === 'success' ? (
+                        <p className='rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground'>
+                            Your billing step completed. Finish onboarding to start using Duralog.
+                        </p>
+                    ) : null}
+                    {!error && checkoutState === 'canceled' ? (
+                        <p className='rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground'>
+                            Billing setup was canceled. You can still finish onboarding on the Free plan and upgrade
+                            later.
                         </p>
                     ) : null}
 
@@ -465,8 +483,9 @@ export default function OnboardingRoute() {
                                         <div className='flex flex-col gap-1'>
                                             <p className='font-medium text-foreground'>Notifications</p>
                                             <p className='text-sm text-muted-foreground'>
-                                                Keep this simple: use the recommended reminder digest, or turn it off
-                                                for now.
+                                                {canUseReminderEmails
+                                                    ? 'Keep this simple: use the recommended reminder digest, or turn it off for now.'
+                                                    : 'Reminder emails are a paid feature, so your new account starts with notifications turned off.'}
                                             </p>
                                         </div>
                                     </div>
@@ -493,7 +512,9 @@ export default function OnboardingRoute() {
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectGroup>
-                                                    <SelectItem value='enabled'>Recommended reminders</SelectItem>
+                                                    <SelectItem value='enabled' disabled={!canUseReminderEmails}>
+                                                        Recommended reminders
+                                                    </SelectItem>
                                                     <SelectItem value='disabled'>No reminders yet</SelectItem>
                                                 </SelectGroup>
                                             </SelectContent>
@@ -501,8 +522,9 @@ export default function OnboardingRoute() {
                                     </div>
 
                                     <p className='text-sm text-muted-foreground'>
-                                        Recommended reminders send an email digest when maintenance is about 14 days or
-                                        750 miles away. You can fine-tune this later in Settings.
+                                        {canUseReminderEmails
+                                            ? 'Recommended reminders send an email digest when maintenance is about 14 days or 750 miles away. You can fine-tune this later in Settings.'
+                                            : 'Upgrade to Plus or Garage later if you want reminder digests, vehicle-level reminder rules, and other proactive maintenance features.'}
                                     </p>
 
                                     {!auth.user.emailVerifiedAt ? (

@@ -8,6 +8,7 @@ import { ApiError } from '../api/client.js'
 import { buildOnboardingUrl, hasCompletedOnboarding } from '../auth/onboarding.js'
 import { useAuth } from '../auth/useAuth.js'
 import { AuthenticatedShell } from '../components/AuthenticatedShell.js'
+import { BillingGateNotice } from '../components/BillingGateNotice.js'
 import BrandedLoadingScreen from '../components/BrandedLoadingScreen.js'
 import { PageHeader } from '../components/PageHeader.js'
 import { Button } from '../components/ui/button.js'
@@ -16,7 +17,7 @@ import { Input } from '../components/ui/input.js'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table.js'
 import { Textarea } from '../components/ui/textarea.js'
 import { fetchApiData } from '../lib/maintenance.js'
-import type { Workshop, WorkshopInput } from '../types/index.js'
+import type { BillingGateResponse, Workshop, WorkshopInput } from '../types/index.js'
 
 export const meta: MetaFunction = () => {
     return [
@@ -90,11 +91,12 @@ type WorkshopFormProps = {
     initial?: Workshop
     submitting: boolean
     error: string
+    billingError: BillingGateResponse | null
     onSubmit: (input: WorkshopInput) => Promise<void>
     onCancel: () => void
 }
 
-function WorkshopForm({ initial, submitting, error, onSubmit, onCancel }: WorkshopFormProps) {
+function WorkshopForm({ initial, submitting, error, billingError, onSubmit, onCancel }: WorkshopFormProps) {
     const [name, setName] = useState(initial?.name ?? '')
     const [address, setAddress] = useState(initial?.address ?? '')
     const [phone, setPhone] = useState(initial?.phone ?? '')
@@ -132,6 +134,7 @@ function WorkshopForm({ initial, submitting, error, onSubmit, onCancel }: Worksh
             </CardHeader>
             <CardContent>
                 <form className='flex flex-col gap-4' onSubmit={handleSubmit}>
+                    {billingError ? <BillingGateNotice billingError={billingError} compact /> : null}
                     {(validationError || error) && (
                         <div className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'>
                             {validationError || error}
@@ -198,6 +201,7 @@ export default function WorkshopsRoute() {
     const [workshops, setWorkshops] = useState(initialWorkshops)
     const [submitting, setSubmitting] = useState(false)
     const [error, setError] = useState('')
+    const [billingError, setBillingError] = useState<BillingGateResponse | null>(null)
 
     useEffect(() => {
         setWorkshops(initialWorkshops)
@@ -256,6 +260,7 @@ export default function WorkshopsRoute() {
         try {
             setSubmitting(true)
             setError('')
+            setBillingError(null)
             const createdWorkshop = await api.createWorkshop(input)
             setWorkshops(current =>
                 [...current, createdWorkshop].sort(
@@ -264,6 +269,7 @@ export default function WorkshopsRoute() {
             )
             setViewAndSyncUrl({ type: 'edit', workshop: createdWorkshop })
         } catch (submitError) {
+            setBillingError(api.getBillingGateResponse(submitError))
             if (submitError instanceof ApiError) {
                 setError(submitError.message)
                 return
@@ -283,6 +289,7 @@ export default function WorkshopsRoute() {
         try {
             setSubmitting(true)
             setError('')
+            setBillingError(null)
             const updatedWorkshop = await api.updateWorkshop(view.workshop.id, input)
             setWorkshops(current =>
                 current
@@ -291,6 +298,7 @@ export default function WorkshopsRoute() {
             )
             setViewAndSyncUrl({ type: 'edit', workshop: updatedWorkshop }, true)
         } catch (submitError) {
+            setBillingError(api.getBillingGateResponse(submitError))
             if (submitError instanceof ApiError) {
                 setError(submitError.message)
                 return
@@ -309,6 +317,7 @@ export default function WorkshopsRoute() {
 
         try {
             setError('')
+            setBillingError(null)
             await api.deleteWorkshop(workshop.id)
             setWorkshops(current => current.filter(entry => entry.id !== workshop.id))
 
@@ -316,6 +325,7 @@ export default function WorkshopsRoute() {
                 setViewAndSyncUrl({ type: 'list' })
             }
         } catch (submitError) {
+            setBillingError(api.getBillingGateResponse(submitError))
             if (submitError instanceof ApiError) {
                 setError(submitError.message)
                 return
@@ -478,9 +488,11 @@ export default function WorkshopsRoute() {
                                     key='create-workshop-form'
                                     submitting={submitting}
                                     error={error}
+                                    billingError={billingError}
                                     onSubmit={handleCreateWorkshop}
                                     onCancel={() => {
                                         setError('')
+                                        setBillingError(null)
                                         setViewAndSyncUrl({ type: 'list' })
                                     }}
                                 />
@@ -490,9 +502,11 @@ export default function WorkshopsRoute() {
                                     initial={view.workshop}
                                     submitting={submitting}
                                     error={error}
+                                    billingError={billingError}
                                     onSubmit={handleUpdateWorkshop}
                                     onCancel={() => {
                                         setError('')
+                                        setBillingError(null)
                                         setViewAndSyncUrl({ type: 'list' })
                                     }}
                                 />

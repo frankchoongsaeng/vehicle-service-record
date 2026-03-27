@@ -1,5 +1,8 @@
 import type {
     AuthUser,
+    BillingGateResponse,
+    BillingInterval,
+    BillingSubscriptionState,
     LoginInput,
     SignupInput,
     UserSettingsInput,
@@ -16,7 +19,8 @@ import type {
     VehicleReminderPreferences,
     VehicleReminderPreferencesInput,
     WorkspaceReminderPreferences,
-    WorkspaceReminderPreferencesInput
+    WorkspaceReminderPreferencesInput,
+    PlanCode
 } from '../types/index.js'
 
 const BASE = '/api'
@@ -126,6 +130,24 @@ function getErrorMessage(data: unknown, fallback: string): string {
     return fallback
 }
 
+function getBillingGateResponseData(data: unknown): BillingGateResponse | null {
+    if (!data || typeof data !== 'object') {
+        return null
+    }
+
+    const candidate = data as Partial<BillingGateResponse>
+
+    if (
+        typeof candidate.error === 'string' &&
+        (candidate.code === 'FEATURE_NOT_AVAILABLE' || candidate.code === 'PLAN_LIMIT_REACHED') &&
+        typeof candidate.currentPlan === 'string'
+    ) {
+        return candidate as BillingGateResponse
+    }
+
+    return null
+}
+
 function notifyUnauthorized(): void {
     unauthorizedHandler?.()
 }
@@ -153,13 +175,23 @@ export function getUserFacingErrorMessage(error: unknown, fallback = DEFAULT_REQ
 export class ApiError extends Error {
     status: number
     requestId: string
+    details: unknown
 
-    constructor(message: string, status: number, requestId: string) {
+    constructor(message: string, status: number, requestId: string, details: unknown) {
         super(message)
         this.name = 'ApiError'
         this.status = status
         this.requestId = requestId
+        this.details = details
     }
+}
+
+export function getBillingGateResponse(error: unknown): BillingGateResponse | null {
+    if (!(error instanceof ApiError)) {
+        return null
+    }
+
+    return getBillingGateResponseData(error.details)
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -207,7 +239,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
             status: res.status,
             error: message
         })
-        throw new ApiError(message, res.status, responseRequestId)
+        throw new ApiError(message, res.status, responseRequestId, data)
     }
     return data as T
 }
@@ -325,7 +357,7 @@ export const uploadProfileImage = async (file: File): Promise<AuthUser> => {
             status: res.status,
             error: message
         })
-        throw new ApiError(message, res.status, responseRequestId)
+        throw new ApiError(message, res.status, responseRequestId, data)
     }
 
     return (data as { user: AuthUser }).user
@@ -346,6 +378,25 @@ export const completeOnboarding = async (): Promise<AuthUser> => {
 
     return data.user
 }
+
+// ── Billing ────────────────────────────────────────────────────────────────
+
+export const getBillingSubscription = (): Promise<BillingSubscriptionState> => request('/billing/subscription')
+
+export const createBillingCheckoutSession = (
+    planCode: Exclude<PlanCode, 'free'>,
+    billingInterval: BillingInterval,
+    returnPath?: string
+): Promise<{ url: string }> =>
+    request('/billing/checkout-session', {
+        method: 'POST',
+        body: JSON.stringify({ planCode, billingInterval, returnPath })
+    })
+
+export const createBillingCustomerPortalSession = (): Promise<{ url: string }> =>
+    request('/billing/customer-portal-session', {
+        method: 'POST'
+    })
 
 // ── Workshops ───────────────────────────────────────────────────────────────
 

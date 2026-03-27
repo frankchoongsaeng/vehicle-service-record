@@ -2,6 +2,8 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import { Router, Request, Response } from 'express'
 import { Prisma } from '@prisma/client'
 import { prisma } from '../db.js'
+import type { BillingInterval, PlanCode } from '../types/billing.js'
+import { isBillingInterval, isPlanCode } from '../types/billing.js'
 import { createLogger } from '../logging/logger.js'
 import { asyncHandler } from '../middleware/asyncHandler.js'
 import { hashPassword, verifyPassword } from '../openauth/password.js'
@@ -50,7 +52,14 @@ type GoogleAuthState = {
     nonce: string
     redirectTo: string
     issuedAt: number
+    planCode?: Exclude<PlanCode, 'free'>
+    billingInterval?: BillingInterval
 }
+
+type BillingSignupIntent = {
+    planCode: Exclude<PlanCode, 'free'>
+    billingInterval: BillingInterval
+} | null
 
 type GoogleAuthUserRecord = Prisma.UserGetPayload<{ select: typeof authUserSelect }>
 
@@ -104,7 +113,63 @@ function buildOnboardingUrl(redirectTo: string): string {
     return `/onboarding?redirectTo=${encodeURIComponent(nextTarget)}`
 }
 
-function getPostAuthenticationDestination(user: { onboarding_completed_at: Date | null }, redirectTo: string): string {
+function normalizePostBillingRedirectTarget(value: string): string {
+    const nextTarget = getSafeRedirectTarget(value)
+
+    if (
+        nextTarget === '/garage' ||
+        nextTarget === '/onboarding' ||
+        nextTarget.startsWith('/onboarding?') ||
+        nextTarget === '/pricing' ||
+        nextTarget.startsWith('/pricing?')
+    ) {
+        return '/garage'
+    }
+
+    return nextTarget
+}
+
+function resolveBillingSignupIntent(planCode: unknown, billingInterval: unknown): BillingSignupIntent {
+    if (
+        typeof planCode === 'string' &&
+        (planCode === 'plus' || planCode === 'garage') &&
+        isPlanCode(planCode) &&
+        typeof billingInterval === 'string' &&
+        isBillingInterval(billingInterval)
+    ) {
+        return {
+            planCode,
+            billingInterval
+        }
+    }
+
+    return null
+}
+
+function buildBillingSetupUrl(billingIntent: Exclude<BillingSignupIntent, null>, redirectTo: string): string {
+    const params = new URLSearchParams({
+        billing: billingIntent.billingInterval,
+        checkoutPlan: billingIntent.planCode,
+        postAuthSetup: '1'
+    })
+    const returnTo = normalizePostBillingRedirectTarget(redirectTo)
+
+    if (returnTo !== '/garage') {
+        params.set('returnTo', returnTo)
+    }
+
+    return `/pricing?${params.toString()}`
+}
+
+function getPostAuthenticationDestination(
+    user: { onboarding_completed_at: Date | null },
+    redirectTo: string,
+    billingIntent: BillingSignupIntent = null
+): string {
+    if (billingIntent) {
+        return buildBillingSetupUrl(billingIntent, redirectTo)
+    }
+
     return user.onboarding_completed_at ? getSafeRedirectTarget(redirectTo) : buildOnboardingUrl(redirectTo)
 }
 
@@ -163,11 +228,19 @@ function parseGoogleAuthState(token: string): GoogleAuthState | null {
             return null
         }
 
+        const billingIntent = resolveBillingSignupIntent(parsed.planCode, parsed.billingInterval)
+
         return {
             authPath: parsed.authPath,
             nonce: parsed.nonce,
             redirectTo: getSafeRedirectTarget(parsed.redirectTo),
-            issuedAt: parsed.issuedAt
+            issuedAt: parsed.issuedAt,
+            ...(billingIntent
+                ? {
+                      planCode: billingIntent.planCode,
+                      billingInterval: billingIntent.billingInterval
+                  }
+                : {})
         }
     } catch {
         return null
@@ -186,12 +259,22 @@ function buildGoogleRedirectUri(req: Request): string {
     return `${resolveAppOrigin(req)}/api/auth/google/callback`
 }
 
-function buildAuthErrorRedirectPath(authPath: '/login' | '/signup', redirectTo: string, authError: string): string {
+function buildAuthErrorRedirectPath(
+    authPath: '/login' | '/signup',
+    redirectTo: string,
+    authError: string,
+    billingIntent: BillingSignupIntent = null
+): string {
     const params = new URLSearchParams({ authError })
     const nextTarget = getSafeRedirectTarget(redirectTo)
 
     if (nextTarget !== '/garage') {
         params.set('redirectTo', nextTarget)
+    }
+
+    if (billingIntent) {
+        params.set('plan', billingIntent.planCode)
+        params.set('billing', billingIntent.billingInterval)
     }
 
     return `${authPath}?${params.toString()}`
@@ -464,14 +547,16 @@ router.get(
             typeof req.query.redirectTo === 'string' ? req.query.redirectTo : undefined
         )
         const authPath = resolveGoogleAuthEntryPath(typeof req.query.authPath === 'string' ? req.query.authPath : null)
+        const billingIntent = resolveBillingSignupIntent(req.query.plan, req.query.billing)
 
         if (!isGoogleAuthConfigured()) {
             authLogger.warn('auth.google_unavailable', {
                 requestId: req.requestId,
                 redirectTo,
-                authPath
+                authPath,
+                billingIntent
             })
-            res.redirect(buildAuthErrorRedirectPath(authPath, redirectTo, 'google_unavailable'))
+            res.redirect(buildAuthErrorRedirectPath(authPath, redirectTo, 'google_unavailable', billingIntent))
             return
         }
 
@@ -480,7 +565,13 @@ router.get(
             authPath,
             nonce,
             redirectTo,
-            issuedAt: Date.now()
+            issuedAt: Date.now(),
+            ...(billingIntent
+                ? {
+                      planCode: billingIntent.planCode,
+                      billingInterval: billingIntent.billingInterval
+                  }
+                : {})
         })
 
         authLogger.info('auth.google_start', {
@@ -505,6 +596,7 @@ router.get(
         const state = typeof req.query.state === 'string' ? parseGoogleAuthState(req.query.state) : null
         const authPath = state?.authPath ?? '/login'
         const redirectTo = state?.redirectTo ?? '/garage'
+        const billingIntent = resolveBillingSignupIntent(state?.planCode, state?.billingInterval)
         const callbackError = typeof req.query.error === 'string' ? req.query.error : null
         const stateCookieNonce = readCookieValue(req.headers.cookie, GOOGLE_AUTH_STATE_COOKIE_NAME)
         const clearStateCookieHeader = clearGoogleAuthStateCookie()
@@ -517,7 +609,7 @@ router.get(
                 error: callbackError
             })
             res.setHeader('Set-Cookie', clearStateCookieHeader)
-            res.redirect(buildAuthErrorRedirectPath(authPath, redirectTo, 'google_cancelled'))
+            res.redirect(buildAuthErrorRedirectPath(authPath, redirectTo, 'google_cancelled', billingIntent))
             return
         }
 
@@ -536,7 +628,7 @@ router.get(
                 hasCookieNonce: Boolean(stateCookieNonce)
             })
             res.setHeader('Set-Cookie', clearStateCookieHeader)
-            res.redirect(buildAuthErrorRedirectPath(authPath, redirectTo, 'google_state_invalid'))
+            res.redirect(buildAuthErrorRedirectPath(authPath, redirectTo, 'google_state_invalid', billingIntent))
             return
         }
 
@@ -551,7 +643,12 @@ router.get(
             })
             res.setHeader('Set-Cookie', clearStateCookieHeader)
             res.redirect(
-                buildAuthErrorRedirectPath(authPath, redirectTo, code ? 'google_unavailable' : 'google_failed')
+                buildAuthErrorRedirectPath(
+                    authPath,
+                    redirectTo,
+                    code ? 'google_unavailable' : 'google_failed',
+                    billingIntent
+                )
             )
             return
         }
@@ -571,7 +668,7 @@ router.get(
                     email: profile.email
                 })
                 res.setHeader('Set-Cookie', clearStateCookieHeader)
-                res.redirect(buildAuthErrorRedirectPath(authPath, redirectTo, 'google_unverified_email'))
+                res.redirect(buildAuthErrorRedirectPath(authPath, redirectTo, 'google_unverified_email', billingIntent))
                 return
             }
 
@@ -586,7 +683,7 @@ router.get(
             })
 
             res.setHeader('Set-Cookie', [clearStateCookieHeader, serializeSessionCookie(sessionToken)])
-            res.redirect(getPostAuthenticationDestination(user, redirectTo))
+            res.redirect(getPostAuthenticationDestination(user, redirectTo, billingIntent))
         } catch (error) {
             authLogger.error('auth.google_failed', {
                 requestId: req.requestId,
@@ -595,7 +692,7 @@ router.get(
                 error
             })
             res.setHeader('Set-Cookie', clearStateCookieHeader)
-            res.redirect(buildAuthErrorRedirectPath(authPath, redirectTo, 'google_failed'))
+            res.redirect(buildAuthErrorRedirectPath(authPath, redirectTo, 'google_failed', billingIntent))
         }
     })
 )

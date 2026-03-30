@@ -49,9 +49,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
-      DATABASE_PROVIDER: mysql
       DATABASE_URL: mysql://duralog:duralog@mysql:3306/duralog
-      DATABASE_AUTH_TOKEN: ${DATABASE_AUTH_TOKEN:-}
       OPENAUTH_SECRET: ${OPENAUTH_SECRET:-replace-this-secret-for-production}
       OPENAUTH_ISSUER: ${OPENAUTH_ISSUER:-vehicle-service-record-openauth}
       OPENAUTH_AUDIENCE: ${OPENAUTH_AUDIENCE:-vehicle-service-record-client}

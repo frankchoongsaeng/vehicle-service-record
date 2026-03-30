@@ -4,28 +4,7 @@ set -eu
 max_attempts="${DB_MIGRATE_MAX_ATTEMPTS:-30}"
 attempt=1
 baseline_attempted=false
-
-database_provider="${DATABASE_PROVIDER:-}"
-
-if [ -z "$database_provider" ]; then
-    case "${DATABASE_URL:-}" in
-        mysql:*)
-            database_provider="mysql"
-            ;;
-        *)
-            database_provider="sqlite"
-            ;;
-    esac
-fi
-
-case "$database_provider" in
-    mysql)
-        migrations_dir="prisma/mysql/migrations"
-        ;;
-    *)
-        migrations_dir="prisma/migrations"
-        ;;
-esac
+migrations_dir="prisma/migrations"
 
 resolve_baseline_migration() {
     baseline_migration="$(find "$migrations_dir" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | head -n 1)"
@@ -39,7 +18,7 @@ resolve_baseline_migration() {
     npx prisma migrate resolve --applied "$baseline_migration"
 }
 
-echo "Generating Prisma client for ${DATABASE_PROVIDER:-inferred}"
+echo "Generating Prisma client for MySQL"
 npm run db:generate
 
 while true; do

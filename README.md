@@ -21,7 +21,7 @@ Duralog is a web app to track maintenance and service history for your vehicles 
 |----------|-------------------------------------|
 | Frontend | Remix 2 + React 18 + TypeScript     |
 | Backend  | Node.js + Express 4 + TypeScript    |
-| Database | Prisma ORM + SQLite or MySQL        |
+| Database | Prisma ORM + MySQL                  |
 | Build    | Vite 6 + Remix Vite plugin          |
 
 ## UI Styling Standard
@@ -71,6 +71,7 @@ vehicle-service-record/
 │       └── types/               # Frontend types
 ├── prisma/
 │   ├── schema.prisma            # Prisma schema
+│   ├── migrations/              # Prisma migration history
 │   └── seed.ts                  # Development seed script
 ├── public/                      # Static assets
 ├── vite.config.ts               # Remix Vite config
@@ -90,9 +91,12 @@ The project is a single npm package: one install at the root covers both fronten
 ### 2. Initialize the database
 
 ```bash
+docker compose up -d mysql
 npm run db:migrate -- --name init
 npm run db:seed
 ```
+
+The default `.env.example` points Prisma at the local MySQL instance exposed on `127.0.0.1:3306`.
 
 The seed step creates a development login by default:
 
@@ -166,9 +170,7 @@ Copy `.env.example` to `.env` and adjust values for your environment.
 Important variables:
 
 - Database
-- `DATABASE_PROVIDER`: optional override for Prisma provider selection. Leave unset to infer from `DATABASE_URL`.
-- `DATABASE_URL`: database connection string. Use `file:./prisma/dev.db` for local SQLite, `libsql://...` for remote libSQL-compatible SQLite, or `mysql://...` for MySQL.
-- `DATABASE_AUTH_TOKEN`: optional auth token for remote libSQL providers that require bearer-style authentication
+- `DATABASE_URL`: MySQL connection string, for example `mysql://user:password@127.0.0.1:3306/duralog`
 
 - Auth
 - `OPENAUTH_SECRET`: signing secret for the login session token
@@ -241,36 +243,21 @@ Each line in that file is one JSON log record, so you can grep or ingest it with
 
 Reminder delivery attempts are also recorded in the database, so you can inspect notification status, retry counts, and provider responses without relying only on stdout logs.
 
-## Database Providers
+## Database
 
-The app supports three database connection modes behind Prisma:
+The app uses MySQL only.
 
-- local SQLite
-- remote libSQL-compatible SQLite
-- MySQL
-
-Provider selection is inferred from `DATABASE_URL` unless you set `DATABASE_PROVIDER` explicitly.
-
-Examples:
+Example connection string:
 
 ```bash
-# Local development database
-DATABASE_URL="file:./prisma/dev.db"
-
-# Remote libSQL database
-DATABASE_URL="libsql://your-database-host"
-DATABASE_AUTH_TOKEN="your-optional-token"
-
-# MySQL database
 DATABASE_URL="mysql://user:password@127.0.0.1:3306/duralog"
 ```
 
 Notes:
 
-- The backend runtime, Prisma CLI commands, and `npm run db:seed` all follow the same provider selection.
-- SQLite and MySQL use separate migration histories. SQLite uses `prisma/migrations`; MySQL uses `prisma/mysql/migrations`. Prisma generates the provider-specific MySQL schema from the canonical `prisma/schema.prisma` definition when needed.
-- After switching between SQLite and MySQL, run `npm run db:generate` before starting the app so the Prisma client matches the active provider.
-- Remote SQLite URLs must be libSQL-compatible. Plain remote `sqlite://` URLs are not supported by Prisma.
+- The backend runtime, Prisma CLI commands, and `npm run db:seed` all use the same MySQL `DATABASE_URL`.
+- Prisma schema and migrations now live in the default locations: `prisma/schema.prisma` and `prisma/migrations`.
+- When bootstrapping locally, start MySQL before running `npm run db:migrate`.
 
 ## Login Flow
 

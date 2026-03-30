@@ -10,7 +10,7 @@
 | -------- | ---------------------------------------------------- |
 | Frontend | Remix v2 + React 18 + TypeScript (in `src/ui/`)      |
 | Backend  | Node.js + Express 4 + TypeScript (in `src/`)         |
-| Database | Prisma ORM + SQLite or MySQL                         |
+| Database | Prisma ORM + MySQL                                   |
 | Styling  | Tailwind CSS v4 + shadcn-style primitives            |
 | Build    | Vite 6 (Remix Vite plugin)                           |
 | Runtime  | Node.js (ESM throughout, NodeNext module resolution) |
@@ -46,9 +46,8 @@ vehicle-service-record/
 │       ├── entry.server.tsx
 │       └── tsconfig.app.json   # Frontend TS config
 ├── prisma/
-│   ├── schema.prisma           # Canonical Prisma schema; config derives SQLite or MySQL variants from this
-│   ├── mysql/
-│   │   └── migrations/         # Prisma migration history for MySQL
+│   ├── schema.prisma           # Prisma schema
+│   ├── migrations/             # Prisma migration history
 │   └── seed.ts                 # Dev seed script
 ├── openspec/                   # OpenSpec change management (do not modify manually)
 ├── package.json                # Root package (type: "module", all scripts here)
@@ -72,7 +71,8 @@ npm install
 cp .env.example .env
 # Edit .env and fill in secrets (especially OPENAUTH_SECRET for production)
 
-# 3. Initialize and migrate the database
+# 3. Start MySQL and initialize the database
+docker compose up -d mysql
 npm run db:migrate -- --name init
 
 # 4. Seed development data (creates demo@example.com / change-me123 login)
@@ -128,7 +128,7 @@ npm run db:push       # Push schema to DB without migration history (dev shortcu
 npm run db:seed       # Seed development data
 ```
 
-After modifying either Prisma schema file, always run `npm run db:generate` and create a migration for the active provider.
+After modifying `prisma/schema.prisma`, always run `npm run db:generate` and create a migration in `prisma/migrations`.
 
 ## Key Conventions
 
@@ -173,19 +173,18 @@ After modifying either Prisma schema file, always run `npm run db:generate` and 
 
 ## Environment Variables
 
-| Variable                       | Description                                                           | Default                           |
-| ------------------------------ | --------------------------------------------------------------------- | --------------------------------- |
-| `DATABASE_PROVIDER`            | Optional override for Prisma provider selection (`sqlite` or `mysql`) | inferred from `DATABASE_URL`      |
-| `DATABASE_URL`                 | Prisma connection string for SQLite, libSQL, or MySQL                 | `file:./prisma/dev.db`            |
-| `PORT`                         | Express server port                                                   | `3001`                            |
-| `OPENAUTH_SECRET`              | Signing secret for session tokens                                     | _(required in production)_        |
-| `OPENAUTH_ISSUER`              | Token issuer                                                          | `vehicle-service-record-openauth` |
-| `OPENAUTH_AUDIENCE`            | Token audience                                                        | `vehicle-service-record-client`   |
-| `DEV_USER_EMAIL`               | Seeded dev login email                                                | `demo@example.com`                |
-| `DEV_USER_PASSWORD`            | Seeded dev login password                                             | `change-me123`                    |
-| `LOG_LEVEL`                    | Backend log threshold (`debug`, `info`, `warn`, `error`)              | `debug` in dev, `info` in prod    |
-| `LOG_READ_REQUEST_SAMPLE_RATE` | Sampling rate for read-request logs (0–1)                             | `1` in dev, `0.1` in prod         |
-| `LOG_FILE_PATH`                | Optional NDJSON log file path                                         | _(disabled)_                      |
+| Variable                       | Description                                              | Default                                          |
+| ------------------------------ | -------------------------------------------------------- | ------------------------------------------------ |
+| `DATABASE_URL`                 | Prisma MySQL connection string                           | `mysql://duralog:duralog@127.0.0.1:3306/duralog` |
+| `PORT`                         | Express server port                                      | `3001`                                           |
+| `OPENAUTH_SECRET`              | Signing secret for session tokens                        | _(required in production)_                       |
+| `OPENAUTH_ISSUER`              | Token issuer                                             | `vehicle-service-record-openauth`                |
+| `OPENAUTH_AUDIENCE`            | Token audience                                           | `vehicle-service-record-client`                  |
+| `DEV_USER_EMAIL`               | Seeded dev login email                                   | `demo@example.com`                               |
+| `DEV_USER_PASSWORD`            | Seeded dev login password                                | `change-me123`                                   |
+| `LOG_LEVEL`                    | Backend log threshold (`debug`, `info`, `warn`, `error`) | `debug` in dev, `info` in prod                   |
+| `LOG_READ_REQUEST_SAMPLE_RATE` | Sampling rate for read-request logs (0–1)                | `1` in dev, `0.1` in prod                        |
+| `LOG_FILE_PATH`                | Optional NDJSON log file path                            | _(disabled)_                                     |
 
 ## CI / Validation
 
@@ -201,6 +200,6 @@ Before submitting changes, always:
 
 -   **Module resolution errors**: The project uses `"type": "module"` with NodeNext resolution. Backend imports must use explicit `.js` extensions (e.g., `import './routes/auth.js'`).
 -   **Prisma client not found**: Run `npm install` (triggers `postinstall: prisma generate`) or run `npm run db:generate` manually.
--   **Provider switches require regeneration**: After moving between SQLite/libSQL and MySQL, rerun `npm run db:generate` so `@prisma/client` matches the active schema.
+-   **MySQL is required**: Start a MySQL server that matches `DATABASE_URL` before running Prisma commands or starting the app.
 -   **Single server in dev**: There is no separate frontend dev server. `npm run dev` starts one Express server on port 3001 that serves both the API and Remix UI.
 -   **Missing `.env`**: Copy `.env.example` to `.env` before starting the server.

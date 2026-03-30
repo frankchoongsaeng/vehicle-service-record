@@ -2,7 +2,6 @@ FROM node:22-bookworm-slim AS build
 
 WORKDIR /app
 
-ENV DATABASE_PROVIDER=mysql
 ENV DATABASE_URL=mysql://duralog:duralog@mysql:3306/duralog
 
 RUN apt-get update \

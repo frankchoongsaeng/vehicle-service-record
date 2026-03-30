@@ -22,6 +22,7 @@ services:
       start_interval: 5s
     volumes:
       - mysql-data:/var/lib/mysql
+      - ./docker/mysql.cnf:/etc/mysql/conf.d/custom.cnf:ro
 
   app:
     build:

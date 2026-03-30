@@ -139,8 +139,7 @@ docker compose up --build
 What the app container does on startup:
 
 - regenerates the Prisma client for MySQL
-- waits for the database and applies MySQL migrations with `prisma migrate deploy`
-- if Prisma reports `P3005` for an already-populated schema, marks the initial MySQL migration as applied once and retries deployment
+- applies MySQL migrations with `prisma migrate deploy`
 - optionally runs `npm run db:seed` when `SEED_ON_STARTUP=true`
 - starts the production server on <http://localhost:3001>
 
@@ -190,9 +189,6 @@ Important variables:
 - Development seed user
 - `DEV_USER_EMAIL`: seeded development login email
 - `DEV_USER_PASSWORD`: seeded development login password
-
-- Prisma bootstrap
-- `PRISMA_BASELINE_ON_P3005`: when `true`, container startup will mark the initial migration as applied if Prisma finds a non-empty MySQL schema without migration history
 
 - Logging
 - `LOG_LEVEL`: backend log threshold, for example `debug`, `info`, `warn`, or `error`

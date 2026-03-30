@@ -79,6 +79,8 @@ npm run db:migrate -- --name init
 npm run db:seed
 ```
 
+If Prisma reports `P3005`, resolve the migration history explicitly with a one-time baseline or reset the development database before retrying.
+
 ## Development
 
 ```bash

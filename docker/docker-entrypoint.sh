@@ -1,70 +1,60 @@
 #!/bin/sh
 set -eu
 
-max_attempts="${DB_MIGRATE_MAX_ATTEMPTS:-30}"
-attempt=1
-baseline_attempted=false
-migrations_dir="prisma/migrations"
-
-resolve_baseline_migration() {
-    baseline_migration="$(find "$migrations_dir" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | head -n 1)"
-
-    if [ -z "$baseline_migration" ]; then
-        echo "Prisma reported P3005 but no migration directory was found in $migrations_dir"
-        return 1
-    fi
-
-    echo "Prisma reported P3005 for a non-empty schema. Marking baseline migration ${baseline_migration} as applied."
-    npx prisma migrate resolve --applied "$baseline_migration"
+log() {
+    printf '%s\n' "$*"
 }
 
-echo "Generating Prisma client for MySQL"
-npm run db:generate
+mask_database_url() {
+    if [ -z "${DATABASE_URL:-}" ]; then
+        printf '%s\n' '<unset>'
+        return
+    fi
 
-while true; do
+    printf '%s\n' "$DATABASE_URL" | sed -E 's#(mysql://[^:]+:)[^@]*@#\1****@#'
+}
+
+run_migrations() {
     output_file="$(mktemp)"
 
     if npm run db:deploy >"$output_file" 2>&1; then
         cat "$output_file"
         rm -f "$output_file"
-        break
+        return 0
     fi
 
     cat "$output_file"
 
     if grep -q 'Error: P3005' "$output_file"; then
-        rm -f "$output_file"
-
-        if [ "${PRISMA_BASELINE_ON_P3005:-true}" != "true" ]; then
-            echo "Prisma reported P3005 and automatic baselining is disabled."
-            exit 1
-        fi
-
-        if [ "$baseline_attempted" = "true" ]; then
-            echo "Prisma reported P3005 again after automatic baseline resolution."
-            exit 1
-        fi
-
-        baseline_attempted=true
-        resolve_baseline_migration
-        continue
+        log 'Prisma reported P3005: the database schema is not empty but migration history is missing.'
+        log 'Resolve this explicitly by baselining the database once or resetting it, then rerun the container.'
     fi
 
     rm -f "$output_file"
+    return 1
+}
 
-    if [ "$attempt" -ge "$max_attempts" ]; then
-        echo "Prisma migration deployment failed after ${max_attempts} attempts"
-        exit 1
-    fi
+if [ -z "${DATABASE_URL:-}" ]; then
+    log 'DATABASE_URL is required.'
+    exit 1
+fi
 
-    echo "Database is not ready for migrations yet; retrying (${attempt}/${max_attempts})"
-    attempt=$((attempt + 1))
-    sleep 2
-done
+log 'Starting container bootstrap'
+log "Database URL: $(mask_database_url)"
+log 'Generating Prisma client'
+npm run db:generate
+
+if [ "${SKIP_DB_MIGRATIONS:-false}" = "true" ]; then
+    log 'Skipping Prisma migrations because SKIP_DB_MIGRATIONS=true'
+else
+    log 'Deploying Prisma migrations'
+    run_migrations
+fi
 
 if [ "${SEED_ON_STARTUP:-false}" = "true" ]; then
-    echo "Seeding database"
+    log 'Seeding database'
     npm run db:seed
 fi
 
+log "Starting application: $*"
 exec "$@"

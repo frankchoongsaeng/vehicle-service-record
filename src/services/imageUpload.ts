@@ -3,6 +3,7 @@ import { Readable } from 'node:stream'
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web'
 import * as BunnyStorageSDK from '@bunny.net/storage-sdk'
 import { createLogger } from '../logging/logger.js'
+import { withServerMonitoringSpan } from '../monitoring/server.js'
 import { resolveGeneratedImagePath } from './imageGeneration.js'
 
 const imageUploadLogger = createLogger({ component: 'image-upload-service' })
@@ -98,56 +99,76 @@ export async function uploadGeneratedImage({
     storageKey,
     contentType = 'image/webp'
 }: UploadGeneratedImageInput): Promise<void> {
-    const filePath = resolveGeneratedImagePath(filename)
-    const storageZone = getStorageZone()
-    const remotePath = normalizeRemotePath(storageKey)
+    await withServerMonitoringSpan(
+        'vehicle_image.upload_generated',
+        {
+            filename,
+            storageKey,
+            contentType
+        },
+        async () => {
+            const filePath = resolveGeneratedImagePath(filename)
+            const storageZone = getStorageZone()
+            const remotePath = normalizeRemotePath(storageKey)
 
-    imageUploadLogger.info('vehicle_image.upload_started', {
-        filename,
-        storageKey: remotePath
-    })
+            imageUploadLogger.info('vehicle_image.upload_started', {
+                filename,
+                storageKey: remotePath
+            })
 
-    const fileStream = createReadStream(filePath)
-    const webStream = Readable.toWeb(fileStream) as NodeReadableStream<Uint8Array>
+            const fileStream = createReadStream(filePath)
+            const webStream = Readable.toWeb(fileStream) as NodeReadableStream<Uint8Array>
 
-    await BunnyStorageSDK.file.upload(storageZone, remotePath, webStream, {
-        contentType
-    })
+            await BunnyStorageSDK.file.upload(storageZone, remotePath, webStream, {
+                contentType
+            })
 
-    imageUploadLogger.info('vehicle_image.upload_completed', {
-        filename,
-        storageKey: remotePath
-    })
+            imageUploadLogger.info('vehicle_image.upload_completed', {
+                filename,
+                storageKey: remotePath
+            })
+        }
+    )
 }
 
 export async function uploadBufferImage({ storageKey, contentType, data }: UploadBufferImageInput): Promise<string> {
-    const storageZone = getStorageZone()
-    const remotePath = normalizeRemotePath(storageKey)
+    return withServerMonitoringSpan(
+        'vehicle_image.upload_buffer',
+        {
+            storageKey,
+            contentType,
+            size: data.byteLength
+        },
+        async () => {
+            const storageZone = getStorageZone()
+            const remotePath = normalizeRemotePath(storageKey)
 
-    imageUploadLogger.info('uploaded_image.upload_started', {
-        storageKey: remotePath,
-        contentType,
-        size: data.byteLength
-    })
+            imageUploadLogger.info('uploaded_image.upload_started', {
+                storageKey: remotePath,
+                contentType,
+                size: data.byteLength
+            })
 
-    const stream = Readable.from(data)
-    const webStream = Readable.toWeb(stream) as NodeReadableStream<Uint8Array>
+            const stream = Readable.from(data)
+            const webStream = Readable.toWeb(stream) as NodeReadableStream<Uint8Array>
 
-    await BunnyStorageSDK.file.upload(storageZone, remotePath, webStream, {
-        contentType
-    })
+            await BunnyStorageSDK.file.upload(storageZone, remotePath, webStream, {
+                contentType
+            })
 
-    imageUploadLogger.info('uploaded_image.upload_completed', {
-        storageKey: remotePath,
-        contentType,
-        size: data.byteLength
-    })
+            imageUploadLogger.info('uploaded_image.upload_completed', {
+                storageKey: remotePath,
+                contentType,
+                size: data.byteLength
+            })
 
-    const publicUrl = resolveUploadedImageUrl(storageKey)
+            const publicUrl = resolveUploadedImageUrl(storageKey)
 
-    if (!publicUrl) {
-        throw new Error('BUNNY_PUBLIC_BASE_URL is not configured')
-    }
+            if (!publicUrl) {
+                throw new Error('BUNNY_PUBLIC_BASE_URL is not configured')
+            }
 
-    return publicUrl
+            return publicUrl
+        }
+    )
 }

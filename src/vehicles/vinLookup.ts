@@ -1,4 +1,5 @@
 import { createLogger } from '../logging/logger.js'
+import { withServerMonitoringSpan } from '../monitoring/server.js'
 
 const vinLookupLogger = createLogger({ component: 'vin-lookup' })
 
@@ -387,61 +388,66 @@ function buildLookupResult(vin: string, result: VpicVehicleResult): VinLookupRes
 
 export async function lookupVin(rawVin: string): Promise<VinLookupResult> {
     const vin = normalizeVin(rawVin)
-    if (!isValidVin(vin)) {
-        throw new VinLookupError('A valid 17-character VIN is required.', 400)
-    }
 
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 8000)
+    return withServerMonitoringSpan('vin_lookup.decode', { vin }, async () => {
+        if (!isValidVin(vin)) {
+            throw new VinLookupError('A valid 17-character VIN is required.', 400)
+        }
 
-    try {
-        const response = await fetch(
-            `https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValuesExtended/${encodeURIComponent(vin)}?format=json`,
-            {
-                signal: controller.signal,
-                headers: {
-                    Accept: 'application/json'
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 8000)
+
+        try {
+            const response = await fetch(
+                `https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValuesExtended/${encodeURIComponent(
+                    vin
+                )}?format=json`,
+                {
+                    signal: controller.signal,
+                    headers: {
+                        Accept: 'application/json'
+                    }
                 }
+            )
+
+            if (!response.ok) {
+                vinLookupLogger.warn('vin_lookup.request_failed', {
+                    vin,
+                    statusCode: response.status
+                })
+                throw new VinLookupError('VIN lookup is temporarily unavailable.', 502)
             }
-        )
 
-        if (!response.ok) {
-            vinLookupLogger.warn('vin_lookup.request_failed', {
+            const payload = (await response.json()) as VpicDecodeResponse
+            const result = payload.Results?.[0]
+            if (!result) {
+                throw new VinLookupError('No vehicle details were found for this VIN.', 404)
+            }
+
+            if (cleanDecodedValue(result.ErrorCode) && result.ErrorCode !== '0') {
+                vinLookupLogger.warn('vin_lookup.decode_failed', {
+                    vin,
+                    errorCode: result.ErrorCode,
+                    errorText: result.ErrorText,
+                    additionalErrorText: result.AdditionalErrorText
+                })
+                throw new VinLookupError('No vehicle details were found for this VIN.', 404)
+            }
+
+            return buildLookupResult(vin, result)
+        } catch (error) {
+            if (error instanceof VinLookupError) {
+                throw error
+            }
+
+            vinLookupLogger.error('vin_lookup.unexpected_error', {
                 vin,
-                statusCode: response.status
+                error
             })
+
             throw new VinLookupError('VIN lookup is temporarily unavailable.', 502)
+        } finally {
+            clearTimeout(timeout)
         }
-
-        const payload = (await response.json()) as VpicDecodeResponse
-        const result = payload.Results?.[0]
-        if (!result) {
-            throw new VinLookupError('No vehicle details were found for this VIN.', 404)
-        }
-
-        if (cleanDecodedValue(result.ErrorCode) && result.ErrorCode !== '0') {
-            vinLookupLogger.warn('vin_lookup.decode_failed', {
-                vin,
-                errorCode: result.ErrorCode,
-                errorText: result.ErrorText,
-                additionalErrorText: result.AdditionalErrorText
-            })
-            throw new VinLookupError('No vehicle details were found for this VIN.', 404)
-        }
-
-        return buildLookupResult(vin, result)
-    } catch (error) {
-        if (error instanceof VinLookupError) {
-            throw error
-        }
-
-        vinLookupLogger.error('vin_lookup.unexpected_error', {
-            vin,
-            error
-        })
-
-        throw new VinLookupError('VIN lookup is temporarily unavailable.', 502)
-    } finally {
-        clearTimeout(timeout)
-    }
+    })
 }

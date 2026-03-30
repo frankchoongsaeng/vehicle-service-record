@@ -4,6 +4,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import OpenAI from 'openai'
 import { createLogger } from '../logging/logger.js'
+import { withServerMonitoringSpan } from '../monitoring/server.js'
 
 const imageGenerationLogger = createLogger({ component: 'image-generation-service' })
 const DEFAULT_IMAGE_MODEL = 'gpt-image-1'
@@ -91,42 +92,53 @@ export function resolveGeneratedImagePath(filename: string): string {
 }
 
 export async function generateVehicleImage(input: VehicleImageGenerationInput): Promise<string> {
-    const client = getOpenAiClient()
-    const model = process.env.OPENAI_IMAGE_MODEL?.trim() || DEFAULT_IMAGE_MODEL
+    return withServerMonitoringSpan(
+        'vehicle_image.generate',
+        {
+            classificationKey: input.classificationKey,
+            make: input.make,
+            model: input.model,
+            year: input.year
+        },
+        async () => {
+            const client = getOpenAiClient()
+            const model = process.env.OPENAI_IMAGE_MODEL?.trim() || DEFAULT_IMAGE_MODEL
 
-    imageGenerationLogger.info('vehicle_image.generation_started', {
-        classificationKey: input.classificationKey,
-        make: input.make,
-        model: input.model,
-        year: input.year,
-        modelName: model
-    })
+            imageGenerationLogger.info('vehicle_image.generation_started', {
+                classificationKey: input.classificationKey,
+                make: input.make,
+                model: input.model,
+                year: input.year,
+                modelName: model
+            })
 
-    const response = await client.images.generate({
-        model,
-        prompt: buildPrompt(input),
-        size: DEFAULT_IMAGE_SIZE,
-        quality: DEFAULT_IMAGE_QUALITY,
-        output_format: DEFAULT_OUTPUT_FORMAT,
-        background: DEFAULT_BACKGROUND
-    })
+            const response = await client.images.generate({
+                model,
+                prompt: buildPrompt(input),
+                size: DEFAULT_IMAGE_SIZE,
+                quality: DEFAULT_IMAGE_QUALITY,
+                output_format: DEFAULT_OUTPUT_FORMAT,
+                background: DEFAULT_BACKGROUND
+            })
 
-    const imageBase64 = response.data?.[0]?.b64_json
+            const imageBase64 = response.data?.[0]?.b64_json
 
-    if (!imageBase64) {
-        throw new Error('OpenAI did not return image data')
-    }
+            if (!imageBase64) {
+                throw new Error('OpenAI did not return image data')
+            }
 
-    const filename = `${sanitizeFileSegment(input.classificationKey)}-${randomUUID()}.webp`
-    const filePath = resolveGeneratedImagePath(filename)
+            const filename = `${sanitizeFileSegment(input.classificationKey)}-${randomUUID()}.webp`
+            const filePath = resolveGeneratedImagePath(filename)
 
-    await mkdir(getProjectTmpDirectory(), { recursive: true })
-    await writeFile(filePath, Buffer.from(imageBase64, 'base64'))
+            await mkdir(getProjectTmpDirectory(), { recursive: true })
+            await writeFile(filePath, Buffer.from(imageBase64, 'base64'))
 
-    imageGenerationLogger.info('vehicle_image.generation_completed', {
-        classificationKey: input.classificationKey,
-        filename
-    })
+            imageGenerationLogger.info('vehicle_image.generation_completed', {
+                classificationKey: input.classificationKey,
+                filename
+            })
 
-    return filename
+            return filename
+        }
+    )
 }

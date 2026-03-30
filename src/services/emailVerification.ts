@@ -4,6 +4,7 @@ import nodemailer from 'nodemailer'
 import { getSmtpConfig } from './emailConfig.js'
 import { buildCalloutCard, buildParagraphBlock, renderEmailLayout } from './emailLayout.js'
 import { createLogger } from '../logging/logger.js'
+import { withServerMonitoringSpan } from '../monitoring/server.js'
 
 const verificationLogger = createLogger({ component: 'email-verification' })
 const DEFAULT_TOKEN_TTL_HOURS = 24
@@ -47,90 +48,99 @@ export async function sendEmailVerificationEmail(input: SendVerificationEmailInp
     provider: 'log' | 'smtp'
     response: string
 }> {
-    const { host, port, secure, user, pass, from } = getSmtpConfig('welcome')
-
-    const subject = 'Verify your Duralog email address'
-    const text = [
-        'Welcome to Duralog.',
-        '',
-        'Verify your email address to unlock reminder emails and other email-based features.',
-        '',
-        `This verification link expires in ${getTokenTtlHours()} hours.`,
-        '',
-        'Open this link to verify your email:',
-        input.verificationUrl,
-        '',
-        `If you did not create this account, you can ignore this email.`
-    ].join('\n')
-    const html = renderEmailLayout({
-        previewText: 'Verify your email to enable reminders and secure your Duralog account.',
-        categoryLabel: 'Welcome',
-        title: 'Verify your email',
-        intro: 'Finish setting up your Duralog account so reminders and account updates can reach you.',
-        bodyHtml:
-            buildParagraphBlock([
-                'Welcome to Duralog.',
-                'Confirm your email address to unlock reminder emails and other email-based features.'
-            ]) +
-            buildCalloutCard('What happens next', [
-                `This verification link expires in ${getTokenTtlHours()} hours.`,
-                'Once verified, your account can receive maintenance reminders and security notices.',
-                'If you did not create this account, you can safely ignore this message.'
-            ]),
-        action: {
-            label: 'Verify your email',
-            url: input.verificationUrl
-        },
-        actionHint: 'Use the button above to confirm your address in one step.',
-        footerNote: 'This message was sent because a Duralog account was created with this email address.'
-    })
-
-    if (!host || !from) {
-        verificationLogger.info('email_verification.logged', {
-            provider: 'log',
+    return withServerMonitoringSpan(
+        'email.send_verification',
+        {
             to: input.to,
-            subject,
-            verificationUrl: input.verificationUrl
-        })
+            channel: 'welcome'
+        },
+        async () => {
+            const { host, port, secure, user, pass, from } = getSmtpConfig('welcome')
 
-        return {
-            provider: 'log',
-            response: 'logged-locally'
+            const subject = 'Verify your Duralog email address'
+            const text = [
+                'Welcome to Duralog.',
+                '',
+                'Verify your email address to unlock reminder emails and other email-based features.',
+                '',
+                `This verification link expires in ${getTokenTtlHours()} hours.`,
+                '',
+                'Open this link to verify your email:',
+                input.verificationUrl,
+                '',
+                `If you did not create this account, you can ignore this email.`
+            ].join('\n')
+            const html = renderEmailLayout({
+                previewText: 'Verify your email to enable reminders and secure your Duralog account.',
+                categoryLabel: 'Welcome',
+                title: 'Verify your email',
+                intro: 'Finish setting up your Duralog account so reminders and account updates can reach you.',
+                bodyHtml:
+                    buildParagraphBlock([
+                        'Welcome to Duralog.',
+                        'Confirm your email address to unlock reminder emails and other email-based features.'
+                    ]) +
+                    buildCalloutCard('What happens next', [
+                        `This verification link expires in ${getTokenTtlHours()} hours.`,
+                        'Once verified, your account can receive maintenance reminders and security notices.',
+                        'If you did not create this account, you can safely ignore this message.'
+                    ]),
+                action: {
+                    label: 'Verify your email',
+                    url: input.verificationUrl
+                },
+                actionHint: 'Use the button above to confirm your address in one step.',
+                footerNote: 'This message was sent because a Duralog account was created with this email address.'
+            })
+
+            if (!host || !from) {
+                verificationLogger.info('email_verification.logged', {
+                    provider: 'log',
+                    to: input.to,
+                    subject,
+                    verificationUrl: input.verificationUrl
+                })
+
+                return {
+                    provider: 'log',
+                    response: 'logged-locally'
+                }
+            }
+
+            const transporter = nodemailer.createTransport({
+                host,
+                port,
+                secure,
+                ...(user || pass
+                    ? {
+                          auth: {
+                              user,
+                              pass
+                          }
+                      }
+                    : {})
+            })
+
+            const info = await transporter.sendMail({
+                from,
+                to: input.to,
+                subject,
+                text,
+                html
+            })
+
+            verificationLogger.info('email_verification.sent', {
+                provider: 'smtp',
+                to: input.to,
+                messageId: info.messageId,
+                accepted: info.accepted,
+                rejected: info.rejected
+            })
+
+            return {
+                provider: 'smtp',
+                response: info.messageId
+            }
         }
-    }
-
-    const transporter = nodemailer.createTransport({
-        host,
-        port,
-        secure,
-        ...(user || pass
-            ? {
-                  auth: {
-                      user,
-                      pass
-                  }
-              }
-            : {})
-    })
-
-    const info = await transporter.sendMail({
-        from,
-        to: input.to,
-        subject,
-        text,
-        html
-    })
-
-    verificationLogger.info('email_verification.sent', {
-        provider: 'smtp',
-        to: input.to,
-        messageId: info.messageId,
-        accepted: info.accepted,
-        rejected: info.rejected
-    })
-
-    return {
-        provider: 'smtp',
-        response: info.messageId
-    }
+    )
 }

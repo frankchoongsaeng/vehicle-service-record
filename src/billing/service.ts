@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client'
 
 import { prisma } from '../db.js'
+import { withServerMonitoringSpan } from '../monitoring/server.js'
 import type {
     BillingEntitlementSnapshot,
     BillingFeature,
@@ -90,30 +91,34 @@ function buildEntitlements(planCode: PlanCode, usage: BillingUsageSnapshot): Bil
 }
 
 export async function getUsageCounts(userId: string): Promise<BillingUsageSnapshot> {
-    const [vehicles, serviceRecords, workshops] = await prisma.$transaction([
-        prisma.vehicle.count({ where: { user_id: userId } }),
-        prisma.serviceRecord.count({ where: { user_id: userId } }),
-        prisma.workshop.count({ where: { user_id: userId } })
-    ])
+    return withServerMonitoringSpan('billing.get_usage_counts', { userId }, async () => {
+        const [vehicles, serviceRecords, workshops] = await prisma.$transaction([
+            prisma.vehicle.count({ where: { user_id: userId } }),
+            prisma.serviceRecord.count({ where: { user_id: userId } }),
+            prisma.workshop.count({ where: { user_id: userId } })
+        ])
 
-    return {
-        vehicles,
-        serviceRecords,
-        workshops
-    }
+        return {
+            vehicles,
+            serviceRecords,
+            workshops
+        }
+    })
 }
 
 export async function getBillingUser(userId: string): Promise<BillingUserRecord> {
-    const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: billingUserSelect
+    return withServerMonitoringSpan('billing.get_user', { userId }, async () => {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: billingUserSelect
+        })
+
+        if (!user) {
+            throw new Error('User not found')
+        }
+
+        return user
     })
-
-    if (!user) {
-        throw new Error('User not found')
-    }
-
-    return user
 }
 
 export async function getCurrentPlan(userId: string): Promise<PlanCode> {
@@ -122,20 +127,22 @@ export async function getCurrentPlan(userId: string): Promise<PlanCode> {
 }
 
 export async function getBillingSubscriptionState(userId: string): Promise<BillingSubscriptionState> {
-    const [user, usage] = await Promise.all([getBillingUser(userId), getUsageCounts(userId)])
-    const planCode = resolveCurrentPlanFromUser(user)
-    const status = normalizeSubscriptionStatusValue(user.subscription_status)
+    return withServerMonitoringSpan('billing.get_subscription_state', { userId }, async () => {
+        const [user, usage] = await Promise.all([getBillingUser(userId), getUsageCounts(userId)])
+        const planCode = resolveCurrentPlanFromUser(user)
+        const status = normalizeSubscriptionStatusValue(user.subscription_status)
 
-    return {
-        planCode,
-        planName: BILLING_PLANS[planCode].name,
-        subscriptionStatus: status,
-        billingInterval: normalizeBillingIntervalValue(user.billing_interval),
-        currentPeriodEnd: user.current_period_end?.toISOString() ?? null,
-        cancelAtPeriodEnd: Boolean(user.cancel_at_period_end),
-        canManageBilling: Boolean(user.stripe_customer_id),
-        entitlements: buildEntitlements(planCode, usage)
-    }
+        return {
+            planCode,
+            planName: BILLING_PLANS[planCode].name,
+            subscriptionStatus: status,
+            billingInterval: normalizeBillingIntervalValue(user.billing_interval),
+            currentPeriodEnd: user.current_period_end?.toISOString() ?? null,
+            cancelAtPeriodEnd: Boolean(user.cancel_at_period_end),
+            canManageBilling: Boolean(user.stripe_customer_id),
+            entitlements: buildEntitlements(planCode, usage)
+        }
+    })
 }
 
 function getNextPlanForVehicleLimit(currentPlan: PlanCode): PlanCode | null {
@@ -172,56 +179,64 @@ async function getCurrentPlanAndUsage(userId: string): Promise<{ planCode: PlanC
 }
 
 export async function assertCanCreateVehicle(userId: string): Promise<void> {
-    const { planCode, usage } = await getCurrentPlanAndUsage(userId)
-    const limit = BILLING_PLANS[planCode].vehicleLimit
+    await withServerMonitoringSpan('billing.assert_vehicle_limit', { userId }, async () => {
+        const { planCode, usage } = await getCurrentPlanAndUsage(userId)
+        const limit = BILLING_PLANS[planCode].vehicleLimit
 
-    if (limit != null && usage.vehicles >= limit) {
-        throw createPlanLimitReachedError(
-            planCode,
-            'vehicles',
-            planCode === 'garage'
-                ? 'You have reached the Garage vehicle limit.'
-                : 'Vehicle limit reached for your current plan.',
-            getRequiredPlanForLimit(planCode, 'vehicles')
-        )
-    }
+        if (limit != null && usage.vehicles >= limit) {
+            throw createPlanLimitReachedError(
+                planCode,
+                'vehicles',
+                planCode === 'garage'
+                    ? 'You have reached the Garage vehicle limit.'
+                    : 'Vehicle limit reached for your current plan.',
+                getRequiredPlanForLimit(planCode, 'vehicles')
+            )
+        }
+    })
 }
 
 export async function assertCanCreateServiceRecord(userId: string): Promise<void> {
-    const { planCode, usage } = await getCurrentPlanAndUsage(userId)
-    const limit = BILLING_PLANS[planCode].serviceRecordLimit
+    await withServerMonitoringSpan('billing.assert_service_record_limit', { userId }, async () => {
+        const { planCode, usage } = await getCurrentPlanAndUsage(userId)
+        const limit = BILLING_PLANS[planCode].serviceRecordLimit
 
-    if (limit != null && usage.serviceRecords >= limit) {
-        throw createPlanLimitReachedError(
-            planCode,
-            'serviceRecords',
-            'Service record limit reached for your current plan.',
-            getRequiredPlanForLimit(planCode, 'serviceRecords')
-        )
-    }
+        if (limit != null && usage.serviceRecords >= limit) {
+            throw createPlanLimitReachedError(
+                planCode,
+                'serviceRecords',
+                'Service record limit reached for your current plan.',
+                getRequiredPlanForLimit(planCode, 'serviceRecords')
+            )
+        }
+    })
 }
 
 export async function assertCanCreateWorkshop(userId: string): Promise<void> {
-    const { planCode, usage } = await getCurrentPlanAndUsage(userId)
-    const limit = BILLING_PLANS[planCode].workshopLimit
+    await withServerMonitoringSpan('billing.assert_workshop_limit', { userId }, async () => {
+        const { planCode, usage } = await getCurrentPlanAndUsage(userId)
+        const limit = BILLING_PLANS[planCode].workshopLimit
 
-    if (limit != null && usage.workshops >= limit) {
-        throw createPlanLimitReachedError(
-            planCode,
-            'workshops',
-            'Workshop limit reached for your current plan.',
-            getRequiredPlanForLimit(planCode, 'workshops')
-        )
-    }
+        if (limit != null && usage.workshops >= limit) {
+            throw createPlanLimitReachedError(
+                planCode,
+                'workshops',
+                'Workshop limit reached for your current plan.',
+                getRequiredPlanForLimit(planCode, 'workshops')
+            )
+        }
+    })
 }
 
 export async function assertCanUseFeature(userId: string, feature: BillingFeature, message: string): Promise<void> {
-    const user = await getBillingUser(userId)
-    const planCode = resolveCurrentPlanFromUser(user)
+    await withServerMonitoringSpan('billing.assert_feature_access', { userId, feature }, async () => {
+        const user = await getBillingUser(userId)
+        const planCode = resolveCurrentPlanFromUser(user)
 
-    if (!hasFeatureAccess(planCode, feature)) {
-        throw createFeatureUnavailableError(planCode, feature, message)
-    }
+        if (!hasFeatureAccess(planCode, feature)) {
+            throw createFeatureUnavailableError(planCode, feature, message)
+        }
+    })
 }
 
 export async function canUseFeature(userId: string, feature: BillingFeature): Promise<boolean> {

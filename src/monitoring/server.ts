@@ -211,11 +211,11 @@ export function captureServerMessage(
     })
 }
 
-export async function withServerMonitoringSpan<T>(
+export function withServerMonitoringSpan<T>(
     name: string,
     attributes: MonitoringContext,
-    callback: () => Promise<T>
-): Promise<T> {
+    callback: () => T | Promise<T>
+): T | Promise<T> {
     if (!monitoringEnabled) {
         return callback()
     }

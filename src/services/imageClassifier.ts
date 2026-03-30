@@ -1,5 +1,6 @@
 import OpenAI from 'openai'
 import { createLogger } from '../logging/logger.js'
+import { withServerMonitoringSpan } from '../monitoring/server.js'
 import type { VehicleImageSourceInput } from './imageGeneration.js'
 
 const imageClassifierLogger = createLogger({ component: 'image-classifier-service' })
@@ -66,57 +67,68 @@ function buildClassifierLogKey(input: VehicleImageSourceInput): string {
 }
 
 export async function classifyVehicleImage(input: VehicleImageSourceInput): Promise<VehicleImageClassificationResult> {
-    const client = getOpenAiClient()
-    const model = process.env.OPENAI_IMAGE_CLASSIFIER_MODEL?.trim() || DEFAULT_CLASSIFIER_MODEL
+    return withServerMonitoringSpan(
+        'vehicle_image.classify',
+        {
+            make: input.make,
+            model: input.model,
+            year: input.year,
+            trim: input.trim
+        },
+        async () => {
+            const client = getOpenAiClient()
+            const model = process.env.OPENAI_IMAGE_CLASSIFIER_MODEL?.trim() || DEFAULT_CLASSIFIER_MODEL
 
-    imageClassifierLogger.info('vehicle_image.classification_started', {
-        vehicleKey: buildClassifierLogKey(input),
-        make: input.make,
-        model: input.model,
-        year: input.year,
-        modelName: model
-    })
+            imageClassifierLogger.info('vehicle_image.classification_started', {
+                vehicleKey: buildClassifierLogKey(input),
+                make: input.make,
+                model: input.model,
+                year: input.year,
+                modelName: model
+            })
 
-    const response = await client.chat.completions.create({
-        model,
-        response_format: { type: 'json_object' },
-        messages: [
-            {
-                role: 'system',
-                content: 'You return only JSON for vehicle image metadata classification.'
-            },
-            {
-                role: 'user',
-                content: buildClassifierPrompt(input)
+            const response = await client.chat.completions.create({
+                model,
+                response_format: { type: 'json_object' },
+                messages: [
+                    {
+                        role: 'system',
+                        content: 'You return only JSON for vehicle image metadata classification.'
+                    },
+                    {
+                        role: 'user',
+                        content: buildClassifierPrompt(input)
+                    }
+                ]
+            })
+
+            const content = response.choices[0]?.message?.content
+
+            if (!content) {
+                throw new Error('OpenAI did not return image classification content')
             }
-        ]
-    })
 
-    const content = response.choices[0]?.message?.content
+            const parsed = JSON.parse(content) as Record<string, unknown>
+            const { yearStart, yearEnd } = normalizeYearRange(input.year, parsed.yearStart, parsed.yearEnd)
 
-    if (!content) {
-        throw new Error('OpenAI did not return image classification content')
-    }
+            const result: VehicleImageClassificationResult = {
+                yearStart,
+                yearEnd,
+                bodyStyle: toNullableString(parsed.bodyStyle),
+                vehicleType: toNullableString(parsed.vehicleType) ?? input.vehicleType ?? null,
+                view: toNullableString(parsed.view) ?? DEFAULT_VIEW
+            }
 
-    const parsed = JSON.parse(content) as Record<string, unknown>
-    const { yearStart, yearEnd } = normalizeYearRange(input.year, parsed.yearStart, parsed.yearEnd)
+            imageClassifierLogger.info('vehicle_image.classification_completed', {
+                vehicleKey: buildClassifierLogKey(input),
+                yearStart: result.yearStart,
+                yearEnd: result.yearEnd,
+                bodyStyle: result.bodyStyle ?? undefined,
+                vehicleType: result.vehicleType ?? undefined,
+                view: result.view
+            })
 
-    const result: VehicleImageClassificationResult = {
-        yearStart,
-        yearEnd,
-        bodyStyle: toNullableString(parsed.bodyStyle),
-        vehicleType: toNullableString(parsed.vehicleType) ?? input.vehicleType ?? null,
-        view: toNullableString(parsed.view) ?? DEFAULT_VIEW
-    }
-
-    imageClassifierLogger.info('vehicle_image.classification_completed', {
-        vehicleKey: buildClassifierLogKey(input),
-        yearStart: result.yearStart,
-        yearEnd: result.yearEnd,
-        bodyStyle: result.bodyStyle ?? undefined,
-        vehicleType: result.vehicleType ?? undefined,
-        view: result.view
-    })
-
-    return result
+            return result
+        }
+    )
 }

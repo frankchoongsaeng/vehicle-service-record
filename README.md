@@ -259,6 +259,7 @@ The app now supports Bugsink on both the Express backend and the Remix frontend 
 What is captured:
 
 - backend request failures, uncaught exceptions, unhandled promise rejections, Prisma and Express traces, and reminder scheduler failures
+- explicit spans around billing checkout and subscription sync, OpenAI image classification and generation, VIN decoding, and outbound email delivery
 - frontend route-change breadcrumbs, API request breadcrumbs, distributed tracing headers, session user context, and network or server-side API failures
 - correlated domain breadcrumbs from the existing structured logger so Bugsink issues include recent auth, billing, reminder, vehicle, and workshop events
 

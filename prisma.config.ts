@@ -1,8 +1,11 @@
 import 'dotenv/config'
 import { defineConfig } from 'prisma/config'
 
-const defaultDatabaseUrl = 'mysql://duralog:duralog@127.0.0.1:3306/duralog'
-const databaseUrl = process.env.DATABASE_URL?.trim() || defaultDatabaseUrl
+const databaseUrl = process.env.DATABASE_URL?.trim()
+
+if (!databaseUrl) {
+    throw new Error('DATABASE_URL is required.')
+}
 
 if (!/^mysql:/i.test(databaseUrl)) {
     throw new Error('DATABASE_URL must use a mysql:// connection string.')

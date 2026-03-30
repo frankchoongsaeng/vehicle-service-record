@@ -1,6 +1,7 @@
 import { appendFile, mkdir } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { inspect } from 'node:util'
+import { addServerMonitoringBreadcrumb } from '../monitoring/server.js'
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 type LogContext = Record<string, unknown>
@@ -224,6 +225,7 @@ function writeLog(level: LogLevel, message: string, context: LogContext = {}): v
     })
     const formattedConsoleLog = formatConsoleLog(level, payload)
 
+    addServerMonitoringBreadcrumb(level, message, context)
     writeToFileTransport(serialized)
 
     if (level === 'error') {

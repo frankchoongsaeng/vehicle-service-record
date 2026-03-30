@@ -22,6 +22,7 @@ import type {
     WorkspaceReminderPreferencesInput,
     PlanCode
 } from '../types/index.js'
+import { addClientMonitoringBreadcrumb, captureClientException, getClientTraceHeaders } from '../monitoring/client.js'
 
 const BASE = '/api'
 const REQUEST_ID_HEADER = 'x-request-id'
@@ -66,6 +67,8 @@ function getResponseRequestId(res: Response, fallbackRequestId: string): string 
 }
 
 function logApiEvent(level: 'debug' | 'warn', message: string, context: Record<string, unknown>): void {
+    addClientMonitoringBreadcrumb('http', message, context, level === 'warn' ? 'warning' : 'debug')
+
     if (level === 'warn') {
         console.warn(`[api] ${message}`, context)
         return
@@ -196,7 +199,19 @@ export function getBillingGateResponse(error: unknown): BillingGateResponse | nu
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
     const requestId = createRequestId()
+    const method = options?.method ?? 'GET'
     let res: Response
+
+    addClientMonitoringBreadcrumb(
+        'http',
+        'request.started',
+        {
+            requestId,
+            method,
+            path
+        },
+        'debug'
+    )
 
     try {
         res = await fetch(`${BASE}${path}`, {
@@ -205,17 +220,24 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
             headers: {
                 'Content-Type': 'application/json',
                 [REQUEST_ID_HEADER]: requestId,
+                ...getClientTraceHeaders(),
                 ...(options?.headers ?? {})
             }
         })
-    } catch {
+    } catch (error) {
+        captureClientException(error, {
+            requestId,
+            method,
+            path,
+            kind: 'network'
+        })
         throw new Error(DEFAULT_NETWORK_ERROR_MESSAGE)
     }
 
     const responseRequestId = getResponseRequestId(res, requestId)
     logApiEvent('debug', 'request.completed', {
         requestId: responseRequestId,
-        method: options?.method ?? 'GET',
+        method,
         path,
         status: res.status
     })
@@ -234,11 +256,22 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
         logApiEvent('warn', 'request.failed', {
             requestId: responseRequestId,
-            method: options?.method ?? 'GET',
+            method,
             path,
             status: res.status,
             error: message
         })
+
+        if (res.status >= 500) {
+            captureClientException(new ApiError(message, res.status, responseRequestId, data), {
+                requestId: responseRequestId,
+                method,
+                path,
+                status: res.status,
+                details: data
+            })
+        }
+
         throw new ApiError(message, res.status, responseRequestId, data)
     }
     return data as T
@@ -316,17 +349,35 @@ export const uploadProfileImage = async (file: File): Promise<AuthUser> => {
     const requestId = createRequestId()
     let res: Response
 
+    addClientMonitoringBreadcrumb(
+        'http',
+        'request.started',
+        {
+            requestId,
+            method: 'POST',
+            path: '/settings/profile-image'
+        },
+        'debug'
+    )
+
     try {
         res = await fetch(`${BASE}/settings/profile-image`, {
             method: 'POST',
             credentials: 'same-origin',
             headers: {
                 [REQUEST_ID_HEADER]: requestId,
+                ...getClientTraceHeaders(),
                 'Content-Type': file.type || 'application/octet-stream'
             },
             body: file
         })
-    } catch {
+    } catch (error) {
+        captureClientException(error, {
+            requestId,
+            method: 'POST',
+            path: '/settings/profile-image',
+            kind: 'network'
+        })
         throw new Error(DEFAULT_NETWORK_ERROR_MESSAGE)
     }
 
@@ -357,6 +408,17 @@ export const uploadProfileImage = async (file: File): Promise<AuthUser> => {
             status: res.status,
             error: message
         })
+
+        if (res.status >= 500) {
+            captureClientException(new ApiError(message, res.status, responseRequestId, data), {
+                requestId: responseRequestId,
+                method: 'POST',
+                path: '/settings/profile-image',
+                status: res.status,
+                details: data
+            })
+        }
+
         throw new ApiError(message, res.status, responseRequestId, data)
     }
 

@@ -1,5 +1,6 @@
 import { createContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import * as api from '../api/client.js'
+import { setClientMonitoringUser } from '../monitoring/client.js'
 import type { AuthUser, LoginInput, SignupInput } from '../types/index.js'
 
 type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated'
@@ -34,6 +35,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             api.setUnauthorizedHandler(null)
         }
     }, [])
+
+    useEffect(() => {
+        setClientMonitoringUser(
+            user
+                ? {
+                      id: user.id,
+                      email: user.email
+                  }
+                : null
+        )
+    }, [user])
 
     async function refreshSession(): Promise<AuthUser | null> {
         setStatus('loading')

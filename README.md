@@ -195,6 +195,19 @@ Important variables:
 - `LOG_READ_REQUEST_SAMPLE_RATE`: production sampling rate for successful read-request lifecycle logs between `0` and `1`
 - `LOG_FILE_PATH`: optional NDJSON backend log file path, useful for searching `requestId` values outside the terminal
 
+- Bugsink monitoring
+- `BUGSINK_ENABLED`: enable or disable server-side Bugsink reporting, defaults to `true`
+- `BUGSINK_DSN`: Bugsink project DSN for backend events; Bugsink is Sentry-SDK compatible so standard Sentry JavaScript SDK DSNs work
+- `BUGSINK_ENVIRONMENT`: server-side monitoring environment label, defaults to the current `NODE_ENV`
+- `BUGSINK_TRACES_SAMPLE_RATE`: backend trace sampling rate between `0` and `1`, defaults to `0.15`
+- `BUGSINK_PROFILES_SAMPLE_RATE`: backend profiling sample rate between `0` and `1`, defaults to `0`
+- `VITE_BUGSINK_ENABLED`: enable or disable browser-side Bugsink reporting, defaults to `true`
+- `VITE_BUGSINK_DSN`: Bugsink project DSN for frontend events
+- `VITE_BUGSINK_ENVIRONMENT`: browser monitoring environment label, defaults to the current Vite mode
+- `VITE_BUGSINK_TRACES_SAMPLE_RATE`: browser trace sampling rate between `0` and `1`, defaults to `0.15`
+- `VITE_BUGSINK_REPLAYS_SESSION_SAMPLE_RATE`: browser replay sampling rate for normal sessions, defaults to `0`
+- `VITE_BUGSINK_REPLAYS_ON_ERROR_SAMPLE_RATE`: browser replay sampling rate when an error occurs, defaults to `1`
+
 - Reminder scheduler and alerts
 - `REMINDER_SCHEDULER_ENABLED`: enable or disable the reminder scheduler, defaults to `true`
 - `REMINDER_RUN_ON_STARTUP`: run reminder evaluation when the server boots, defaults to `true`
@@ -238,6 +251,25 @@ LOG_FILE_PATH=./logs/backend.ndjson
 Each line in that file is one JSON log record, so you can grep or ingest it with external tooling while preserving the same `requestId` values emitted by the frontend API client and backend request logger.
 
 Reminder delivery attempts are also recorded in the database, so you can inspect notification status, retry counts, and provider responses without relying only on stdout logs.
+
+## Bugsink Monitoring
+
+The app now supports Bugsink on both the Express backend and the Remix frontend using the standard Sentry JavaScript SDKs.
+
+What is captured:
+
+- backend request failures, uncaught exceptions, unhandled promise rejections, Prisma and Express traces, and reminder scheduler failures
+- frontend route-change breadcrumbs, API request breadcrumbs, distributed tracing headers, session user context, and network or server-side API failures
+- correlated domain breadcrumbs from the existing structured logger so Bugsink issues include recent auth, billing, reminder, vehicle, and workshop events
+
+Minimal setup:
+
+```bash
+BUGSINK_DSN="https://<key>@bugsink.example.com/<project-id>"
+VITE_BUGSINK_DSN="https://<key>@bugsink.example.com/<project-id>"
+```
+
+If you also want browser replays for error investigations, raise `VITE_BUGSINK_REPLAYS_SESSION_SAMPLE_RATE` above `0`. Replays are configured with masked text and blocked media by default.
 
 ## Database
 

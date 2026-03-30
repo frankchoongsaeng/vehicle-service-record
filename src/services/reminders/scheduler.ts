@@ -1,4 +1,5 @@
 import { createLogger } from '../../logging/logger.js'
+import { captureServerException, withServerMonitoringSpan } from '../../monitoring/server.js'
 import { evaluateReminderNotifications, processPendingReminderNotifications } from './engine.js'
 
 const schedulerLogger = createLogger({ component: 'reminder-scheduler' })
@@ -37,18 +38,32 @@ export function startReminderScheduler() {
 
     const runEvaluation = async () => {
         try {
-            const now = new Date()
-            await evaluateReminderNotifications(now)
-            await processPendingReminderNotifications(now)
+            await withServerMonitoringSpan(
+                'reminders.scheduler.evaluate',
+                { component: 'reminder-scheduler' },
+                async () => {
+                    const now = new Date()
+                    await evaluateReminderNotifications(now)
+                    await processPendingReminderNotifications(now)
+                }
+            )
         } catch (error) {
+            captureServerException(error, { task: 'reminders.scheduler.evaluate' })
             schedulerLogger.error('reminders.evaluation_job_failed', { error })
         }
     }
 
     const runRetryLoop = async () => {
         try {
-            await processPendingReminderNotifications(new Date())
+            await withServerMonitoringSpan(
+                'reminders.scheduler.retry',
+                { component: 'reminder-scheduler' },
+                async () => {
+                    await processPendingReminderNotifications(new Date())
+                }
+            )
         } catch (error) {
+            captureServerException(error, { task: 'reminders.scheduler.retry' })
             schedulerLogger.error('reminders.retry_job_failed', { error })
         }
     }

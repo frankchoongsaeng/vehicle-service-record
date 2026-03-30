@@ -5,6 +5,7 @@ import { prisma } from '../db.js'
 import { createLogger } from '../logging/logger.js'
 import { asyncHandler } from '../middleware/asyncHandler.js'
 import { requireAuth } from '../middleware/auth.js'
+import { captureServerException } from '../monitoring/server.js'
 import type { BillingInterval, PlanCode, SubscriptionStatus } from '../types/billing.js'
 import { isBillingInterval, isPlanCode } from '../types/billing.js'
 import { getBillingSubscriptionState, getBillingUser, getPersistedPlanCodeForStatus } from '../billing/service.js'
@@ -194,6 +195,11 @@ export const stripeWebhookHandler: RequestHandler = async (req, res) => {
 
         res.json({ received: true })
     } catch (error) {
+        captureServerException(error, {
+            requestId: req.requestId,
+            route: 'billing.webhook',
+            hasSignature: true
+        })
         billingLogger.error('billing.webhook_failed', { error })
         res.status(400).json({ error: error instanceof Error ? error.message : 'Webhook processing failed.' })
     }

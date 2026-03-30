@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { ErrorRequestHandler, NextFunction, Request, Response } from 'express'
 import { logger } from '../logging/logger.js'
+import { captureServerException } from '../monitoring/server.js'
 
 const DEFAULT_READ_REQUEST_SAMPLE_RATE = process.env.NODE_ENV === 'production' ? 0.1 : 1
 
@@ -148,6 +149,14 @@ export function requestLoggingMiddleware(req: Request, res: Response, next: Next
 }
 
 export const errorLoggingMiddleware: ErrorRequestHandler = (error, req, res, next) => {
+    captureServerException(error, {
+        requestId: req.requestId,
+        method: req.method,
+        path: req.originalUrl,
+        userId: req.authUser?.id ?? undefined,
+        statusCode: res.statusCode >= 400 ? res.statusCode : 500
+    })
+
     logger.error('request.failed', {
         ...getRequestContext(req),
         statusCode: res.statusCode >= 400 ? res.statusCode : 500,

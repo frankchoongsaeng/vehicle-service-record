@@ -1,6 +1,7 @@
 import { appendFile, mkdir } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { inspect } from 'node:util'
+import { isSensitiveKey, redactValue, sanitizeSensitiveString } from '../lib/redaction.js'
 import { addServerMonitoringBreadcrumb } from '../monitoring/server.js'
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error'
@@ -12,16 +13,6 @@ const LOG_LEVEL_RANK: Record<LogLevel, number> = {
     warn: 30,
     error: 40
 }
-
-const SENSITIVE_KEYS = new Set([
-    'authorization',
-    'cookie',
-    'password',
-    'password_hash',
-    'set-cookie',
-    'token',
-    'secret'
-])
 
 const configuredLogLevel = resolveLogLevel(
     process.env.LOG_LEVEL ?? (process.env.NODE_ENV === 'development' ? 'debug' : 'info')
@@ -159,8 +150,8 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 function sanitizeValue(value: unknown, key?: string): unknown {
-    if (key && SENSITIVE_KEYS.has(key.toLowerCase())) {
-        return '[REDACTED]'
+    if (key && isSensitiveKey(key)) {
+        return redactValue()
     }
 
     if (value instanceof Error) {
@@ -177,6 +168,10 @@ function sanitizeValue(value: unknown, key?: string): unknown {
 
     if (typeof value === 'bigint') {
         return value.toString()
+    }
+
+    if (typeof value === 'string') {
+        return sanitizeSensitiveString(value, key)
     }
 
     if (typeof value === 'function') {

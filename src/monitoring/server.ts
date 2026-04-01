@@ -2,18 +2,9 @@ import 'dotenv/config'
 import type { NextFunction, Request, Response } from 'express'
 import * as Sentry from '@sentry/node'
 import type { SeverityLevel } from '@sentry/node'
+import { isSensitiveKey, redactValue, sanitizeSensitiveString, sanitizeSensitiveUrl } from '../lib/redaction.js'
 
 type MonitoringContext = Record<string, unknown>
-
-const SENSITIVE_KEYS = new Set([
-    'authorization',
-    'cookie',
-    'password',
-    'password_hash',
-    'set-cookie',
-    'token',
-    'secret'
-])
 
 function parseSampleRate(rawValue: string | undefined, fallback: number): number {
     const parsed = Number(rawValue)
@@ -25,8 +16,8 @@ function parseSampleRate(rawValue: string | undefined, fallback: number): number
 }
 
 function sanitizeMonitoringValue(value: unknown, key?: string): unknown {
-    if (key && SENSITIVE_KEYS.has(key.toLowerCase())) {
-        return '[REDACTED]'
+    if (key && isSensitiveKey(key)) {
+        return redactValue()
     }
 
     if (value instanceof Error) {
@@ -51,6 +42,10 @@ function sanitizeMonitoringValue(value: unknown, key?: string): unknown {
 
     if (typeof value === 'symbol') {
         return value.toString()
+    }
+
+    if (typeof value === 'string') {
+        return sanitizeSensitiveString(value, key)
     }
 
     if (Array.isArray(value)) {
@@ -137,11 +132,11 @@ export function bindRequestMonitoringContext(req: Request, _res: Response, next:
     const path = req.originalUrl || req.path
     Sentry.setTag('request_id', req.requestId ?? 'unknown')
     Sentry.setTag('http.method', req.method)
-    Sentry.setTag('http.route', path)
+    Sentry.setTag('http.route', sanitizeSensitiveUrl(path))
     Sentry.setContext('request', {
         requestId: req.requestId,
         method: req.method,
-        path,
+        path: sanitizeSensitiveUrl(path),
         query: Object.keys(req.query).length > 0 ? sanitizeMonitoringContext(req.query as MonitoringContext) : undefined
     })
 

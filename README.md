@@ -219,6 +219,7 @@ Important variables:
 - `LOG_LEVEL`: backend log threshold, for example `debug`, `info`, `warn`, or `error`
 - `LOG_READ_REQUEST_SAMPLE_RATE`: production sampling rate for successful read-request lifecycle logs between `0` and `1`
 - `LOG_FILE_PATH`: optional NDJSON backend log file path, useful for searching `requestId` values outside the terminal
+- Backend logging and monitoring redact email fields plus token-bearing URLs and query parameters so reset links, verification links, cookies, and auth secrets are not written to application logs.
 
 - Bugsink monitoring
 - `BUGSINK_ENABLED`: enable or disable server-side Bugsink reporting, defaults to `true`

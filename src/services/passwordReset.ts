@@ -96,8 +96,7 @@ export async function sendPasswordResetEmail(input: SendPasswordResetEmailInput)
                 passwordResetLogger.info('password_reset.logged', {
                     provider: 'log',
                     to: input.to,
-                    subject,
-                    resetUrl: input.resetUrl
+                    subject
                 })
 
                 return {

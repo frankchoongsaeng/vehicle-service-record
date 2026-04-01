@@ -41,7 +41,7 @@ export function createReminderEmailTransport(): ReminderEmailTransport {
                         emailLogger.info('reminders.email_logged', {
                             to: input.to,
                             subject: input.subject,
-                            preview: input.text
+                            textLength: input.text.length
                         })
 
                         return {

@@ -97,8 +97,7 @@ export async function sendEmailVerificationEmail(input: SendVerificationEmailInp
                 verificationLogger.info('email_verification.logged', {
                     provider: 'log',
                     to: input.to,
-                    subject,
-                    verificationUrl: input.verificationUrl
+                    subject
                 })
 
                 return {

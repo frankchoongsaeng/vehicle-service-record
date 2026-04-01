@@ -3,10 +3,10 @@ services:
     image: mysql:8.4
     restart: unless-stopped
     environment:
-      MYSQL_DATABASE: duralog
-      MYSQL_USER: duralog
-      MYSQL_PASSWORD: duralog
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-duralog}
+      MYSQL_USER: ${MYSQL_USER:-duralog}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-duralog}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
     ports:
       - "3306:3306"
     healthcheck:
@@ -56,7 +56,12 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
-      DATABASE_URL: mysql://duralog:duralog@mysql:3306/duralog
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-duralog}
+      MYSQL_USER: ${MYSQL_USER:-duralog}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-duralog}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
       OPENAUTH_SECRET: ${OPENAUTH_SECRET:-replace-this-secret-for-production}
       OPENAUTH_ISSUER: ${OPENAUTH_ISSUER:-vehicle-service-record-openauth}
       OPENAUTH_AUDIENCE: ${OPENAUTH_AUDIENCE:-vehicle-service-record-client}

@@ -173,20 +173,30 @@ After modifying `prisma/schema.prisma`, always run `npm run db:generate` and cre
 -   Logs are always written to stdout/stderr. Optionally write to a file via `LOG_FILE_PATH`.
 -   Each log record includes a `requestId` for correlating frontend and backend events.
 
+### Environment Management
+
+-   **Always keep `.env`, `.env.example`, and Docker Compose environment definitions in sync.** When adding, renaming, removing, or changing an environment variable used by the app or bundled MySQL service, update `/.env.example`, any documented `/.env` expectations, and the `environment:` blocks in `docker-compose.yml` together.
+-   Do not leave a variable defined in only one of those places unless it is intentionally local-only and clearly documented.
+
 ## Environment Variables
 
-| Variable                       | Description                                              | Default                                          |
-| ------------------------------ | -------------------------------------------------------- | ------------------------------------------------ |
-| `DATABASE_URL`                 | Prisma MySQL connection string                           | `mysql://duralog:duralog@127.0.0.1:3306/duralog` |
-| `PORT`                         | Express server port                                      | `3001`                                           |
-| `OPENAUTH_SECRET`              | Signing secret for session tokens                        | _(required in production)_                       |
-| `OPENAUTH_ISSUER`              | Token issuer                                             | `vehicle-service-record-openauth`                |
-| `OPENAUTH_AUDIENCE`            | Token audience                                           | `vehicle-service-record-client`                  |
-| `DEV_USER_EMAIL`               | Seeded dev login email                                   | `demo@example.com`                               |
-| `DEV_USER_PASSWORD`            | Seeded dev login password                                | `change-me123`                                   |
-| `LOG_LEVEL`                    | Backend log threshold (`debug`, `info`, `warn`, `error`) | `debug` in dev, `info` in prod                   |
-| `LOG_READ_REQUEST_SAMPLE_RATE` | Sampling rate for read-request logs (0–1)                | `1` in dev, `0.1` in prod                        |
-| `LOG_FILE_PATH`                | Optional NDJSON log file path                            | _(disabled)_                                     |
+| Variable                       | Description                                              | Default                                 |
+| ------------------------------ | -------------------------------------------------------- | --------------------------------------- |
+| `MYSQL_HOST`                   | MySQL host used to compose the Prisma connection string  | `127.0.0.1` locally, `mysql` in Compose |
+| `MYSQL_PORT`                   | MySQL port used to compose the Prisma connection string  | `3306`                                  |
+| `MYSQL_DATABASE`               | MySQL database name                                      | `duralog`                               |
+| `MYSQL_USER`                   | MySQL application username                               | `duralog`                               |
+| `MYSQL_PASSWORD`               | MySQL application password                               | `duralog`                               |
+| `MYSQL_ROOT_PASSWORD`          | MySQL root password for the bundled Compose service      | `root`                                  |
+| `PORT`                         | Express server port                                      | `3001`                                  |
+| `OPENAUTH_SECRET`              | Signing secret for session tokens                        | _(required in production)_              |
+| `OPENAUTH_ISSUER`              | Token issuer                                             | `vehicle-service-record-openauth`       |
+| `OPENAUTH_AUDIENCE`            | Token audience                                           | `vehicle-service-record-client`         |
+| `DEV_USER_EMAIL`               | Seeded dev login email                                   | `demo@example.com`                      |
+| `DEV_USER_PASSWORD`            | Seeded dev login password                                | `change-me123`                          |
+| `LOG_LEVEL`                    | Backend log threshold (`debug`, `info`, `warn`, `error`) | `debug` in dev, `info` in prod          |
+| `LOG_READ_REQUEST_SAMPLE_RATE` | Sampling rate for read-request logs (0–1)                | `1` in dev, `0.1` in prod               |
+| `LOG_FILE_PATH`                | Optional NDJSON log file path                            | _(disabled)_                            |
 
 ## CI / Validation
 
@@ -202,6 +212,6 @@ Before submitting changes, always:
 
 -   **Module resolution errors**: The project uses `"type": "module"` with NodeNext resolution. Backend imports must use explicit `.js` extensions (e.g., `import './routes/auth.js'`).
 -   **Prisma client not found**: Run `npm install` (triggers `postinstall: prisma generate`) or run `npm run db:generate` manually.
--   **MySQL is required**: Start a MySQL server that matches `DATABASE_URL` before running Prisma commands or starting the app.
+-   **MySQL is required**: Start a MySQL server that matches the configured `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`, and `MYSQL_PASSWORD` values before running Prisma commands or starting the app.
 -   **Single server in dev**: There is no separate frontend dev server. `npm run dev` starts one Express server on port 3001 that serves both the API and Remix UI.
 -   **Missing `.env`**: Copy `.env.example` to `.env` before starting the server.

@@ -128,9 +128,10 @@ Open [http://localhost:3001](http://localhost:3001) in your browser.
 The repository includes a Compose stack that starts both MySQL and the application.
 
 1. Copy `.env.example` to `.env` if you have not already.
-2. Set at least `OPENAUTH_SECRET` in `.env`.
-3. Optionally set `SEED_ON_STARTUP=true` in `.env` if you want demo data loaded automatically.
-4. Start the stack:
+2. Set `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`, and `MYSQL_ROOT_PASSWORD` in `.env` if you want values other than the defaults.
+3. Set at least `OPENAUTH_SECRET` in `.env`.
+4. Optionally set `SEED_ON_STARTUP=true` in `.env` if you want demo data loaded automatically.
+5. Start the stack:
 
 ```bash
 docker compose up --build
@@ -143,12 +144,14 @@ What the app container does on startup:
 - optionally runs `npm run db:seed` when `SEED_ON_STARTUP=true`
 - starts the production server on <http://localhost:3001>
 
-The bundled MySQL instance is available on `localhost:3306` with these development credentials:
+The bundled MySQL instance is available on `localhost:3306` using the values from `.env`:
 
-- database: `duralog`
-- user: `duralog`
-- password: `duralog`
-- root password: `root`
+- `MYSQL_DATABASE` defaults to `duralog`
+- `MYSQL_USER` defaults to `duralog`
+- `MYSQL_PASSWORD` defaults to `duralog`
+- `MYSQL_ROOT_PASSWORD` defaults to `root`
+
+The app composes its Prisma connection string from `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`, and `MYSQL_PASSWORD` at runtime, so you do not need to set `DATABASE_URL` manually.
 
 To stop the stack:
 
@@ -169,7 +172,12 @@ Copy `.env.example` to `.env` and adjust values for your environment.
 Important variables:
 
 - Database
-- `DATABASE_URL`: MySQL connection string, for example `mysql://user:password@127.0.0.1:3306/duralog`
+- `MYSQL_HOST`: MySQL host used to compose the runtime Prisma connection string, defaults to `127.0.0.1` for local development and `mysql` in the bundled app container
+- `MYSQL_PORT`: MySQL port used to compose the runtime Prisma connection string, defaults to `3306`
+- `MYSQL_DATABASE`: database name used by the bundled Docker Compose MySQL service, defaults to `duralog`
+- `MYSQL_USER`: application user used by the bundled Docker Compose MySQL service, defaults to `duralog`
+- `MYSQL_PASSWORD`: application password used by the bundled Docker Compose MySQL service, defaults to `duralog`
+- `MYSQL_ROOT_PASSWORD`: root password used by the bundled Docker Compose MySQL service, defaults to `root`
 
 - Auth
 - `OPENAUTH_SECRET`: signing secret for the login session token
@@ -276,15 +284,15 @@ If you also want browser replays for error investigations, raise `VITE_BUGSINK_R
 
 The app uses MySQL only.
 
-Example connection string:
+Effective connection string:
 
 ```bash
-DATABASE_URL="mysql://user:password@127.0.0.1:3306/duralog"
+mysql://$MYSQL_USER:$MYSQL_PASSWORD@$MYSQL_HOST:$MYSQL_PORT/$MYSQL_DATABASE
 ```
 
 Notes:
 
-- The backend runtime, Prisma CLI commands, and `npm run db:seed` all use the same MySQL `DATABASE_URL`.
+- The backend runtime, Prisma CLI commands, and `npm run db:seed` all compose the same MySQL connection string from `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`, and `MYSQL_PASSWORD`.
 - Prisma schema and migrations now live in the default locations: `prisma/schema.prisma` and `prisma/migrations`.
 - When bootstrapping locally, start MySQL before running `npm run db:migrate`.
 
@@ -378,4 +386,4 @@ npm run build
 npm run start
 ```
 
-The `start` script runs `node ./dist/index.js`. Ensure all required environment variables, especially `DATABASE_URL` and `OPENAUTH_SECRET`, are set before running in production.
+The `start` script runs `node ./dist/index.js`. Ensure all required environment variables, especially `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`, and `OPENAUTH_SECRET`, are set before running in production.

@@ -1,19 +1,12 @@
 import 'dotenv/config'
 import { Prisma, PrismaClient } from '@prisma/client'
+import { setDatabaseUrlEnv } from './lib/databaseUrl.js'
 
 const globalForPrisma = globalThis as unknown as {
     prisma: PrismaClient | undefined
 }
 
-const databaseUrl = process.env.DATABASE_URL?.trim()
-
-if (!databaseUrl) {
-    throw new Error('DATABASE_URL is required.')
-}
-
-if (!/^mysql:/i.test(databaseUrl)) {
-    throw new Error('DATABASE_URL must use a mysql:// connection string.')
-}
+const databaseUrl = setDatabaseUrlEnv()
 
 const prismaLogConfig: Prisma.LogLevel[] =
     process.env.LOG_PRISMA_QUERIES === 'true' ? ['warn', 'error', 'query'] : ['warn', 'error']

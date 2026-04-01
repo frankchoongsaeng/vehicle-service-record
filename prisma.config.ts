@@ -1,15 +1,8 @@
 import 'dotenv/config'
 import { defineConfig } from 'prisma/config'
+import { setDatabaseUrlEnv } from './src/lib/databaseUrl.js'
 
-const databaseUrl = process.env.DATABASE_URL?.trim()
-
-if (!databaseUrl) {
-    throw new Error('DATABASE_URL is required.')
-}
-
-if (!/^mysql:/i.test(databaseUrl)) {
-    throw new Error('DATABASE_URL must use a mysql:// connection string.')
-}
+const databaseUrl = setDatabaseUrlEnv()
 
 process.env.PRISMA_GENERATE_SKIP_AUTOINSTALL ??= '1'
 

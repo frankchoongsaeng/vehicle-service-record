@@ -2,7 +2,6 @@ FROM node:22-bookworm-slim AS build
 
 WORKDIR /app
 
-ENV DATABASE_URL=mysql://duralog:duralog@mysql:3306/duralog
 ARG VITE_BUGSINK_ENABLED=true
 ARG VITE_BUGSINK_DSN=
 ARG VITE_BUGSINK_ENVIRONMENT=production

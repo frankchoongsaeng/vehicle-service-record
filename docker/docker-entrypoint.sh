@@ -5,13 +5,34 @@ log() {
     printf '%s\n' "$*"
 }
 
-mask_database_url() {
-    if [ -z "${DATABASE_URL:-}" ]; then
-        printf '%s\n' '<unset>'
-        return
-    fi
+require_database_env() {
+    variable_name="$1"
+    variable_value=$(printenv "$variable_name" 2>/dev/null || true)
 
-    printf '%s\n' "$DATABASE_URL" | sed -E 's#(mysql://[^:]+:)[^@]*@#\1****@#'
+    if [ -z "$variable_value" ]; then
+        log "$variable_name is required."
+        exit 1
+    fi
+}
+
+compose_database_url() {
+    mysql_host="${MYSQL_HOST:-127.0.0.1}"
+    mysql_port="${MYSQL_PORT:-3306}"
+
+    require_database_env MYSQL_DATABASE
+    require_database_env MYSQL_USER
+    require_database_env MYSQL_PASSWORD
+
+    printf 'mysql://%s:%s@%s:%s/%s\n' \
+        "$MYSQL_USER" \
+        "$MYSQL_PASSWORD" \
+        "$mysql_host" \
+        "$mysql_port" \
+        "$MYSQL_DATABASE"
+}
+
+mask_database_url() {
+    compose_database_url | sed -E 's#(mysql://[^:]+:)[^@]*@#\1****@#'
 }
 
 run_migrations() {
@@ -34,10 +55,7 @@ run_migrations() {
     return 1
 }
 
-if [ -z "${DATABASE_URL:-}" ]; then
-    log 'DATABASE_URL is required.'
-    exit 1
-fi
+export DATABASE_URL="$(compose_database_url)"
 
 log 'Starting container bootstrap'
 log "Database URL: $(mask_database_url)"

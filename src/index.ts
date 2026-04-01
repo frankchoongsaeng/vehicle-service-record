@@ -20,6 +20,7 @@ import { bindRequestMonitoringContext, captureServerException } from './monitori
 
 const app = express()
 const PORT = Number(process.env.PORT) || 3001
+const isProduction = process.env.NODE_ENV === 'production'
 
 function normalizeOrigin(value: string | undefined | null): string | null {
     const trimmed = value?.trim()
@@ -32,6 +33,30 @@ function normalizeOrigin(value: string | undefined | null): string | null {
 }
 
 const configuredCorsOrigin = normalizeOrigin(process.env.APP_ORIGIN)
+const scriptSrcDirectives = ["'self'", "'unsafe-inline'"]
+
+if (!isProduction) {
+    scriptSrcDirectives.push("'unsafe-eval'")
+}
+
+const contentSecurityPolicyDirectives = [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "frame-ancestors 'none'",
+    "form-action 'self'",
+    `script-src ${scriptSrcDirectives.join(' ')}`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https:",
+    "font-src 'self' data: https:",
+    "connect-src 'self' https: ws: wss:",
+    "object-src 'none'",
+    "worker-src 'self' blob:"
+]
+
+if (isProduction) {
+    contentSecurityPolicyDirectives.push('upgrade-insecure-requests')
+}
+
 const corsOptions: cors.CorsOptions = {
     origin(origin, callback) {
         if (!origin) {
@@ -79,6 +104,17 @@ process.on('uncaughtException', error => {
 })
 
 app.set('trust proxy', 1)
+app.use((req, res, next) => {
+    if (isProduction && req.secure) {
+        res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains')
+    }
+
+    res.setHeader('Content-Security-Policy', contentSecurityPolicyDirectives.join('; '))
+    res.setHeader('X-Frame-Options', 'DENY')
+    res.setHeader('X-Content-Type-Options', 'nosniff')
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+    next()
+})
 app.use(cors(corsOptions))
 app.post('/api/billing/webhooks/stripe', stripeWebhookRawParser, stripeWebhookHandler)
 app.use(express.json())

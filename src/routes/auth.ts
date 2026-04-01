@@ -1,6 +1,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import { Router, Request, Response } from 'express'
 import { Prisma } from '@prisma/client'
+import rateLimit from 'express-rate-limit'
 import { prisma } from '../db.js'
 import type { BillingInterval, PlanCode } from '../types/billing.js'
 import { isBillingInterval, isPlanCode } from '../types/billing.js'
@@ -8,6 +9,7 @@ import { createLogger } from '../logging/logger.js'
 import { asyncHandler } from '../middleware/asyncHandler.js'
 import { hashPassword, verifyPassword } from '../openauth/password.js'
 import { issueOpenAuthToken } from '../openauth/token.js'
+import { captureServerMessage } from '../monitoring/server.js'
 import {
     clearCookie,
     clearSessionCookie,
@@ -47,6 +49,14 @@ const DEFAULT_PASSWORD_RESET_RESEND_COOLDOWN_SECONDS = 60
 const GOOGLE_AUTH_STATE_COOKIE_NAME = getGoogleAuthStateCookieName()
 const GOOGLE_AUTH_STATE_TTL_SECONDS = 10 * 60
 const GOOGLE_AUTH_STATE_MAX_AGE_MS = GOOGLE_AUTH_STATE_TTL_SECONDS * 1000
+const LOGIN_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000
+const LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 8
+const SIGNUP_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000
+const SIGNUP_RATE_LIMIT_MAX_ATTEMPTS = 5
+const PASSWORD_RESET_REQUEST_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000
+const PASSWORD_RESET_REQUEST_RATE_LIMIT_MAX_ATTEMPTS = 5
+const VERIFICATION_RESEND_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000
+const VERIFICATION_RESEND_RATE_LIMIT_MAX_ATTEMPTS = 5
 
 type GoogleAuthState = {
     authPath: '/login' | '/signup'
@@ -63,6 +73,24 @@ type BillingSignupIntent = {
 } | null
 
 type GoogleAuthUserRecord = Prisma.UserGetPayload<{ select: typeof authUserSelect }>
+type AuthRateLimitConfig = {
+    action: string
+    windowMs: number
+    max: number
+    message: string
+    skipSuccessfulRequests?: boolean
+    keySelector?: (req: Request) => string
+}
+
+function getOpenAuthSecret(): string {
+    const secret = process.env.OPENAUTH_SECRET?.trim()
+
+    if (!secret) {
+        throw new Error('OPENAUTH_SECRET is not configured')
+    }
+
+    return secret
+}
 
 function getEmailVerificationResendCooldownSeconds(): number {
     const configured = Number(
@@ -187,9 +215,78 @@ function fromBase64Url(value: string): string {
     return Buffer.from(value.replace(/-/g, '+').replace(/_/g, '/') + padding, 'base64').toString('utf8')
 }
 
+function buildAuthRateLimitKey(req: Request, identity?: string | null): string {
+    return `${req.ip}:${identity?.trim().toLowerCase() || 'anonymous'}`
+}
+
+function emitBruteForceAlert(req: Request, config: AuthRateLimitConfig): void {
+    const alertContext = {
+        requestId: req.requestId,
+        method: req.method,
+        path: req.originalUrl,
+        ip: req.ip,
+        userId: req.authUser?.id ?? undefined,
+        action: config.action,
+        limit: config.max,
+        windowMs: config.windowMs
+    }
+
+    authLogger.warn('auth.brute_force_detected', alertContext)
+    captureServerMessage('auth.brute_force_detected', 'warn', alertContext)
+}
+
+function createAuthRateLimiter(config: AuthRateLimitConfig) {
+    return rateLimit({
+        windowMs: config.windowMs,
+        max: config.max,
+        standardHeaders: true,
+        legacyHeaders: false,
+        skipSuccessfulRequests: config.skipSuccessfulRequests ?? false,
+        keyGenerator: req => config.keySelector?.(req) ?? buildAuthRateLimitKey(req),
+        message: { error: config.message },
+        handler: (req, res, _next, options) => {
+            emitBruteForceAlert(req, config)
+            res.status(options.statusCode).json(options.message)
+        }
+    })
+}
+
+const loginRateLimiter = createAuthRateLimiter({
+    action: 'login',
+    windowMs: LOGIN_RATE_LIMIT_WINDOW_MS,
+    max: LOGIN_RATE_LIMIT_MAX_ATTEMPTS,
+    skipSuccessfulRequests: true,
+    message: 'Too many failed login attempts. Please wait 10 minutes before trying again.',
+    keySelector: req => buildAuthRateLimitKey(req, normalizeEmailAddress(req.body?.email))
+})
+
+const signupRateLimiter = createAuthRateLimiter({
+    action: 'signup',
+    windowMs: SIGNUP_RATE_LIMIT_WINDOW_MS,
+    max: SIGNUP_RATE_LIMIT_MAX_ATTEMPTS,
+    message: 'Too many signup attempts. Please wait an hour before trying again.',
+    keySelector: req => buildAuthRateLimitKey(req, normalizeEmailAddress(req.body?.email))
+})
+
+const passwordResetRequestRateLimiter = createAuthRateLimiter({
+    action: 'password_reset_request',
+    windowMs: PASSWORD_RESET_REQUEST_RATE_LIMIT_WINDOW_MS,
+    max: PASSWORD_RESET_REQUEST_RATE_LIMIT_MAX_ATTEMPTS,
+    message: 'Too many password reset requests. Please wait 15 minutes before trying again.',
+    keySelector: req => buildAuthRateLimitKey(req, normalizeEmailAddress(req.body?.email))
+})
+
+const verificationResendRateLimiter = createAuthRateLimiter({
+    action: 'verification_resend',
+    windowMs: VERIFICATION_RESEND_RATE_LIMIT_WINDOW_MS,
+    max: VERIFICATION_RESEND_RATE_LIMIT_MAX_ATTEMPTS,
+    message: 'Too many verification email resend attempts. Please wait 15 minutes before trying again.',
+    keySelector: req => buildAuthRateLimitKey(req, req.authUser?.id)
+})
+
 function signGoogleAuthState(state: GoogleAuthState): string {
     const payload = toBase64Url(JSON.stringify(state))
-    const signature = createHmac('sha256', process.env.OPENAUTH_SECRET || 'dev-only-openauth-secret-change-me')
+    const signature = createHmac('sha256', getOpenAuthSecret())
         .update(payload)
         .digest('base64')
         .replace(/=/g, '')
@@ -205,9 +302,7 @@ function parseGoogleAuthState(token: string): GoogleAuthState | null {
         return null
     }
 
-    const expectedSignature = createHmac('sha256', process.env.OPENAUTH_SECRET || 'dev-only-openauth-secret-change-me')
-        .update(payload)
-        .digest()
+    const expectedSignature = createHmac('sha256', getOpenAuthSecret()).update(payload).digest()
     const actualSignature = Buffer.from(
         providedSignature.replace(/-/g, '+').replace(/_/g, '/') +
             (providedSignature.length % 4 === 0 ? '' : '='.repeat(4 - (providedSignature.length % 4))),
@@ -495,6 +590,7 @@ function normalizeCredentials(body: unknown): { email: string; password: string 
 
 router.post(
     '/login',
+    loginRateLimiter,
     asyncHandler(async (req: Request, res: Response) => {
         const credentials = normalizeCredentials(req.body)
         if (!credentials) {
@@ -700,6 +796,7 @@ router.get(
 
 router.post(
     '/password-reset/request',
+    passwordResetRequestRateLimiter,
     asyncHandler(async (req: Request, res: Response) => {
         const email = normalizeEmailAddress(req.body?.email)
 
@@ -762,6 +859,7 @@ router.post(
 
 router.post(
     '/signup',
+    signupRateLimiter,
     asyncHandler(async (req: Request, res: Response) => {
         const credentials = normalizeCredentials(req.body)
         if (!credentials) {
@@ -1006,6 +1104,7 @@ router.post(
 router.post(
     '/verification/resend',
     requireAuth,
+    verificationResendRateLimiter,
     asyncHandler(async (req: Request, res: Response) => {
         const authUser = req.authUser!
         const user = await prisma.user.findUnique({

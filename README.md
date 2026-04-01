@@ -201,6 +201,7 @@ Important variables:
 - `GOOGLE_OAUTH_CLIENT_ID`: OAuth client ID for Google sign-in
 - `GOOGLE_OAUTH_CLIENT_SECRET`: OAuth client secret for Google sign-in
 - Session cookies are host-only. In production they use the `__Host-` prefix, `Path=/`, `HttpOnly`, `SameSite=Lax`, and `Secure`, which means the UI and API should stay on the same HTTPS origin rather than being split across unrelated domains.
+- Sensitive auth endpoints use targeted rate limits for login, signup, password reset requests, and verification resend attempts. When those limits trip, the backend emits `auth.brute_force_detected` warnings and monitoring messages for alerting.
 
 - App links and account email flows
 - `APP_ORIGIN`: canonical app origin used for CORS enforcement and generated email verification links. Set this explicitly for browser-based deployments; CORS does not fall back to the incoming request origin.

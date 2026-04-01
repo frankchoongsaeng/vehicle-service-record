@@ -21,6 +21,53 @@ import { bindRequestMonitoringContext, captureServerException } from './monitori
 const app = express()
 const PORT = Number(process.env.PORT) || 3001
 
+function normalizeOrigin(value: string | undefined | null): string | null {
+    const trimmed = value?.trim()
+
+    if (!trimmed) {
+        return null
+    }
+
+    return trimmed.replace(/\/+$/, '')
+}
+
+const configuredCorsOrigin = normalizeOrigin(process.env.APP_ORIGIN)
+const corsOptions: cors.CorsOptions = {
+    origin(origin, callback) {
+        if (!origin) {
+            callback(null, true)
+            return
+        }
+
+        const normalizedOrigin = normalizeOrigin(origin)
+
+        if (!configuredCorsOrigin || !normalizedOrigin) {
+            logger.warn('cors.origin_blocked', {
+                origin,
+                configuredOrigin: configuredCorsOrigin ?? undefined,
+                reason: configuredCorsOrigin ? 'invalid_origin' : 'missing_app_origin'
+            })
+            callback(null, false)
+            return
+        }
+
+        if (normalizedOrigin === configuredCorsOrigin) {
+            callback(null, true)
+            return
+        }
+
+        logger.warn('cors.origin_blocked', {
+            origin: normalizedOrigin,
+            configuredOrigin: configuredCorsOrigin,
+            reason: 'origin_mismatch'
+        })
+        callback(null, false)
+    },
+    credentials: true,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE'],
+    optionsSuccessStatus: 204
+}
+
 process.on('unhandledRejection', reason => {
     captureServerException(reason, { lifecycle: 'process.unhandledRejection' })
     logger.error('process.unhandled_rejection', { reason })
@@ -32,7 +79,7 @@ process.on('uncaughtException', error => {
 })
 
 app.set('trust proxy', 1)
-app.use(cors())
+app.use(cors(corsOptions))
 app.post('/api/billing/webhooks/stripe', stripeWebhookRawParser, stripeWebhookHandler)
 app.use(express.json())
 app.use(requestLoggingMiddleware)

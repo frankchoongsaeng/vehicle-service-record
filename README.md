@@ -201,7 +201,7 @@ Important variables:
 - `GOOGLE_OAUTH_CLIENT_SECRET`: OAuth client secret for Google sign-in
 
 - App links and account email flows
-- `APP_ORIGIN`: optional canonical app origin used when generating email verification links; defaults to the incoming request origin
+- `APP_ORIGIN`: canonical app origin used for CORS enforcement and generated email verification links. Set this explicitly for browser-based deployments; CORS does not fall back to the incoming request origin.
 - Google OAuth callback URL: configure `${APP_ORIGIN or current origin}/api/auth/google/callback` in the Google Cloud console. For local development this is usually `http://localhost:3001/api/auth/google/callback`.
 - `EMAIL_VERIFICATION_TTL_HOURS`: how long verification links stay valid, defaults to `24`
 - `EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS`: minimum delay between resend requests, defaults to `60`

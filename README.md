@@ -195,6 +195,7 @@ Important variables:
 
 - Auth
 - `OPENAUTH_SECRET`: signing secret for the login session token
+- `OPENAUTH_SECRET` has no code fallback. The app and bundled Compose stack now require it to be supplied through `.env` or deployment secret management.
 - `OPENAUTH_ISSUER`: token issuer value, defaults to `vehicle-service-record-openauth`
 - `OPENAUTH_AUDIENCE`: token audience value, defaults to `vehicle-service-record-client`
 - `GOOGLE_OAUTH_CLIENT_ID`: OAuth client ID for Google sign-in

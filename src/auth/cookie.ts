@@ -1,4 +1,8 @@
-const SESSION_COOKIE_NAME = 'vsr_session'
+function buildCookieName(baseName: string): string {
+    return process.env.NODE_ENV === 'production' ? `__Host-${baseName}` : baseName
+}
+
+const SESSION_COOKIE_NAME = buildCookieName('vsr_session')
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7
 
 function buildAttributes(maxAge?: number): string[] {
@@ -17,6 +21,10 @@ function buildAttributes(maxAge?: number): string[] {
 
 export function getSessionCookieName(): string {
     return SESSION_COOKIE_NAME
+}
+
+export function getGoogleAuthStateCookieName(): string {
+    return buildCookieName('vsr_google_oauth_state')
 }
 
 export function getSessionCookieMaxAge(): number {

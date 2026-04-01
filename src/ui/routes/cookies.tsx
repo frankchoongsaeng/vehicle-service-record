@@ -17,7 +17,7 @@ export default function Cookies() {
 
             <main className='mx-auto w-full max-w-4xl flex-1 px-4 py-12 sm:px-6 lg:px-8'>
                 <h1 className='text-3xl font-semibold tracking-tight text-foreground'>Cookie Policy</h1>
-                <p className='mt-2 text-sm text-muted-foreground'>Last updated: March 29, 2026</p>
+                <p className='mt-2 text-sm text-muted-foreground'>Last updated: April 1, 2026</p>
 
                 <div className='mt-8 space-y-8 text-base leading-7 text-muted-foreground'>
                     <section className='space-y-3'>
@@ -57,7 +57,7 @@ export default function Cookies() {
                                             session token.
                                         </td>
                                         <td className='px-4 py-3'>Strictly necessary</td>
-                                        <td className='px-4 py-3'>Session / 30 days</td>
+                                        <td className='px-4 py-3'>Up to 7 days</td>
                                     </tr>
                                     <tr>
                                         <td className='px-4 py-3 font-mono text-foreground'>theme</td>
@@ -76,11 +76,19 @@ export default function Cookies() {
                     <section className='space-y-3'>
                         <h2 className='text-xl font-semibold text-foreground'>4. Session Cookie Details</h2>
                         <p>
-                            Our session cookie is set with the <strong className='text-foreground'>HttpOnly</strong> and{' '}
-                            <strong className='text-foreground'>Secure</strong> flags. The HttpOnly flag means the
-                            cookie cannot be accessed by client-side JavaScript, which helps protect against cross-site
-                            scripting (XSS) attacks. The Secure flag ensures the cookie is only transmitted over
-                            encrypted HTTPS connections.
+                            Our authentication cookies are host-only and scoped to the Duralog app origin. They are set
+                            with the <strong className='text-foreground'>Path=/</strong>,{' '}
+                            <strong className='text-foreground'>HttpOnly</strong>, and{' '}
+                            <strong className='text-foreground'>SameSite=Lax</strong> attributes, and in production they
+                            also use the <strong className='text-foreground'>Secure</strong> flag plus the{' '}
+                            <strong className='text-foreground'>__Host-</strong> cookie prefix. This keeps them bound to
+                            the exact HTTPS host serving the app and prevents client-side JavaScript from reading them.
+                        </p>
+                        <p>
+                            The <strong className='text-foreground'>SameSite=Lax</strong> setting is intentional for the
+                            current deployment model: Duralog serves the UI and API from the same origin, and the Google
+                            sign-in flow needs the short-lived OAuth state cookie to survive the provider redirect back
+                            to the app.
                         </p>
                     </section>
 

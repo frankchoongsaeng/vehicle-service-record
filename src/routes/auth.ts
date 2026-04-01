@@ -11,6 +11,7 @@ import { issueOpenAuthToken } from '../openauth/token.js'
 import {
     clearCookie,
     clearSessionCookie,
+    getGoogleAuthStateCookieName,
     readCookieValue,
     serializeCookie,
     serializeSessionCookie
@@ -43,7 +44,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const authLogger = createLogger({ component: 'auth-routes' })
 const DEFAULT_EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS = 60
 const DEFAULT_PASSWORD_RESET_RESEND_COOLDOWN_SECONDS = 60
-const GOOGLE_AUTH_STATE_COOKIE_NAME = 'vsr_google_oauth_state'
+const GOOGLE_AUTH_STATE_COOKIE_NAME = getGoogleAuthStateCookieName()
 const GOOGLE_AUTH_STATE_TTL_SECONDS = 10 * 60
 const GOOGLE_AUTH_STATE_MAX_AGE_MS = GOOGLE_AUTH_STATE_TTL_SECONDS * 1000
 

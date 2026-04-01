@@ -17,7 +17,6 @@ import { attachAuthUser } from './middleware/auth.js'
 import { logger } from './logging/logger.js'
 import { errorLoggingMiddleware, requestLoggingMiddleware } from './middleware/requestLogging.js'
 import { bindRequestMonitoringContext, captureServerException } from './monitoring/server.js'
-import { startReminderScheduler } from './services/reminders/scheduler.js'
 
 const app = express()
 const PORT = Number(process.env.PORT) || 3001
@@ -101,6 +100,7 @@ app.use(errorLoggingMiddleware)
 
 app.listen(PORT, '0.0.0.0', () => {
     logger.info('server.started', {
+        processRole: 'web',
         port: PORT,
         nodeEnv: process.env.NODE_ENV ?? 'development',
         logLevel: process.env.LOG_LEVEL ?? (process.env.NODE_ENV === 'development' ? 'debug' : 'info'),
@@ -110,5 +110,3 @@ app.listen(PORT, '0.0.0.0', () => {
         logFilePath: process.env.LOG_FILE_PATH ?? undefined
     })
 })
-
-startReminderScheduler()

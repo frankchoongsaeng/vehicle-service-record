@@ -4,8 +4,12 @@
     "version": "0.0.0",
     "type": "module",
     "scripts": {
-        "dev": "tsx watch src/index.ts",
+        "dev": "npm run dev:web",
+        "dev:web": "tsx watch src/index.ts",
+        "dev:worker": "tsx watch src/worker.ts",
         "start": "node ./dist/index.js",
+        "start:web": "node ./dist/index.js",
+        "start:worker": "node ./dist/worker.js",
         "build": "npm run build:client && npm run build:server",
         "build:client": "remix vite:build",
         "build:server": "tsc -p tsconfig.node.json",
@@ -16,7 +20,7 @@
         "db:seed": "tsx prisma/seed.ts",
         "postinstall": "prisma generate",
         "lint": "eslint .",
-        "preview": "npm run start"
+        "preview": "npm run start:web"
     },
     "dependencies": {
         "@bunny.net/storage-sdk": "^0.3.1",

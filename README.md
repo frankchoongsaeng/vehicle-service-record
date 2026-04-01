@@ -62,6 +62,7 @@ For CI or pre-merge checks, run the same command and fail builds if unexpected m
 vehicle-service-record/
 ├── src/
 │   ├── index.ts                 # Express server entry point
+│   ├── worker.ts                # Reminder worker entry point
 │   ├── routes/                  # API route handlers
 │   └── ui/                      # Remix frontend
 │       ├── routes/              # Route modules
@@ -113,7 +114,7 @@ The seed also creates:
 
 Override those values with `DEV_USER_EMAIL` and `DEV_USER_PASSWORD` in your environment if needed.
 
-### 3. Start both frontend and backend
+### 3. Start the web app
 
 ```bash
 npm run dev
@@ -123,9 +124,15 @@ npm run dev
 
 Open [http://localhost:3001](http://localhost:3001) in your browser.
 
+If you need reminder evaluation and retry processing during local development, start the worker in a second terminal:
+
+```bash
+npm run dev:worker
+```
+
 ## Run With Docker Compose and MySQL
 
-The repository includes a Compose stack that starts both MySQL and the application.
+The repository includes a Compose stack that starts MySQL, the web application, and a dedicated reminder worker.
 
 1. Copy `.env.example` to `.env` if you have not already.
 2. Set `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`, and `MYSQL_ROOT_PASSWORD` in `.env` if you want values other than the defaults.
@@ -143,6 +150,13 @@ What the app container does on startup:
 - applies MySQL migrations with `prisma migrate deploy`
 - optionally runs `npm run db:seed` when `SEED_ON_STARTUP=true`
 - starts the production server on <http://localhost:3001>
+
+What the reminder worker container does on startup:
+
+- regenerates the Prisma client for MySQL
+- skips migrations so only the web container owns deploy-time schema changes
+- starts the background reminder scheduler without binding an HTTP port
+- writes a heartbeat file used by Docker health checks to verify the worker is still alive
 
 The bundled MySQL instance is available on `localhost:3306` using the values from `.env`:
 
@@ -217,12 +231,14 @@ Important variables:
 - `VITE_BUGSINK_REPLAYS_ON_ERROR_SAMPLE_RATE`: browser replay sampling rate when an error occurs, defaults to `1`
 
 - Reminder scheduler and alerts
-- `REMINDER_SCHEDULER_ENABLED`: enable or disable the reminder scheduler, defaults to `true`
+- `REMINDER_SCHEDULER_ENABLED`: enable or disable the reminder scheduler. Run it as `true` only in the dedicated worker process, and set it to `false` for web processes.
 - `REMINDER_RUN_ON_STARTUP`: run reminder evaluation when the server boots, defaults to `true`
 - `REMINDER_EVALUATION_HOUR_UTC`: daily UTC hour for maintenance digest evaluation, defaults to `8`
 - `REMINDER_RETRY_INTERVAL_MINUTES`: cadence for retrying queued reminder notifications, defaults to `15`
 - `REMINDER_RETRY_BACKOFF_MINUTES`: base backoff between failed delivery attempts, defaults to `15`
 - `REMINDER_MAX_RETRIES`: maximum delivery attempts before a reminder stays failed, defaults to `3`
+
+The web role started by `npm run dev` or `npm run start:web` does not run reminder timers. Use `npm run dev:worker` locally, or the dedicated `reminder-worker` service in Docker Compose, when you want reminders processed.
 
 - SMTP transport
 - `SMTP_HOST`: optional SMTP host used for real email delivery; if unset, reminder emails are logged locally instead of sent
@@ -315,7 +331,7 @@ After running migrations, seed data, and the dev servers, validate the change wi
 6. Open the workshops page from the hamburger menu, create a workshop, edit it, and confirm the saved address and phone number reload correctly
 7. Open Settings, set reminder day and mileage thresholds, and confirm the preferences save without errors
 8. Edit a vehicle and set its reminder override to `custom` or `disabled`, then confirm the form saves and reloads the same mode
-9. If SMTP is not configured, check the server logs after startup and confirm the reminder scheduler logs a digest preview instead of failing
+9. Start the reminder worker and, if SMTP is not configured, check the worker logs after startup to confirm the reminder scheduler logs a digest preview instead of failing
 10. Open the seeded vehicle with no service history and confirm empty-state behavior is correct
 11. Refresh the page and confirm the session persists
 12. Sign out and confirm the session clears and the app returns to `/login`

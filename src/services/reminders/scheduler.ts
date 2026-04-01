@@ -4,6 +4,11 @@ import { evaluateReminderNotifications, processPendingReminderNotifications } fr
 
 const schedulerLogger = createLogger({ component: 'reminder-scheduler' })
 
+export type ReminderSchedulerHandle = {
+    enabled: boolean
+    stop: () => Promise<void>
+}
+
 function getEvaluationHourUtc(): number {
     const configured = Number(process.env.REMINDER_EVALUATION_HOUR_UTC ?? '8')
     return Number.isInteger(configured) && configured >= 0 && configured <= 23 ? configured : 8
@@ -26,15 +31,38 @@ function getDelayUntilNextDailyRun(now: Date, targetHourUtc: number): number {
     return next.getTime() - now.getTime()
 }
 
-export function startReminderScheduler() {
+export function startReminderScheduler(): ReminderSchedulerHandle {
     if (process.env.REMINDER_SCHEDULER_ENABLED === 'false') {
         schedulerLogger.info('reminders.scheduler_disabled')
-        return
+        return {
+            enabled: false,
+            stop: async () => undefined
+        }
     }
 
     const evaluationHourUtc = getEvaluationHourUtc()
     const retryIntervalMs = getRetryIntervalMs()
     const runOnStartup = process.env.REMINDER_RUN_ON_STARTUP !== 'false'
+    const inFlightJobs = new Set<Promise<void>>()
+    let initialEvaluationTimeout: ReturnType<typeof setTimeout> | null = null
+    let dailyEvaluationInterval: ReturnType<typeof setInterval> | null = null
+    let retryInterval: ReturnType<typeof setInterval> | null = null
+    let stopped = false
+
+    const trackJob = (job: Promise<void>) => {
+        inFlightJobs.add(job)
+        void job.finally(() => {
+            inFlightJobs.delete(job)
+        })
+    }
+
+    const scheduleJob = (jobFactory: () => Promise<void>) => {
+        if (stopped) {
+            return
+        }
+
+        trackJob(jobFactory())
+    }
 
     const runEvaluation = async () => {
         try {
@@ -69,19 +97,23 @@ export function startReminderScheduler() {
     }
 
     if (runOnStartup) {
-        void runEvaluation()
+        scheduleJob(runEvaluation)
     }
 
     const initialDelay = getDelayUntilNextDailyRun(new Date(), evaluationHourUtc)
-    setTimeout(() => {
-        void runEvaluation()
-        setInterval(() => {
-            void runEvaluation()
+    initialEvaluationTimeout = setTimeout(() => {
+        if (stopped) {
+            return
+        }
+
+        scheduleJob(runEvaluation)
+        dailyEvaluationInterval = setInterval(() => {
+            scheduleJob(runEvaluation)
         }, 24 * 60 * 60 * 1000)
     }, initialDelay)
 
-    setInterval(() => {
-        void runRetryLoop()
+    retryInterval = setInterval(() => {
+        scheduleJob(runRetryLoop)
     }, retryIntervalMs)
 
     schedulerLogger.info('reminders.scheduler_started', {
@@ -89,4 +121,35 @@ export function startReminderScheduler() {
         retryIntervalMs,
         runOnStartup
     })
+
+    return {
+        enabled: true,
+        stop: async () => {
+            if (stopped) {
+                return
+            }
+
+            stopped = true
+
+            if (initialEvaluationTimeout) {
+                clearTimeout(initialEvaluationTimeout)
+            }
+
+            if (dailyEvaluationInterval) {
+                clearInterval(dailyEvaluationInterval)
+            }
+
+            if (retryInterval) {
+                clearInterval(retryInterval)
+            }
+
+            schedulerLogger.info('reminders.scheduler_stopping', {
+                inFlightJobs: inFlightJobs.size
+            })
+
+            await Promise.allSettled([...inFlightJobs])
+
+            schedulerLogger.info('reminders.scheduler_stopped')
+        }
+    }
 }

@@ -52,4 +52,4 @@ COPY --from=build /app/tsconfig.node.json ./tsconfig.node.json
 EXPOSE 3001
 
 ENTRYPOINT ["/bin/sh", "./docker/docker-entrypoint.sh"]
-CMD ["npm", "run", "start"]
+CMD ["node", "./dist/index.js"]

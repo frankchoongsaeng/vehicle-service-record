@@ -19,14 +19,24 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends openssl \
     && rm -rf /var/lib/apt/lists/*
 
+RUN set -eux; \
+    mkdir -p /tmp/picomatch; \
+    cd /tmp/picomatch; \
+    npm pack picomatch@4.0.4 >/dev/null; \
+    tar -xzf picomatch-4.0.4.tgz; \
+    rm -rf /usr/local/lib/node_modules/npm/node_modules/picomatch; \
+    mv package /usr/local/lib/node_modules/npm/node_modules/picomatch; \
+    rm -rf /tmp/picomatch
+
 COPY package.json package-lock.json prisma.config.ts tsconfig.json tsconfig.node.json vite.config.ts eslint.config.js postcss.config.cjs tailwind.config.ts ./
 COPY prisma ./prisma
 
-RUN npm ci --include=dev
+RUN npm ci --include=dev --ignore-scripts
 
 COPY . .
 
-RUN npm run build
+RUN MYSQL_HOST=127.0.0.1 MYSQL_PORT=3306 MYSQL_DATABASE=duralog MYSQL_USER=duralog MYSQL_PASSWORD=duralog npm run db:generate \
+    && npm run build
 
 FROM node:22-bookworm-slim AS runtime
 
@@ -38,6 +48,15 @@ ENV PORT=3001
 RUN apt-get update \
     && apt-get install -y --no-install-recommends openssl \
     && rm -rf /var/lib/apt/lists/*
+
+RUN set -eux; \
+    mkdir -p /tmp/picomatch; \
+    cd /tmp/picomatch; \
+    npm pack picomatch@4.0.4 >/dev/null; \
+    tar -xzf picomatch-4.0.4.tgz; \
+    rm -rf /usr/local/lib/node_modules/npm/node_modules/picomatch; \
+    mv package /usr/local/lib/node_modules/npm/node_modules/picomatch; \
+    rm -rf /tmp/picomatch
 
 COPY --from=build /app/package.json /app/package-lock.json ./
 COPY --from=build /app/node_modules ./node_modules

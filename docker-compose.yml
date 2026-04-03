@@ -83,8 +83,6 @@ services:
       MYSQL_USER: ${MYSQL_USER:-duralog}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-duralog}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
-    ports:
-      - "3306:3306"
     healthcheck:
       test:
         [
@@ -106,6 +104,8 @@ services:
       mysql:
         condition: service_healthy
     restart: unless-stopped
+    ports:
+      - "3001:3001"
     healthcheck:
       test:
         [

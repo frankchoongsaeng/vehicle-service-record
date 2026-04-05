@@ -20,7 +20,7 @@ export function PublicFooter() {
                         Privacy Policy
                     </Link>
                     <Link to='/terms' className='hover:text-foreground'>
-                        Terms of Service
+                        Terms of Use
                     </Link>
                     <Link to='/cookies' className='hover:text-foreground'>
                         Cookie Policy

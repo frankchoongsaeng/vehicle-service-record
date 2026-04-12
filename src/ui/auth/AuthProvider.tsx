@@ -1,5 +1,6 @@
 import { createContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import * as api from '../api/client.js'
+import { setClientMonitoringUser } from '../monitoring/client.js'
 import type { AuthUser, LoginInput, SignupInput } from '../types/index.js'
 
 type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated'
@@ -23,6 +24,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [status, setStatus] = useState<AuthStatus>('loading')
     const [bootstrapError, setBootstrapError] = useState<string | null>(null)
 
+    useEffect(() => {
+        api.setUnauthorizedHandler(() => {
+            setUser(null)
+            setBootstrapError(null)
+            setStatus('unauthenticated')
+        })
+
+        return () => {
+            api.setUnauthorizedHandler(null)
+        }
+    }, [])
+
+    useEffect(() => {
+        setClientMonitoringUser(
+            user
+                ? {
+                      id: user.id,
+                      email: user.email
+                  }
+                : null
+        )
+    }, [user])
+
     async function refreshSession(): Promise<AuthUser | null> {
         setStatus('loading')
         try {
@@ -35,10 +59,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(null)
             if (error instanceof api.ApiError && error.status === 401) {
                 setBootstrapError(null)
-            } else if (error instanceof Error) {
-                setBootstrapError(error.message)
             } else {
-                setBootstrapError('Unable to verify your session right now.')
+                setBootstrapError(api.getUserFacingErrorMessage(error, 'Unable to verify your session right now.'))
             }
             setStatus('unauthenticated')
             return null
@@ -62,7 +84,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     async function logout(): Promise<void> {
-        await api.logout()
+        try {
+            await api.logout()
+        } catch (error) {
+            if (!api.isUnauthorizedError(error)) {
+                throw error
+            }
+        }
+
         setUser(null)
         setBootstrapError(null)
         setStatus('unauthenticated')
@@ -95,10 +124,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setUser(null)
                 if (error instanceof api.ApiError && error.status === 401) {
                     setBootstrapError(null)
-                } else if (error instanceof Error) {
-                    setBootstrapError(error.message)
                 } else {
-                    setBootstrapError('Unable to verify your session right now.')
+                    setBootstrapError(api.getUserFacingErrorMessage(error, 'Unable to verify your session right now.'))
                 }
                 setStatus('unauthenticated')
             })

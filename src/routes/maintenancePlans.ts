@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express'
 
+import { isBillingAccessError, sendBillingError } from '../billing/error.js'
+import { assertCanManageMaintenancePlans } from '../billing/service.js'
 import { prisma } from '../db.js'
 import { createLogger } from '../logging/logger.js'
 import { asyncHandler } from '../middleware/asyncHandler.js'
@@ -62,27 +64,27 @@ function normalizeMaintenancePlanPayload(body: unknown): { data?: MaintenancePla
     const lastCompletedDate = normalizeOptionalDate(raw.lastCompletedDate)
 
     if (!isServiceTypeValue(serviceType)) {
-        return { error: 'serviceType is required and must be valid' }
+        return { error: 'Choose a valid service type.' }
     }
 
     if (!title) {
-        return { error: 'title is required' }
+        return { error: 'Enter a plan title.' }
     }
 
     if (Number.isNaN(intervalMonths) || Number.isNaN(intervalMileage)) {
-        return { error: 'intervalMonths and intervalMileage must be positive whole numbers when provided' }
+        return { error: 'Reminder intervals must be positive whole numbers.' }
     }
 
     if (intervalMonths == null && intervalMileage == null) {
-        return { error: 'At least one of intervalMonths or intervalMileage is required' }
+        return { error: 'Add a time interval, a mileage interval, or both.' }
     }
 
     if (Number.isNaN(lastCompletedMileage)) {
-        return { error: 'lastCompletedMileage must be a positive whole number when provided' }
+        return { error: 'Last completed mileage must be a positive whole number.' }
     }
 
     if (lastCompletedDate === 'invalid') {
-        return { error: 'lastCompletedDate must be a valid YYYY-MM-DD value when provided' }
+        return { error: 'Last completed date must use the YYYY-MM-DD format.' }
     }
 
     return {
@@ -241,6 +243,17 @@ router.post(
             return
         }
 
+        try {
+            await assertCanManageMaintenancePlans(authUser.id)
+        } catch (billingError) {
+            if (isBillingAccessError(billingError)) {
+                sendBillingError(res, billingError)
+                return
+            }
+
+            throw billingError
+        }
+
         const createdPlan = await prisma.maintenancePlan.create({
             data: {
                 user_id: authUser.id,
@@ -286,6 +299,17 @@ router.put(
             })
             res.status(400).json({ error })
             return
+        }
+
+        try {
+            await assertCanManageMaintenancePlans(authUser.id)
+        } catch (billingError) {
+            if (isBillingAccessError(billingError)) {
+                sendBillingError(res, billingError)
+                return
+            }
+
+            throw billingError
         }
 
         const existingPlan = await prisma.maintenancePlan.findFirst({
@@ -356,6 +380,17 @@ router.delete(
             })
             res.status(404).json({ error: 'Maintenance plan not found' })
             return
+        }
+
+        try {
+            await assertCanManageMaintenancePlans(authUser.id)
+        } catch (billingError) {
+            if (isBillingAccessError(billingError)) {
+                sendBillingError(res, billingError)
+                return
+            }
+
+            throw billingError
         }
 
         await prisma.maintenancePlan.delete({ where: { id: planId } })

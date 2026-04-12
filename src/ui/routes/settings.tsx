@@ -1,25 +1,34 @@
 import type { MetaFunction } from '@remix-run/node'
 import { Link, useLocation, useNavigate, useSearchParams } from '@remix-run/react'
-import { BellRing, Globe, Settings2, Upload, UserRound, X } from 'lucide-react'
+import { BellRing, ChevronLeft, CreditCard, Globe, KeyRound, Settings2, Upload, UserRound, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import * as api from '../api/client.js'
 import { ApiError } from '../api/client.js'
+import { buildOnboardingUrl, hasCompletedOnboarding } from '../auth/onboarding.js'
 import { useAuth } from '../auth/useAuth.js'
 import { getUserDisplayName, getUserInitials } from '../lib/account.js'
+import { BillingGateNotice } from '../components/BillingGateNotice.js'
+import { EMPTY_COUNTRY_VALUE, getCountryOptions } from '../lib/countries.js'
 import { getCurrencyLabel } from '../lib/currency.js'
 import { AuthenticatedShell } from '../components/AuthenticatedShell.js'
 import BrandedLoadingScreen from '../components/BrandedLoadingScreen.js'
 import { PageHeader } from '../components/PageHeader.js'
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar.js'
+import { Badge } from '../components/ui/badge.js'
 import { Button } from '../components/ui/button.js'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card.js'
 import { Input } from '../components/ui/input.js'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select.js'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select.js'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs.js'
+import type { BillingGateResponse, BillingSubscriptionState } from '../types/index.js'
 import {
+    DEFAULT_HISTORY_SORT_ORDER,
+    HISTORY_SORT_ORDERS,
     PREFERRED_CURRENCIES,
     PROFILE_IMAGE_MAX_BYTES,
     PROFILE_IMAGE_MIME_TYPES,
+    type HistorySortOrder,
     type PreferredCurrencyCode
 } from '../../types/userSettings.js'
 
@@ -27,9 +36,9 @@ export const meta: MetaFunction = () => {
     return [{ title: 'Settings | Duralog' }, { name: 'description', content: 'Manage account and preferences.' }]
 }
 
-type SettingsTab = 'account' | 'preferences'
+type SettingsTab = 'account' | 'preferences' | 'billing'
 
-const settingsTabs: ReadonlySet<SettingsTab> = new Set(['account', 'preferences'])
+const settingsTabs: ReadonlySet<SettingsTab> = new Set(['account', 'preferences', 'billing'])
 
 function resolveSettingsTab(value: string | null): SettingsTab {
     return value && settingsTabs.has(value as SettingsTab) ? (value as SettingsTab) : 'account'
@@ -47,28 +56,47 @@ export default function SettingsRoute() {
     const [country, setCountry] = useState('')
     const [profileImageUrl, setProfileImageUrl] = useState('')
     const [preferredCurrency, setPreferredCurrency] = useState<PreferredCurrencyCode>('USD')
+    const [historySortOrder, setHistorySortOrder] = useState<HistorySortOrder>(DEFAULT_HISTORY_SORT_ORDER)
     const [reminderEmailEnabled, setReminderEmailEnabled] = useState(true)
     const [reminderDigestEnabled, setReminderDigestEnabled] = useState(true)
     const [reminderDaysThreshold, setReminderDaysThreshold] = useState('')
     const [reminderMileageThreshold, setReminderMileageThreshold] = useState('')
     const [accountError, setAccountError] = useState('')
     const [preferencesError, setPreferencesError] = useState('')
+    const [preferencesBillingError, setPreferencesBillingError] = useState<BillingGateResponse | null>(null)
     const [accountSaved, setAccountSaved] = useState('')
     const [preferencesSaved, setPreferencesSaved] = useState('')
+    const [billingState, setBillingState] = useState<BillingSubscriptionState | null>(null)
+    const [billingError, setBillingError] = useState('')
+    const [billingMessage, setBillingMessage] = useState('')
     const [savingAccount, setSavingAccount] = useState(false)
     const [savingPreferences, setSavingPreferences] = useState(false)
+    const [loadingBilling, setLoadingBilling] = useState(false)
+    const [billingAction, setBillingAction] = useState<'plus' | 'garage' | 'portal' | null>(null)
     const [uploadingImage, setUploadingImage] = useState(false)
     const [removingImage, setRemovingImage] = useState(false)
+    const [sendingPasswordReset, setSendingPasswordReset] = useState(false)
+    const [passwordResetError, setPasswordResetError] = useState('')
+    const [passwordResetMessage, setPasswordResetMessage] = useState('')
     const fileInputRef = useRef<HTMLInputElement | null>(null)
+    const availableCountries = getCountryOptions(country)
 
     useEffect(() => {
-        if (auth.status !== 'unauthenticated') {
+        if (auth.status === 'loading') {
             return
         }
 
         const redirectTo = `${location.pathname}${location.search}${location.hash}` || '/settings'
-        navigate(`/login?redirectTo=${encodeURIComponent(redirectTo)}`, { replace: true })
-    }, [auth.status, location.hash, location.pathname, location.search, navigate])
+
+        if (auth.status === 'unauthenticated') {
+            navigate(`/login?redirectTo=${encodeURIComponent(redirectTo)}`, { replace: true })
+            return
+        }
+
+        if (!hasCompletedOnboarding(auth.user)) {
+            navigate(buildOnboardingUrl(redirectTo), { replace: true })
+        }
+    }, [auth.status, auth.user, location.hash, location.pathname, location.search, navigate])
 
     useEffect(() => {
         if (!auth.user) {
@@ -80,6 +108,7 @@ export default function SettingsRoute() {
         setCountry(auth.user.country ?? '')
         setProfileImageUrl(auth.user.profileImageUrl ?? '')
         setPreferredCurrency(auth.user.preferredCurrency)
+        setHistorySortOrder(auth.user.historySortOrder)
     }, [auth.user])
 
     useEffect(() => {
@@ -121,6 +150,55 @@ export default function SettingsRoute() {
         }
     }, [auth.user])
 
+    useEffect(() => {
+        if (!auth.user) {
+            return
+        }
+
+        let active = true
+        setLoadingBilling(true)
+
+        api.getBillingSubscription()
+            .then(state => {
+                if (!active) {
+                    return
+                }
+
+                setBillingState(state)
+            })
+            .catch(error => {
+                if (!active) {
+                    return
+                }
+
+                setBillingError(api.getUserFacingErrorMessage(error, 'Unable to load billing details right now.'))
+            })
+            .finally(() => {
+                if (active) {
+                    setLoadingBilling(false)
+                }
+            })
+
+        return () => {
+            active = false
+        }
+    }, [auth.user])
+
+    useEffect(() => {
+        const checkoutState = searchParams.get('checkout')
+
+        if (checkoutState === 'success') {
+            setBillingMessage(
+                'Your billing session completed. Duralog will refresh your plan as Stripe webhooks arrive.'
+            )
+            return
+        }
+
+        if (checkoutState === 'canceled') {
+            setBillingMessage('Your checkout session was canceled. Your existing plan has not changed.')
+        }
+    }, [searchParams])
+
     const syncTab = (nextTab: SettingsTab) => {
         const nextParams = new URLSearchParams(searchParams)
 
@@ -161,6 +239,7 @@ export default function SettingsRoute() {
     const handleSavePreferences = async () => {
         setSavingPreferences(true)
         setPreferencesError('')
+        setPreferencesBillingError(null)
         setPreferencesSaved('')
 
         try {
@@ -185,7 +264,7 @@ export default function SettingsRoute() {
             }
 
             const [updatedUser] = await Promise.all([
-                api.updateSettings({ preferredCurrency }),
+                api.updateSettings({ preferredCurrency, historySortOrder }),
                 api.updateReminderPreferences({
                     reminderEmailEnabled,
                     reminderDigestEnabled,
@@ -195,6 +274,12 @@ export default function SettingsRoute() {
             auth.replaceUser(updatedUser)
             setPreferencesSaved('Preferences saved.')
         } catch (error) {
+            const billingGateResponse = api.getBillingGateResponse(error)
+
+            if (billingGateResponse) {
+                setPreferencesBillingError(billingGateResponse)
+            }
+
             if (error instanceof ApiError || error instanceof Error) {
                 setPreferencesError(error.message)
             } else {
@@ -271,12 +356,67 @@ export default function SettingsRoute() {
         }
     }
 
+    const handleSendPasswordReset = async () => {
+        setSendingPasswordReset(true)
+        setPasswordResetError('')
+        setPasswordResetMessage('')
+
+        try {
+            await api.requestPasswordReset(auth.user!.email)
+            setPasswordResetMessage(
+                `We sent a password reset link to ${auth.user!.email}. Open that email to choose a new password.`
+            )
+        } catch (error) {
+            if (error instanceof ApiError || error instanceof Error) {
+                setPasswordResetError(error.message)
+            } else {
+                setPasswordResetError('Unable to send a password reset email right now.')
+            }
+        } finally {
+            setSendingPasswordReset(false)
+        }
+    }
+
+    const handleStartCheckout = async (planCode: 'plus' | 'garage') => {
+        setBillingAction(planCode)
+        setBillingError('')
+
+        try {
+            const result = await api.createBillingCheckoutSession(planCode, 'month')
+            window.location.assign(result.url)
+        } catch (error) {
+            setBillingError(api.getUserFacingErrorMessage(error, 'Unable to start checkout right now.'))
+        } finally {
+            setBillingAction(null)
+        }
+    }
+
+    const handleManageBilling = async () => {
+        setBillingAction('portal')
+        setBillingError('')
+
+        try {
+            const result = await api.createBillingCustomerPortalSession()
+            window.location.assign(result.url)
+        } catch (error) {
+            setBillingError(api.getUserFacingErrorMessage(error, 'Unable to open the billing portal right now.'))
+        } finally {
+            setBillingAction(null)
+        }
+    }
+
     if (auth.status === 'loading') {
         return <BrandedLoadingScreen message='Checking your session…' />
     }
 
     if (!auth.user) {
         return <div className='grid min-h-screen place-items-center text-muted-foreground'>Redirecting to login…</div>
+    }
+
+    if (!hasCompletedOnboarding(auth.user)) {
+        return (
+            <div className='grid min-h-screen place-items-center text-muted-foreground'>Redirecting to onboarding…</div>
+        )
     }
 
     const displayName = getUserDisplayName(auth.user)
@@ -293,7 +433,10 @@ export default function SettingsRoute() {
                     variant='plain'
                     actions={
                         <Button asChild variant='outline'>
-                            <Link to='/garage'>Back to Garage</Link>
+                            <Link to='/garage'>
+                                <ChevronLeft data-icon='inline-start' />
+                                Back to Garage
+                            </Link>
                         </Button>
                     }
                 />
@@ -316,6 +459,12 @@ export default function SettingsRoute() {
                                 className='w-full justify-start rounded-none border-l-2 border-transparent px-4 py-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none'
                             >
                                 Preferences
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value='billing'
+                                className='w-full justify-start rounded-none border-l-2 border-transparent px-4 py-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none'
+                            >
+                                Billing
                             </TabsTrigger>
                         </TabsList>
                     </div>
@@ -382,12 +531,24 @@ export default function SettingsRoute() {
                                 <label htmlFor='settings-country' className='text-sm font-medium text-foreground'>
                                     Country
                                 </label>
-                                <Input
-                                    id='settings-country'
-                                    value={country}
-                                    onChange={event => setCountry(event.target.value)}
-                                    placeholder='e.g. United States'
-                                />
+                                <Select
+                                    value={country.trim() || EMPTY_COUNTRY_VALUE}
+                                    onValueChange={value => setCountry(value === EMPTY_COUNTRY_VALUE ? '' : value)}
+                                >
+                                    <SelectTrigger id='settings-country'>
+                                        <SelectValue placeholder='Select a country' />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectGroup>
+                                            <SelectItem value={EMPTY_COUNTRY_VALUE}>Not set</SelectItem>
+                                            {availableCountries.map(option => (
+                                                <SelectItem key={option} value={option}>
+                                                    {option}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectGroup>
+                                    </SelectContent>
+                                </Select>
                             </div>
 
                             <div className='flex flex-col gap-2'>
@@ -426,6 +587,41 @@ export default function SettingsRoute() {
                                 <p className='text-xs text-muted-foreground'>JPG, PNG, WebP, or GIF up to 5 MB.</p>
                             </div>
 
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Security</CardTitle>
+                                    <CardDescription>
+                                        Send yourself a reset email, then use that link to choose a new password.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className='flex flex-col gap-4'>
+                                    {passwordResetError ? (
+                                        <p className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'>
+                                            {passwordResetError}
+                                        </p>
+                                    ) : null}
+                                    {passwordResetMessage ? (
+                                        <p className='rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground'>
+                                            {passwordResetMessage}
+                                        </p>
+                                    ) : null}
+                                    <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
+                                        <p className='text-sm text-muted-foreground'>
+                                            The reset link will be sent to {auth.user.email}.
+                                        </p>
+                                        <Button
+                                            type='button'
+                                            variant='outline'
+                                            onClick={handleSendPasswordReset}
+                                            disabled={sendingPasswordReset}
+                                        >
+                                            <KeyRound data-icon='inline-start' />
+                                            {sendingPasswordReset ? 'Sending reset link…' : 'Send reset link'}
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
                             <div className='flex justify-end'>
                                 <Button type='button' onClick={handleSaveAccount} disabled={savingAccount}>
                                     <UserRound data-icon='inline-start' />
@@ -449,6 +645,9 @@ export default function SettingsRoute() {
                                     {preferencesError}
                                 </p>
                             ) : null}
+                            {preferencesBillingError ? (
+                                <BillingGateNotice billingError={preferencesBillingError} />
+                            ) : null}
                             {preferencesSaved ? (
                                 <p className='rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground'>
                                     {preferencesSaved}
@@ -470,11 +669,13 @@ export default function SettingsRoute() {
                                         <SelectValue placeholder='Select a currency' />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {PREFERRED_CURRENCIES.map(currency => (
-                                            <SelectItem key={currency.value} value={currency.value}>
-                                                {getCurrencyLabel(currency.value)}
-                                            </SelectItem>
-                                        ))}
+                                        <SelectGroup>
+                                            {PREFERRED_CURRENCIES.map(currency => (
+                                                <SelectItem key={currency.value} value={currency.value}>
+                                                    {getCurrencyLabel(currency.value)}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectGroup>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -487,6 +688,32 @@ export default function SettingsRoute() {
                                 </p>
                             </div>
 
+                            <div className='flex flex-col gap-2'>
+                                <label htmlFor='settings-history-sort' className='text-sm font-medium text-foreground'>
+                                    Service history order
+                                </label>
+                                <Select
+                                    value={historySortOrder}
+                                    onValueChange={value => setHistorySortOrder(value as HistorySortOrder)}
+                                >
+                                    <SelectTrigger id='settings-history-sort'>
+                                        <SelectValue placeholder='Select a sort order' />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectGroup>
+                                            {HISTORY_SORT_ORDERS.map(order => (
+                                                <SelectItem key={order} value={order}>
+                                                    {order === 'newest_first' ? 'Newest first' : 'Oldest first'}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectGroup>
+                                    </SelectContent>
+                                </Select>
+                                <p className='text-sm text-muted-foreground'>
+                                    This becomes the default order whenever you open a vehicle service history view.
+                                </p>
+                            </div>
+
                             <div className='rounded-xl border bg-muted/40 p-4'>
                                 <div className='flex flex-col gap-2'>
                                     <p className='text-sm font-medium text-foreground'>Reminder digest defaults</p>
@@ -494,6 +721,12 @@ export default function SettingsRoute() {
                                         Daily maintenance digests are sent by email first. SMS and WhatsApp can be added
                                         later without changing the underlying reminder rules.
                                     </p>
+                                    {!auth.user.emailVerifiedAt ? (
+                                        <p className='text-sm text-muted-foreground'>
+                                            Your reminder preferences can be saved now, but Duralog will not deliver
+                                            email digests until you verify {auth.user.email}.
+                                        </p>
+                                    ) : null}
                                 </div>
 
                                 <div className='mt-4 grid gap-4 md:grid-cols-2'>
@@ -507,8 +740,10 @@ export default function SettingsRoute() {
                                                 <SelectValue placeholder='Select reminder status' />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value='enabled'>Enabled</SelectItem>
-                                                <SelectItem value='disabled'>Disabled</SelectItem>
+                                                <SelectGroup>
+                                                    <SelectItem value='enabled'>Enabled</SelectItem>
+                                                    <SelectItem value='disabled'>Disabled</SelectItem>
+                                                </SelectGroup>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -523,8 +758,10 @@ export default function SettingsRoute() {
                                                 <SelectValue placeholder='Select digest status' />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value='enabled'>Enabled</SelectItem>
-                                                <SelectItem value='disabled'>Disabled</SelectItem>
+                                                <SelectGroup>
+                                                    <SelectItem value='enabled'>Enabled</SelectItem>
+                                                    <SelectItem value='disabled'>Disabled</SelectItem>
+                                                </SelectGroup>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -579,6 +816,160 @@ export default function SettingsRoute() {
                                     {savingPreferences ? 'Saving…' : 'Save Preferences'}
                                 </Button>
                             </div>
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value='billing' className='mt-0'>
+                        <div className='flex max-w-3xl flex-col gap-6'>
+                            <div className='flex flex-col gap-2'>
+                                <h2 className='text-xl font-semibold text-foreground'>Billing</h2>
+                                <p className='text-sm text-muted-foreground'>
+                                    See your current plan, usage limits, and upgrade options.
+                                </p>
+                            </div>
+
+                            {billingMessage ? (
+                                <p className='rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground'>
+                                    {billingMessage}
+                                </p>
+                            ) : null}
+                            {billingError ? (
+                                <p className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'>
+                                    {billingError}
+                                </p>
+                            ) : null}
+
+                            <Card>
+                                <CardHeader>
+                                    <div className='flex flex-wrap items-center justify-between gap-3'>
+                                        <div>
+                                            <CardTitle className='flex items-center gap-2'>
+                                                <CreditCard data-icon='inline-start' />
+                                                Current plan
+                                            </CardTitle>
+                                            <CardDescription>
+                                                Stripe manages subscription purchase, renewals, and self-serve changes.
+                                            </CardDescription>
+                                        </div>
+                                        <div className='flex flex-wrap gap-2'>
+                                            <Badge>{billingState?.planName ?? 'Free'}</Badge>
+                                            {billingState?.billingInterval ? (
+                                                <Badge variant='outline'>
+                                                    {billingState.billingInterval === 'year' ? 'Annual' : 'Monthly'}
+                                                </Badge>
+                                            ) : null}
+                                        </div>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className='grid gap-4 md:grid-cols-2'>
+                                    <div className='rounded-lg border bg-muted/40 p-4 text-sm text-muted-foreground'>
+                                        <p className='font-medium text-foreground'>Plan status</p>
+                                        <p className='mt-1'>
+                                            {loadingBilling
+                                                ? 'Loading billing details…'
+                                                : billingState
+                                                ? `${billingState.subscriptionStatus.replace(/_/g, ' ')}${
+                                                      billingState.currentPeriodEnd
+                                                          ? ` until ${new Date(
+                                                                billingState.currentPeriodEnd
+                                                            ).toLocaleDateString()}`
+                                                          : ''
+                                                  }`
+                                                : 'Free plan active'}
+                                        </p>
+                                        {billingState?.cancelAtPeriodEnd ? (
+                                            <p className='mt-2'>
+                                                Your subscription will end at the close of the current period.
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                    <div className='rounded-lg border bg-muted/40 p-4 text-sm text-muted-foreground'>
+                                        <p className='font-medium text-foreground'>Current usage</p>
+                                        <p className='mt-1'>
+                                            Vehicles: {billingState?.entitlements.usage.vehicles ?? 0}/
+                                            {billingState?.entitlements.limits.vehicles ?? 'unlimited'}
+                                        </p>
+                                        <p>
+                                            Service records: {billingState?.entitlements.usage.serviceRecords ?? 0}/
+                                            {billingState?.entitlements.limits.serviceRecords ?? 'unlimited'}
+                                        </p>
+                                        <p>
+                                            Workshops: {billingState?.entitlements.usage.workshops ?? 0}/
+                                            {billingState?.entitlements.limits.workshops ?? 'unlimited'}
+                                        </p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Upgrade options</CardTitle>
+                                    <CardDescription>
+                                        Plus is the default paid plan. Garage expands the vehicle cap for larger
+                                        households.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className='grid gap-4 md:grid-cols-2'>
+                                    <div className='rounded-lg border p-4'>
+                                        <div className='flex items-center justify-between gap-2'>
+                                            <p className='font-medium text-foreground'>Plus</p>
+                                            <Badge variant='secondary'>$4.99/mo</Badge>
+                                        </div>
+                                        <p className='mt-2 text-sm text-muted-foreground'>
+                                            Up to 5 vehicles, unlimited records, reminders, maintenance plans, VIN
+                                            lookup, and generated vehicle images.
+                                        </p>
+                                        <div className='mt-4 flex flex-wrap gap-2'>
+                                            <Button
+                                                type='button'
+                                                onClick={() => handleStartCheckout('plus')}
+                                                disabled={billingAction != null || billingState?.planCode === 'plus'}
+                                            >
+                                                {billingAction === 'plus' ? 'Redirecting…' : 'Upgrade to Plus'}
+                                            </Button>
+                                            <Button asChild variant='outline' type='button'>
+                                                <Link to='/pricing?billing=year'>View annual pricing</Link>
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    <div className='rounded-lg border p-4'>
+                                        <div className='flex items-center justify-between gap-2'>
+                                            <p className='font-medium text-foreground'>Garage</p>
+                                            <Badge variant='secondary'>$8.99/mo</Badge>
+                                        </div>
+                                        <p className='mt-2 text-sm text-muted-foreground'>
+                                            Everything in Plus with a 15-vehicle cap for enthusiast and multi-vehicle
+                                            households.
+                                        </p>
+                                        <div className='mt-4 flex flex-wrap gap-2'>
+                                            <Button
+                                                type='button'
+                                                onClick={() => handleStartCheckout('garage')}
+                                                disabled={billingAction != null || billingState?.planCode === 'garage'}
+                                            >
+                                                {billingAction === 'garage' ? 'Redirecting…' : 'Upgrade to Garage'}
+                                            </Button>
+                                            <Button asChild variant='outline' type='button'>
+                                                <Link to='/pricing'>Compare plans</Link>
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {billingState?.canManageBilling ? (
+                                <div className='flex justify-end'>
+                                    <Button
+                                        type='button'
+                                        variant='outline'
+                                        onClick={handleManageBilling}
+                                        disabled={billingAction != null}
+                                    >
+                                        {billingAction === 'portal' ? 'Opening billing portal…' : 'Manage billing'}
+                                    </Button>
+                                </div>
+                            ) : null}
                         </div>
                     </TabsContent>
                 </Tabs>

@@ -1,5 +1,7 @@
 import { Prisma } from '@prisma/client'
 import { Router, Request, Response } from 'express'
+import { isBillingAccessError, sendBillingError } from '../billing/error.js'
+import { assertCanCreateServiceRecord, assertCanCreateWorkshop } from '../billing/service.js'
 import { prisma } from '../db.js'
 import { createLogger } from '../logging/logger.js'
 import { asyncHandler } from '../middleware/asyncHandler.js'
@@ -21,6 +23,10 @@ type ServiceRecordWriteInput = {
 }
 
 type MaintenancePlanBaselineRecord = ServiceRecordWriteInput
+
+function normalizeWorkshopLookupName(value: string) {
+    return value.trim().toLowerCase().replace(/\s+/g, ' ')
+}
 
 function normalizeMatchText(value: string) {
     return value.trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ')
@@ -286,7 +292,7 @@ router.post(
                 vehicleId: Number(req.params.vehicleId),
                 bodyKeys: Object.keys((req.body ?? {}) as Record<string, unknown>)
             })
-            res.status(400).json({ error: 'service_type, description, and date are required' })
+            res.status(400).json({ error: 'Service type, service details, and service date are required.' })
             return
         }
 
@@ -305,6 +311,31 @@ router.post(
             })
             res.status(404).json({ error: 'Vehicle not found' })
             return
+        }
+
+        try {
+            await assertCanCreateServiceRecord(authUser.id)
+
+            const normalizedWorkshopName = typeof workshop === 'string' ? workshop.trim() : ''
+
+            if (normalizedWorkshopName) {
+                const lookupName = normalizeWorkshopLookupName(normalizedWorkshopName)
+                const existingWorkshop = await prisma.workshop.findFirst({
+                    where: { user_id: authUser.id, name: lookupName },
+                    select: { id: true }
+                })
+
+                if (!existingWorkshop) {
+                    await assertCanCreateWorkshop(authUser.id)
+                }
+            }
+        } catch (error) {
+            if (isBillingAccessError(error)) {
+                sendBillingError(res, error)
+                return
+            }
+
+            throw error
         }
 
         let linkedPlan: { id: number } | null = null
@@ -326,7 +357,7 @@ router.post(
                     vehicleId,
                     maintenancePlanId: maintenance_plan_id
                 })
-                res.status(400).json({ error: 'maintenance_plan_id must reference a plan on this vehicle' })
+                res.status(400).json({ error: 'Choose a maintenance plan that belongs to this vehicle.' })
                 return
             }
         }
@@ -389,7 +420,7 @@ router.put(
                 disallowedKeys
             })
             res.status(400).json({
-                error: 'Only workshop, description, cost, and notes can be updated for a service record'
+                error: 'You can only update the workshop, service details, cost, and notes for a service record.'
             })
             return
         }
@@ -409,7 +440,7 @@ router.put(
                 recordId: Number(req.params.id),
                 bodyKeys
             })
-            res.status(400).json({ error: 'description is required' })
+            res.status(400).json({ error: 'Enter service details.' })
             return
         }
 
@@ -431,6 +462,29 @@ router.put(
             })
             res.status(404).json({ error: 'Service record not found' })
             return
+        }
+
+        try {
+            const normalizedWorkshopName = typeof workshop === 'string' ? workshop.trim() : ''
+
+            if (normalizedWorkshopName) {
+                const lookupName = normalizeWorkshopLookupName(normalizedWorkshopName)
+                const existingWorkshop = await prisma.workshop.findFirst({
+                    where: { user_id: authUser.id, name: lookupName },
+                    select: { id: true }
+                })
+
+                if (!existingWorkshop) {
+                    await assertCanCreateWorkshop(authUser.id)
+                }
+            }
+        } catch (error) {
+            if (isBillingAccessError(error)) {
+                sendBillingError(res, error)
+                return
+            }
+
+            throw error
         }
 
         const { updated, recomputedPlanCount } = await prisma.$transaction(async transaction => {

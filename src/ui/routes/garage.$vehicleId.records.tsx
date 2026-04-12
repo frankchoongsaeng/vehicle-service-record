@@ -1,5 +1,14 @@
 import type { LoaderFunctionArgs, MetaFunction } from '@remix-run/node'
-import { Link, Outlet, useLoaderData, useNavigate, useParams, useRevalidator, useSearchParams } from '@remix-run/react'
+import {
+    Link,
+    Outlet,
+    useLoaderData,
+    useLocation,
+    useNavigate,
+    useParams,
+    useRevalidator,
+    useSearchParams
+} from '@remix-run/react'
 import {
     CheckCircle2,
     ChevronLeft,
@@ -28,6 +37,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../components/ui/input-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
+import { buildOnboardingUrl, hasCompletedOnboarding } from '../auth/onboarding.js'
 import { useAuth } from '../auth/useAuth'
 import {
     buildDisplayServiceRecords,
@@ -47,10 +57,12 @@ import type {
     Vehicle,
     Workshop
 } from '../types/index.js'
+import { DEFAULT_HISTORY_SORT_ORDER, isHistorySortOrder, type HistorySortOrder } from '../../types/userSettings.js'
 
 export const meta: MetaFunction = () => [{ title: 'Service Records — Duralog' }]
 
 type RecordsView = 'history' | 'plans'
+type RecordSortOrder = HistorySortOrder
 
 export async function loader({ params, request }: LoaderFunctionArgs) {
     const vehicleId = Number(params.vehicleId)
@@ -67,7 +79,15 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
         fetchAuthenticatedUser(request)
     ])
 
-    const records = buildDisplayServiceRecords(rawRecords, new Date(), authUser.preferredCurrency, vehicle.distanceUnit)
+    const requestedSort = new URL(request.url).searchParams.get('sort')
+    const historySortOrder = isHistorySortOrder(requestedSort) ? requestedSort : authUser.historySortOrder
+    const records = buildDisplayServiceRecords(
+        rawRecords,
+        new Date(),
+        authUser.preferredCurrency,
+        vehicle.distanceUnit,
+        historySortOrder
+    )
     const vehicleLabel = `${vehicle.year} ${vehicle.make} ${vehicle.model}`
     const vehicleImageFallback = getVehicleTypeImage(vehicle.vehicleType)
     const vehicleImageSrc = vehicle.imageUrl ?? vehicleImageFallback
@@ -79,6 +99,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
         rawRecords,
         plans,
         workshops,
+        historySortOrder,
         vehicleLabel,
         vehicleImageFallback,
         vehicleImageSrc
@@ -95,20 +116,34 @@ export default function RecordsRoute() {
         rawRecords,
         plans,
         workshops,
+        historySortOrder,
         vehicleLabel,
         vehicleImageFallback,
         vehicleImageSrc
     } = useLoaderData<typeof loader>()
     const { recordId } = useParams()
     const auth = useAuth()
+    const location = useLocation()
     const navigate = useNavigate()
     const revalidator = useRevalidator()
     const [searchParams, setSearchParams] = useSearchParams()
 
     useEffect(() => {
-        if (auth.status !== 'unauthenticated') return
-        navigate(`/login?redirectTo=${encodeURIComponent(`/garage/${vehicleId}/records`)}`, { replace: true })
-    }, [auth.status, navigate, vehicleId])
+        if (auth.status === 'loading') {
+            return
+        }
+
+        const redirectTo = `${location.pathname}${location.search}${location.hash}` || `/garage/${vehicleId}/records`
+
+        if (auth.status === 'unauthenticated') {
+            navigate(`/login?redirectTo=${encodeURIComponent(redirectTo)}`, { replace: true })
+            return
+        }
+
+        if (!hasCompletedOnboarding(auth.user)) {
+            navigate(buildOnboardingUrl(redirectTo), { replace: true })
+        }
+    }, [auth.status, auth.user, location.hash, location.pathname, location.search, navigate, vehicleId])
 
     const activeView: RecordsView = recordId ? 'history' : searchParams.get('view') === 'plans' ? 'plans' : 'history'
     const selectedPlanId = activeView === 'plans' ? searchParams.get('plan') : null
@@ -116,6 +151,9 @@ export default function RecordsRoute() {
     const query = searchParams.get('q') ?? ''
     const statusFilter = (searchParams.get('status') ?? 'All') as ServiceStatus | 'All'
     const categoryFilter = searchParams.get('category') ?? 'All'
+    const sortOrder = isHistorySortOrder(searchParams.get('sort'))
+        ? (searchParams.get('sort') as RecordSortOrder)
+        : historySortOrder ?? DEFAULT_HISTORY_SORT_ORDER
 
     const categories = useMemo(() => ['All', ...new Set(records.map(record => record.category))], [records])
     const safeStatus = statusFilters.includes(statusFilter) ? statusFilter : 'All'
@@ -221,6 +259,18 @@ export default function RecordsRoute() {
         setSearchParams(next, { replace: true })
     }
 
+    const updateSort = (value: RecordSortOrder) => {
+        const next = new URLSearchParams(searchParams)
+
+        if (value === historySortOrder) {
+            next.delete('sort')
+        } else {
+            next.set('sort', value)
+        }
+
+        setSearchParams(next, { replace: true })
+    }
+
     const handleRowClick = (id: string) => {
         navigate(recordId === id ? buildRecordsUrl({ mode: null }) : buildRecordUrl(id))
     }
@@ -255,6 +305,12 @@ export default function RecordsRoute() {
 
     if (!auth.user) {
         return <div className='grid min-h-screen place-items-center text-muted-foreground'>Redirecting to login…</div>
+    }
+
+    if (!hasCompletedOnboarding(auth.user)) {
+        return (
+            <div className='grid min-h-screen place-items-center text-muted-foreground'>Redirecting to onboarding…</div>
+        )
     }
 
     return (
@@ -456,6 +512,27 @@ export default function RecordsRoute() {
                                                     {item}
                                                 </SelectItem>
                                             ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className='flex flex-col gap-2 rounded-xl border bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between'>
+                                    <div className='flex flex-col gap-1'>
+                                        <p className='text-sm font-medium text-foreground'>History order</p>
+                                        <p className='text-sm text-muted-foreground'>
+                                            Defaults to your saved preference, with the current choice reflected in the
+                                            URL.
+                                        </p>
+                                    </div>
+                                    <Select
+                                        value={sortOrder}
+                                        onValueChange={value => updateSort(value as RecordSortOrder)}
+                                    >
+                                        <SelectTrigger className='w-full sm:w-47.5'>
+                                            <SelectValue placeholder='Sort records' />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value='newest_first'>Newest first</SelectItem>
+                                            <SelectItem value='oldest_first'>Oldest first</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>

@@ -1,7 +1,21 @@
 import { NavLink } from '@remix-run/react'
-import { BriefcaseBusiness, CarFront, LogOut, Menu, Moon, Plus, Settings, Sun, UserCircle2 } from 'lucide-react'
+import {
+    BriefcaseBusiness,
+    CarFront,
+    CreditCard,
+    LogOut,
+    MailCheck,
+    Menu,
+    Moon,
+    Plus,
+    Settings,
+    Sun,
+    UserCircle2
+} from 'lucide-react'
 import { useState } from 'react'
 
+import * as api from '../api/client.js'
+import { useAuth } from '../auth/useAuth.js'
 import type { AuthUser } from '../types/index.js'
 import { getUserDisplayName, getUserInitials } from '../lib/account.js'
 import { useTheme } from '../theme/theme.js'
@@ -33,10 +47,15 @@ export function AuthenticatedShell({
     selectedVehicleTo,
     children
 }: AuthenticatedShellProps) {
+    const auth = useAuth()
     const [loggingOut, setLoggingOut] = useState(false)
+    const [resendingVerification, setResendingVerification] = useState(false)
+    const [verificationMessage, setVerificationMessage] = useState<string | null>(null)
+    const [verificationError, setVerificationError] = useState<string | null>(null)
     const { theme, toggleTheme } = useTheme()
     const profileInitials = getUserInitials(currentUser)
     const displayName = getUserDisplayName(currentUser)
+    const verificationRequired = !currentUser.emailVerifiedAt
 
     const handleLogout = async () => {
         try {
@@ -47,11 +66,68 @@ export function AuthenticatedShell({
         }
     }
 
+    const handleResendVerification = async () => {
+        setResendingVerification(true)
+        setVerificationMessage(null)
+        setVerificationError(null)
+
+        try {
+            const updatedUser = await api.resendEmailVerification()
+            auth.replaceUser(updatedUser)
+            setVerificationMessage('Verification email sent. Check your inbox and spam folder.')
+        } catch (error) {
+            if (error instanceof api.ApiError || error instanceof Error) {
+                setVerificationError(error.message)
+            } else {
+                setVerificationError('Unable to resend the verification email right now.')
+            }
+        } finally {
+            setResendingVerification(false)
+        }
+    }
+
     return (
         <div className='min-h-screen bg-background'>
+            {verificationRequired ? (
+                <div className='border-b bg-amber-50 text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100'>
+                    <div className='mx-auto flex w-full max-w-screen-2xl flex-col gap-3 px-4 py-3 sm:px-6 lg:px-8'>
+                        <div className='flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between'>
+                            <div className='flex items-start gap-3'>
+                                <div className='rounded-full bg-amber-200/80 p-2 text-amber-900 dark:bg-amber-900/70 dark:text-amber-100'>
+                                    <MailCheck className='size-4' />
+                                </div>
+                                <div className='flex flex-col gap-1'>
+                                    <p className='font-semibold'>Verify your email to unlock email-based features</p>
+                                    <p className='max-w-3xl text-sm text-amber-900/80 dark:text-amber-100/80'>
+                                        You can keep using Duralog now, but reminder emails and other email services
+                                        stay paused until {currentUser.email} is verified.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className='flex flex-wrap gap-2'>
+                                <Button
+                                    type='button'
+                                    variant='outline'
+                                    onClick={handleResendVerification}
+                                    disabled={resendingVerification}
+                                >
+                                    {resendingVerification ? 'Sending…' : 'Resend email'}
+                                </Button>
+                            </div>
+                        </div>
+
+                        {verificationMessage ? <p className='text-sm'>{verificationMessage}</p> : null}
+                        {verificationError ? (
+                            <p className='text-sm text-destructive dark:text-red-200'>{verificationError}</p>
+                        ) : null}
+                    </div>
+                </div>
+            ) : null}
+
             <div className='sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80'>
-                <div className='mx-auto flex w-full max-w-screen-2xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8'>
-                    <div className='grid grid-cols-3 items-center gap-3'>
+                <div className='mx-auto w-full max-w-screen-2xl px-4 py-4 sm:px-6 lg:px-8'>
+                    <div className='grid w-full grid-cols-3 items-center gap-3'>
                         <div className='flex min-w-0 items-center justify-start gap-2'>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -60,7 +136,7 @@ export function AuthenticatedShell({
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align='start' sideOffset={8}>
-                                    <DropdownMenuLabel>Navigation</DropdownMenuLabel>
+                                    <DropdownMenuLabel>Menu</DropdownMenuLabel>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuGroup>
                                         <DropdownMenuItem asChild>
@@ -132,9 +208,6 @@ export function AuthenticatedShell({
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align='end' sideOffset={8}>
                                     <DropdownMenuLabel className='flex flex-col gap-0.5'>
-                                        <span className='truncate text-sm font-semibold text-foreground'>
-                                            {displayName}
-                                        </span>
                                         <span className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
                                             Signed in as
                                         </span>
@@ -144,6 +217,12 @@ export function AuthenticatedShell({
                                     </DropdownMenuLabel>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuGroup>
+                                        <DropdownMenuItem asChild>
+                                            <NavLink to='/settings?tab=billing'>
+                                                <CreditCard />
+                                                Billing
+                                            </NavLink>
+                                        </DropdownMenuItem>
                                         <DropdownMenuItem asChild>
                                             <NavLink to='/settings'>
                                                 <Settings />

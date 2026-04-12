@@ -10,7 +10,7 @@
 | -------- | ---------------------------------------------------- |
 | Frontend | Remix v2 + React 18 + TypeScript (in `src/ui/`)      |
 | Backend  | Node.js + Express 4 + TypeScript (in `src/`)         |
-| Database | Prisma ORM + SQLite or MySQL                         |
+| Database | Prisma ORM + MySQL                                   |
 | Styling  | Tailwind CSS v4 + shadcn-style primitives            |
 | Build    | Vite 6 (Remix Vite plugin)                           |
 | Runtime  | Node.js (ESM throughout, NodeNext module resolution) |
@@ -46,9 +46,8 @@ vehicle-service-record/
 │       ├── entry.server.tsx
 │       └── tsconfig.app.json   # Frontend TS config
 ├── prisma/
-│   ├── schema.prisma           # Canonical Prisma schema; config derives SQLite or MySQL variants from this
-│   ├── mysql/
-│   │   └── migrations/         # Prisma migration history for MySQL
+│   ├── schema.prisma           # Prisma schema
+│   ├── migrations/             # Prisma migration history
 │   └── seed.ts                 # Dev seed script
 ├── openspec/                   # OpenSpec change management (do not modify manually)
 ├── package.json                # Root package (type: "module", all scripts here)
@@ -72,12 +71,15 @@ npm install
 cp .env.example .env
 # Edit .env and fill in secrets (especially OPENAUTH_SECRET for production)
 
-# 3. Initialize and migrate the database
+# 3. Start MySQL and initialize the database
+docker compose up -d mysql
 npm run db:migrate -- --name init
 
 # 4. Seed development data (creates demo@example.com / change-me123 login)
 npm run db:seed
 ```
+
+If Prisma reports `P3005`, resolve the migration history explicitly with a one-time baseline or reset the development database before retrying.
 
 ## Development
 
@@ -128,7 +130,7 @@ npm run db:push       # Push schema to DB without migration history (dev shortcu
 npm run db:seed       # Seed development data
 ```
 
-After modifying either Prisma schema file, always run `npm run db:generate` and create a migration for the active provider.
+After modifying `prisma/schema.prisma`, always run `npm run db:generate` and create a migration in `prisma/migrations`.
 
 ## Key Conventions
 
@@ -171,21 +173,30 @@ After modifying either Prisma schema file, always run `npm run db:generate` and 
 -   Logs are always written to stdout/stderr. Optionally write to a file via `LOG_FILE_PATH`.
 -   Each log record includes a `requestId` for correlating frontend and backend events.
 
+### Environment Management
+
+-   **Always keep `.env`, `.env.example`, and Docker Compose environment definitions in sync.** When adding, renaming, removing, or changing an environment variable used by the app or bundled MySQL service, update `/.env.example`, any documented `/.env` expectations, and the `environment:` blocks in `docker-compose.yml` together.
+-   Do not leave a variable defined in only one of those places unless it is intentionally local-only and clearly documented.
+
 ## Environment Variables
 
-| Variable                       | Description                                                           | Default                           |
-| ------------------------------ | --------------------------------------------------------------------- | --------------------------------- |
-| `DATABASE_PROVIDER`            | Optional override for Prisma provider selection (`sqlite` or `mysql`) | inferred from `DATABASE_URL`      |
-| `DATABASE_URL`                 | Prisma connection string for SQLite, libSQL, or MySQL                 | `file:./prisma/dev.db`            |
-| `PORT`                         | Express server port                                                   | `3001`                            |
-| `OPENAUTH_SECRET`              | Signing secret for session tokens                                     | _(required in production)_        |
-| `OPENAUTH_ISSUER`              | Token issuer                                                          | `vehicle-service-record-openauth` |
-| `OPENAUTH_AUDIENCE`            | Token audience                                                        | `vehicle-service-record-client`   |
-| `DEV_USER_EMAIL`               | Seeded dev login email                                                | `demo@example.com`                |
-| `DEV_USER_PASSWORD`            | Seeded dev login password                                             | `change-me123`                    |
-| `LOG_LEVEL`                    | Backend log threshold (`debug`, `info`, `warn`, `error`)              | `debug` in dev, `info` in prod    |
-| `LOG_READ_REQUEST_SAMPLE_RATE` | Sampling rate for read-request logs (0–1)                             | `1` in dev, `0.1` in prod         |
-| `LOG_FILE_PATH`                | Optional NDJSON log file path                                         | _(disabled)_                      |
+| Variable                       | Description                                              | Default                                 |
+| ------------------------------ | -------------------------------------------------------- | --------------------------------------- |
+| `MYSQL_HOST`                   | MySQL host used to compose the Prisma connection string  | `127.0.0.1` locally, `mysql` in Compose |
+| `MYSQL_PORT`                   | MySQL port used to compose the Prisma connection string  | `3306`                                  |
+| `MYSQL_DATABASE`               | MySQL database name                                      | `duralog`                               |
+| `MYSQL_USER`                   | MySQL application username                               | `duralog`                               |
+| `MYSQL_PASSWORD`               | MySQL application password                               | `duralog`                               |
+| `MYSQL_ROOT_PASSWORD`          | MySQL root password for the bundled Compose service      | `root`                                  |
+| `PORT`                         | Express server port                                      | `3001`                                  |
+| `OPENAUTH_SECRET`              | Signing secret for session tokens                        | _(required in production)_              |
+| `OPENAUTH_ISSUER`              | Token issuer                                             | `vehicle-service-record-openauth`       |
+| `OPENAUTH_AUDIENCE`            | Token audience                                           | `vehicle-service-record-client`         |
+| `DEV_USER_EMAIL`               | Seeded dev login email                                   | `demo@example.com`                      |
+| `DEV_USER_PASSWORD`            | Seeded dev login password                                | `change-me123`                          |
+| `LOG_LEVEL`                    | Backend log threshold (`debug`, `info`, `warn`, `error`) | `debug` in dev, `info` in prod          |
+| `LOG_READ_REQUEST_SAMPLE_RATE` | Sampling rate for read-request logs (0–1)                | `1` in dev, `0.1` in prod               |
+| `LOG_FILE_PATH`                | Optional NDJSON log file path                            | _(disabled)_                            |
 
 ## CI / Validation
 
@@ -201,6 +212,6 @@ Before submitting changes, always:
 
 -   **Module resolution errors**: The project uses `"type": "module"` with NodeNext resolution. Backend imports must use explicit `.js` extensions (e.g., `import './routes/auth.js'`).
 -   **Prisma client not found**: Run `npm install` (triggers `postinstall: prisma generate`) or run `npm run db:generate` manually.
--   **Provider switches require regeneration**: After moving between SQLite/libSQL and MySQL, rerun `npm run db:generate` so `@prisma/client` matches the active schema.
+-   **MySQL is required**: Start a MySQL server that matches the configured `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`, and `MYSQL_PASSWORD` values before running Prisma commands or starting the app.
 -   **Single server in dev**: There is no separate frontend dev server. `npm run dev` starts one Express server on port 3001 that serves both the API and Remix UI.
 -   **Missing `.env`**: Copy `.env.example` to `.env` before starting the server.

@@ -12,6 +12,7 @@ import { StatCard } from '../components/dashboard/StatCard'
 import type { SnapshotField, SummaryStat, TimelineEvent, UpcomingItem } from '../components/dashboard/types'
 import { UpcomingMaintenancePanel } from '../components/dashboard/UpcomingMaintenancePanel'
 import { VehicleSnapshotCard } from '../components/dashboard/VehicleSnapshotCard'
+import { buildOnboardingUrl, hasCompletedOnboarding } from '../auth/onboarding.js'
 import { useAuth } from '../auth/useAuth'
 import { formatDistance } from '../lib/distance.js'
 import { fallbackVehicleTypeImage, getVehicleTypeImage } from '../lib/vehicleTypes.js'
@@ -137,13 +138,21 @@ export default function VehicleDashboardRoute() {
     } = useLoaderData<typeof loader>()
 
     useEffect(() => {
-        if (auth.status !== 'unauthenticated') {
+        if (auth.status === 'loading') {
             return
         }
 
         const redirectTo = `${location.pathname}${location.search}${location.hash}` || `/garage/${vehicleId ?? ''}`
-        navigate(`/login?redirectTo=${encodeURIComponent(redirectTo)}`, { replace: true })
-    }, [auth.status, location.hash, location.pathname, location.search, navigate, vehicleId])
+
+        if (auth.status === 'unauthenticated') {
+            navigate(`/login?redirectTo=${encodeURIComponent(redirectTo)}`, { replace: true })
+            return
+        }
+
+        if (!hasCompletedOnboarding(auth.user)) {
+            navigate(buildOnboardingUrl(redirectTo), { replace: true })
+        }
+    }, [auth.status, auth.user, location.hash, location.pathname, location.search, navigate, vehicleId])
 
     if (outlet) {
         return outlet
@@ -155,6 +164,12 @@ export default function VehicleDashboardRoute() {
 
     if (!auth.user) {
         return <div className='grid min-h-screen place-items-center text-muted-foreground'>Redirecting to login…</div>
+    }
+
+    if (!hasCompletedOnboarding(auth.user)) {
+        return (
+            <div className='grid min-h-screen place-items-center text-muted-foreground'>Redirecting to onboarding…</div>
+        )
     }
 
     return (

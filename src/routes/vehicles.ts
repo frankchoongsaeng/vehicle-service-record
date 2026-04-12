@@ -1,4 +1,12 @@
 import { Router, Request, Response } from 'express'
+import { isBillingAccessError, sendBillingError } from '../billing/error.js'
+import {
+    assertCanCreateVehicle,
+    assertCanUseVehicleImages,
+    assertCanUseVehicleReminderOverrides,
+    assertCanUseVinLookup,
+    canUseFeature
+} from '../billing/service.js'
 import { prisma } from '../db.js'
 import { createLogger } from '../logging/logger.js'
 import { asyncHandler } from '../middleware/asyncHandler.js'
@@ -21,6 +29,40 @@ function shouldScheduleVehicleImage(color?: string | null): boolean {
     return Boolean(color?.trim())
 }
 
+function shouldRefreshVehicleImage(
+    existing: {
+        image_id: number | null
+        make: string
+        model: string
+        year: number
+        trim: string
+        vehicle_type: string | null
+        color: string | null
+    },
+    next: {
+        make: string
+        model: string
+        year: number
+        trim: string
+        vehicleType: string | null
+        color: string | null
+    }
+): boolean {
+    if (!shouldScheduleVehicleImage(next.color)) {
+        return false
+    }
+
+    return (
+        existing.image_id == null ||
+        existing.make !== next.make ||
+        existing.model !== next.model ||
+        existing.year !== next.year ||
+        existing.trim !== next.trim ||
+        existing.vehicle_type !== next.vehicleType ||
+        existing.color !== next.color
+    )
+}
+
 function normalizeOptionalThreshold(value: unknown, field: string): number | null {
     if (value == null || value === '') {
         return null
@@ -29,7 +71,15 @@ function normalizeOptionalThreshold(value: unknown, field: string): number | nul
     const normalized = Number(value)
 
     if (!Number.isInteger(normalized) || normalized <= 0) {
-        throw new Error(`${field} must be a positive whole number when provided`)
+        if (field === 'reminderRule.daysThreshold') {
+            throw new Error('Reminder days must be a positive whole number.')
+        }
+
+        if (field === 'reminderRule.mileageThreshold') {
+            throw new Error('Reminder mileage must be a positive whole number.')
+        }
+
+        throw new Error('Reminder values must be positive whole numbers.')
     }
 
     return normalized
@@ -244,6 +294,8 @@ router.get(
         const vin = String(req.params.vin ?? '')
 
         try {
+            await assertCanUseVinLookup(authUser.id)
+
             const result = await lookupVin(vin)
 
             vehiclesLogger.info('vehicles.vin_lookup_succeeded', {
@@ -267,6 +319,11 @@ router.get(
                 })
 
                 res.status(error.status).json({ error: error.message })
+                return
+            }
+
+            if (isBillingAccessError(error)) {
+                sendBillingError(res, error)
                 return
             }
 
@@ -376,7 +433,7 @@ router.post(
                 userId: authUser.id,
                 bodyKeys: Object.keys((req.body ?? {}) as Record<string, unknown>)
             })
-            res.status(400).json({ error: 'make, model, year, trim, transmission, and fuel type are required' })
+            res.status(400).json({ error: 'Enter the make, model, year, trim, transmission, and fuel type.' })
             return
         }
 
@@ -386,7 +443,7 @@ router.post(
                 userId: authUser.id,
                 distanceUnit
             })
-            res.status(400).json({ error: 'distanceUnit must be either km or mi' })
+            res.status(400).json({ error: 'Choose miles or kilometers for distance tracking.' })
             return
         }
 
@@ -402,6 +459,12 @@ router.post(
 
             if (normalizedReminderMode === 'custom' && !normalizedReminderRule) {
                 throw new Error('A custom reminder rule requires at least one threshold')
+            }
+
+            await assertCanCreateVehicle(authUser.id)
+
+            if (normalizedReminderMode === 'custom') {
+                await assertCanUseVehicleReminderOverrides(authUser.id)
             }
 
             const createdVehicle = await prisma.$transaction(async tx => {
@@ -453,7 +516,10 @@ router.post(
 
             res.status(201).json(serializeVehicle(createdVehicle))
 
-            if (shouldScheduleVehicleImage(createdVehicle.color)) {
+            if (
+                shouldScheduleVehicleImage(createdVehicle.color) &&
+                (await canUseFeature(authUser.id, 'vehicleImages'))
+            ) {
                 scheduleVehicleImagePipeline({
                     make: createdVehicle.make,
                     model: createdVehicle.model,
@@ -467,7 +533,14 @@ router.post(
                 })
             }
         } catch (error) {
-            res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid vehicle reminder rule' })
+            if (isBillingAccessError(error)) {
+                sendBillingError(res, error)
+                return
+            }
+
+            res.status(400).json({
+                error: error instanceof Error ? error.message : 'Check your reminder settings and try again.'
+            })
         }
     })
 )
@@ -520,7 +593,7 @@ router.put(
                 vehicleId: Number(req.params.id),
                 bodyKeys: Object.keys((req.body ?? {}) as Record<string, unknown>)
             })
-            res.status(400).json({ error: 'make, model, year, trim, transmission, and fuel type are required' })
+            res.status(400).json({ error: 'Enter the make, model, year, trim, transmission, and fuel type.' })
             return
         }
 
@@ -531,7 +604,7 @@ router.put(
                 vehicleId: Number(req.params.id),
                 distanceUnit
             })
-            res.status(400).json({ error: 'distanceUnit must be either km or mi' })
+            res.status(400).json({ error: 'Choose miles or kilometers for distance tracking.' })
             return
         }
 
@@ -568,20 +641,44 @@ router.put(
                 throw new Error('A custom reminder rule requires at least one threshold')
             }
 
+            if (normalizedReminderMode === 'custom') {
+                await assertCanUseVehicleReminderOverrides(authUser.id)
+            }
+
+            const nextVehicleImageRequested = shouldRefreshVehicleImage(existing, {
+                make,
+                model,
+                year: normalizedYear,
+                trim,
+                vehicleType: vehicleType || null,
+                color: color || null
+            })
+
+            if (nextVehicleImageRequested) {
+                await assertCanUseVehicleImages(authUser.id)
+            }
+
             const updated = await prisma.$transaction(async tx => {
-                const ensuredImage = await ensureVehicleImage(tx, {
-                    make,
-                    model,
-                    year: normalizedYear,
-                    trim,
-                    vehicleType: vehicleType ?? null,
-                    color: color ?? null
-                })
+                const ensuredImage = nextVehicleImageRequested
+                    ? await ensureVehicleImage(tx, {
+                          make,
+                          model,
+                          year: normalizedYear,
+                          trim,
+                          vehicleType: vehicleType ?? null,
+                          color: color ?? null
+                      })
+                    : null
+                const nextImageId = shouldScheduleVehicleImage(color ?? null)
+                    ? nextVehicleImageRequested
+                        ? ensuredImage?.imageId ?? existing.image_id
+                        : existing.image_id
+                    : null
 
                 const vehicle = await tx.vehicle.update({
                     where: { id: vehicleId },
                     data: {
-                        image_id: ensuredImage?.imageId ?? null,
+                        image_id: nextImageId,
                         make,
                         model,
                         year: normalizedYear,
@@ -626,7 +723,14 @@ router.put(
 
             res.json(serializeVehicle(updated))
         } catch (error) {
-            res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid vehicle reminder rule' })
+            if (isBillingAccessError(error)) {
+                sendBillingError(res, error)
+                return
+            }
+
+            res.status(400).json({
+                error: error instanceof Error ? error.message : 'Check your reminder settings and try again.'
+            })
         }
     })
 )

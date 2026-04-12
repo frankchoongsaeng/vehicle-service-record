@@ -1,8 +1,9 @@
-import { Links, LiveReload, Meta, Outlet, Scripts, ScrollRestoration } from '@remix-run/react'
+import { Links, Meta, Outlet, Scripts, ScrollRestoration } from '@remix-run/react'
 import type { LinksFunction } from '@remix-run/node'
 
 import globalStyles from './index.css?url'
 import { AuthProvider } from './auth/AuthProvider'
+import { MonitoringProvider } from './monitoring/MonitoringProvider'
 import { ThemeProvider } from './theme/ThemeProvider'
 import { themeInitializationScript } from './theme/theme.js'
 
@@ -24,12 +25,13 @@ export default function App() {
             <body>
                 <ThemeProvider>
                     <AuthProvider>
-                        <Outlet />
+                        <MonitoringProvider>
+                            <Outlet />
+                        </MonitoringProvider>
                     </AuthProvider>
                 </ThemeProvider>
                 <ScrollRestoration />
                 <Scripts />
-                <LiveReload />
             </body>
         </html>
     )

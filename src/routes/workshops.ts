@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express'
 
+import { isBillingAccessError, sendBillingError } from '../billing/error.js'
+import { assertCanCreateWorkshop } from '../billing/service.js'
 import { prisma } from '../db.js'
 import { createLogger } from '../logging/logger.js'
 import { asyncHandler } from '../middleware/asyncHandler.js'
@@ -22,7 +24,7 @@ function normalizeWorkshopPayload(body: unknown): { data?: WorkshopPayload; erro
     const phone = normalizeOptionalString(raw.phone)
 
     if (!name) {
-        return { error: 'name is required' }
+        return { error: 'Enter a workshop name.' }
     }
 
     return {
@@ -91,6 +93,17 @@ router.post(
             })
             res.status(400).json({ error })
             return
+        }
+
+        try {
+            await assertCanCreateWorkshop(authUser.id)
+        } catch (billingError) {
+            if (isBillingAccessError(billingError)) {
+                sendBillingError(res, billingError)
+                return
+            }
+
+            throw billingError
         }
 
         const workshop = await prisma.workshop.create({

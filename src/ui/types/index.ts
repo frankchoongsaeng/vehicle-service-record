@@ -5,11 +5,19 @@ import {
     type ServiceTypeValue
 } from '../../types/serviceTypes.js'
 import type { DistanceUnit } from '../../types/distance.js'
+import type {
+    BillingGateResponse,
+    BillingInterval,
+    BillingSubscriptionState,
+    PlanCode,
+    PlanDefinition
+} from '../../types/billing.js'
 import type { ReminderChannel, ReminderPreferenceMode } from '../../types/reminders.js'
-import type { PreferredCurrencyCode } from '../../types/userSettings.js'
+import type { HistorySortOrder, PreferredCurrencyCode } from '../../types/userSettings.js'
 
 export { SERVICE_TYPES, getServiceTypeLabel, isServiceTypeValue }
 export type { ServiceTypeValue }
+export type { BillingGateResponse, BillingInterval, BillingSubscriptionState, PlanCode, PlanDefinition }
 
 export interface Vehicle {
     id: number
@@ -88,11 +96,15 @@ export interface VinLookupResult {
 export interface AuthUser {
     id: string
     email: string
+    emailVerifiedAt: string | null
+    emailVerificationSentAt: string | null
     firstName?: string | null
     lastName?: string | null
     country?: string | null
     profileImageUrl?: string | null
     preferredCurrency: PreferredCurrencyCode
+    historySortOrder: HistorySortOrder
+    onboardingCompletedAt: string | null
 }
 
 export interface UserSettingsInput {
@@ -101,6 +113,7 @@ export interface UserSettingsInput {
     country?: string
     profileImageUrl?: string
     preferredCurrency?: PreferredCurrencyCode
+    historySortOrder?: HistorySortOrder
 }
 
 export interface ProfileImageUploadResult {
@@ -204,6 +217,7 @@ export interface ReminderRuleInput {
 }
 
 export interface WorkspaceReminderPreferences {
+    emailVerificationRequired: boolean
     reminderEmailEnabled: boolean
     reminderDigestEnabled: boolean
     rule: ReminderRule | null

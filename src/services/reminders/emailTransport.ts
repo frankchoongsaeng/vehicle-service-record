@@ -1,6 +1,8 @@
 import nodemailer from 'nodemailer'
 
 import { createLogger } from '../../logging/logger.js'
+import { withServerMonitoringSpan } from '../../monitoring/server.js'
+import { getSmtpConfig } from '../emailConfig.js'
 
 const emailLogger = createLogger({ component: 'reminder-email-transport' })
 
@@ -22,27 +24,32 @@ export type ReminderEmailTransport = {
 }
 
 export function createReminderEmailTransport(): ReminderEmailTransport {
-    const host = process.env.SMTP_HOST?.trim()
-    const port = Number(process.env.SMTP_PORT ?? '587')
-    const secure = process.env.SMTP_SECURE === 'true'
-    const user = process.env.SMTP_USER?.trim()
-    const pass = process.env.SMTP_PASS?.trim()
-    const from = process.env.SMTP_FROM?.trim()
+    const { host, port, secure, user, pass, from } = getSmtpConfig('alerts')
 
     if (!host || !from) {
         return {
             provider: 'logger',
             async send(input) {
-                emailLogger.info('reminders.email_logged', {
-                    to: input.to,
-                    subject: input.subject,
-                    preview: input.text
-                })
+                return withServerMonitoringSpan(
+                    'email.send_reminder',
+                    {
+                        provider: 'logger',
+                        to: input.to,
+                        subject: input.subject
+                    },
+                    async () => {
+                        emailLogger.info('reminders.email_logged', {
+                            to: input.to,
+                            subject: input.subject,
+                            textLength: input.text.length
+                        })
 
-                return {
-                    provider: 'logger',
-                    response: 'logged-to-application-output'
-                }
+                        return {
+                            provider: 'logger',
+                            response: 'logged-to-application-output'
+                        }
+                    }
+                )
             }
         }
     }
@@ -57,18 +64,28 @@ export function createReminderEmailTransport(): ReminderEmailTransport {
     return {
         provider: 'smtp',
         async send(input) {
-            const info = await transporter.sendMail({
-                from,
-                to: input.to,
-                subject: input.subject,
-                text: input.text,
-                html: input.html
-            })
+            return withServerMonitoringSpan(
+                'email.send_reminder',
+                {
+                    provider: 'smtp',
+                    to: input.to,
+                    subject: input.subject
+                },
+                async () => {
+                    const info = await transporter.sendMail({
+                        from,
+                        to: input.to,
+                        subject: input.subject,
+                        text: input.text,
+                        html: input.html
+                    })
 
-            return {
-                provider: 'smtp',
-                response: typeof info.response === 'string' ? info.response : JSON.stringify(info)
-            }
+                    return {
+                        provider: 'smtp',
+                        response: typeof info.response === 'string' ? info.response : JSON.stringify(info)
+                    }
+                }
+            )
         }
     }
 }

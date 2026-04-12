@@ -1,0 +1,154 @@
+x-app-build: &app-build
+  context: .
+  args:
+    VITE_BUGSINK_ENABLED: ${VITE_BUGSINK_ENABLED:-true}
+    VITE_BUGSINK_DSN: ${VITE_BUGSINK_DSN:-}
+    VITE_BUGSINK_ENVIRONMENT: ${VITE_BUGSINK_ENVIRONMENT:-production}
+    VITE_BUGSINK_TRACES_SAMPLE_RATE: ${VITE_BUGSINK_TRACES_SAMPLE_RATE:-0.15}
+    VITE_BUGSINK_REPLAYS_SESSION_SAMPLE_RATE: ${VITE_BUGSINK_REPLAYS_SESSION_SAMPLE_RATE:-0}
+    VITE_BUGSINK_REPLAYS_ON_ERROR_SAMPLE_RATE: ${VITE_BUGSINK_REPLAYS_ON_ERROR_SAMPLE_RATE:-1}
+
+x-app-environment: &app-environment
+  NODE_ENV: production
+  PORT: 3001
+  MYSQL_HOST: mysql
+  MYSQL_PORT: 3306
+  MYSQL_DATABASE: ${MYSQL_DATABASE:-duralog}
+  MYSQL_USER: ${MYSQL_USER:-duralog}
+  MYSQL_PASSWORD: ${MYSQL_PASSWORD:-duralog}
+  MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+  OPENAUTH_SECRET: ${OPENAUTH_SECRET:?OPENAUTH_SECRET is required}
+  OPENAUTH_ISSUER: ${OPENAUTH_ISSUER:-vehicle-service-record-openauth}
+  OPENAUTH_AUDIENCE: ${OPENAUTH_AUDIENCE:-vehicle-service-record-client}
+  GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+  GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
+  APP_ORIGIN: ${APP_ORIGIN:-}
+  APP_BILLING_RETURN_URL: ${APP_BILLING_RETURN_URL:-}
+  EMAIL_VERIFICATION_TTL_HOURS: ${EMAIL_VERIFICATION_TTL_HOURS:-24}
+  EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS: ${EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS:-60}
+  PASSWORD_RESET_TTL_HOURS: ${PASSWORD_RESET_TTL_HOURS:-2}
+  PASSWORD_RESET_RESEND_COOLDOWN_SECONDS: ${PASSWORD_RESET_RESEND_COOLDOWN_SECONDS:-60}
+  DEV_USER_EMAIL: ${DEV_USER_EMAIL:-demo.user@example.com}
+  DEV_USER_PASSWORD: ${DEV_USER_PASSWORD:-change-me123}
+  LOG_LEVEL: ${LOG_LEVEL:-debug}
+  LOG_PRISMA_QUERIES: ${LOG_PRISMA_QUERIES:-false}
+  LOG_READ_REQUEST_SAMPLE_RATE: ${LOG_READ_REQUEST_SAMPLE_RATE:-0.1}
+  LOG_FILE_PATH: ${LOG_FILE_PATH:-./logs/backend.ndjson}
+  BUGSINK_ENABLED: ${BUGSINK_ENABLED:-true}
+  BUGSINK_DSN: ${BUGSINK_DSN:-}
+  BUGSINK_ENVIRONMENT: ${BUGSINK_ENVIRONMENT:-production}
+  BUGSINK_TRACES_SAMPLE_RATE: ${BUGSINK_TRACES_SAMPLE_RATE:-0.15}
+  BUGSINK_PROFILES_SAMPLE_RATE: ${BUGSINK_PROFILES_SAMPLE_RATE:-0}
+  VITE_BUGSINK_ENABLED: ${VITE_BUGSINK_ENABLED:-true}
+  VITE_BUGSINK_DSN: ${VITE_BUGSINK_DSN:-}
+  VITE_BUGSINK_ENVIRONMENT: ${VITE_BUGSINK_ENVIRONMENT:-production}
+  VITE_BUGSINK_TRACES_SAMPLE_RATE: ${VITE_BUGSINK_TRACES_SAMPLE_RATE:-0.15}
+  VITE_BUGSINK_REPLAYS_SESSION_SAMPLE_RATE: ${VITE_BUGSINK_REPLAYS_SESSION_SAMPLE_RATE:-0}
+  VITE_BUGSINK_REPLAYS_ON_ERROR_SAMPLE_RATE: ${VITE_BUGSINK_REPLAYS_ON_ERROR_SAMPLE_RATE:-1}
+  REMINDER_RUN_ON_STARTUP: ${REMINDER_RUN_ON_STARTUP:-true}
+  REMINDER_EVALUATION_HOUR_UTC: ${REMINDER_EVALUATION_HOUR_UTC:-8}
+  REMINDER_RETRY_INTERVAL_MINUTES: ${REMINDER_RETRY_INTERVAL_MINUTES:-15}
+  REMINDER_RETRY_BACKOFF_MINUTES: ${REMINDER_RETRY_BACKOFF_MINUTES:-15}
+  REMINDER_MAX_RETRIES: ${REMINDER_MAX_RETRIES:-3}
+  SMTP_HOST: ${SMTP_HOST:-}
+  SMTP_PORT: ${SMTP_PORT:-587}
+  SMTP_SECURE: ${SMTP_SECURE:-false}
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASS: ${SMTP_PASS:-}
+  SMTP_FROM: ${SMTP_FROM:-}
+  SMTP_FROM_ALERTS: ${SMTP_FROM_ALERTS:-}
+  SMTP_FROM_SECURITY: ${SMTP_FROM_SECURITY:-}
+  SMTP_FROM_WELCOME: ${SMTP_FROM_WELCOME:-}
+  STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+  STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+  STRIPE_PRICE_ID_PLUS_MONTHLY: ${STRIPE_PRICE_ID_PLUS_MONTHLY:-}
+  STRIPE_PRICE_ID_PLUS_YEARLY: ${STRIPE_PRICE_ID_PLUS_YEARLY:-}
+  STRIPE_PRICE_ID_GARAGE_MONTHLY: ${STRIPE_PRICE_ID_GARAGE_MONTHLY:-}
+  STRIPE_PRICE_ID_GARAGE_YEARLY: ${STRIPE_PRICE_ID_GARAGE_YEARLY:-}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  OPENAI_IMAGE_MODEL: ${OPENAI_IMAGE_MODEL:-gpt-image-1}
+  OPENAI_IMAGE_CLASSIFIER_MODEL: ${OPENAI_IMAGE_CLASSIFIER_MODEL:-gpt-4.1-mini}
+  BUNNY_STORAGE_ZONE_NAME: ${BUNNY_STORAGE_ZONE_NAME:-}
+  BUNNY_STORAGE_ACCESS_KEY: ${BUNNY_STORAGE_ACCESS_KEY:-}
+  BUNNY_STORAGE_REGION: ${BUNNY_STORAGE_REGION:-Falkenstein}
+  BUNNY_PUBLIC_BASE_URL: ${BUNNY_PUBLIC_BASE_URL:-}
+  SEED_ON_STARTUP: ${SEED_ON_STARTUP:-false}
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-duralog}
+      MYSQL_USER: ${MYSQL_USER:-duralog}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-duralog}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+      start_interval: 5s
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./docker/mysql.cnf:/etc/mysql/conf.d/custom.cnf:ro
+
+  app:
+    build: *app-build
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:' + (process.env.PORT || '3001') + '/api/health').then(response => { if (!response.ok) process.exit(1) }).catch(() => process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+      start_interval: 5s
+    environment:
+      <<: *app-environment
+      REMINDER_SCHEDULER_ENABLED: "false"
+      SKIP_DB_MIGRATIONS: ${SKIP_DB_MIGRATIONS:-false}
+
+  reminder-worker:
+    build: *app-build
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+    command: ["node", "./dist/worker.js"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "import('node:fs/promises').then(async fs => { const filePath = process.env.REMINDER_WORKER_HEALTHCHECK_FILE || '/tmp/reminder-worker-health.json'; const staleAfterMs = 90000; const stats = await fs.stat(filePath); if (Date.now() - stats.mtimeMs > staleAfterMs) process.exit(1); }).catch(() => process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+      start_interval: 5s
+    environment:
+      <<: *app-environment
+      REMINDER_SCHEDULER_ENABLED: "true"
+      REMINDER_WORKER_HEALTHCHECK_FILE: /tmp/reminder-worker-health.json
+      SKIP_DB_MIGRATIONS: "true"
+
+volumes:
+  mysql-data:

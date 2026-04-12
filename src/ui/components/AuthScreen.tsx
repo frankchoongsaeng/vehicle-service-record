@@ -1,133 +1,65 @@
 import type { ReactNode } from 'react'
-import { CircleCheckBig, ShieldCheck, Wrench } from 'lucide-react'
+import { Link } from '@remix-run/react'
+import { ChevronLeft } from 'lucide-react'
 
-import { Card, CardContent } from './ui/card.js'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card.js'
+import { cn } from '../lib/utils.js'
 import Logo from './ui/logo.js'
 
 type AuthScreenProps = {
-    eyebrow: string
+    eyebrow?: string
     title: string
     description: string
     children: ReactNode
-    footer: ReactNode
+    footer?: ReactNode
+    topAction?: ReactNode
 }
 
-const featureItems = [
-    {
-        icon: Wrench,
-        title: 'Track every service',
-        description: 'Keep routine maintenance, repair notes, and planned work in one place.'
-    },
-    {
-        icon: ShieldCheck,
-        title: 'Stay organized',
-        description: 'See what is complete, upcoming, or overdue without hunting through notes.'
-    },
-    {
-        icon: CircleCheckBig,
-        title: 'Pick up anywhere',
-        description: 'Your garage history stays tied to your account across devices.'
-    }
-] as const
-
-export function AuthScreen({ eyebrow, title, description, children, footer }: AuthScreenProps) {
+export function AuthScreen({ eyebrow, title, description, children, footer, topAction }: AuthScreenProps) {
     return (
-        <main className='min-h-screen bg-background'>
-            <div className='grid min-h-screen lg:grid-cols-[minmax(0,1.1fr)_minmax(420px,0.9fr)]'>
-                <section className='relative hidden overflow-hidden border-r bg-secondary/35 lg:block'>
-                    <div className='absolute inset-0 bg-linear-to-br from-secondary via-background to-background' />
-                    <div className='relative flex h-full flex-col justify-between px-10 py-10 xl:px-14'>
-                        <div className='flex items-center gap-3'>
-                            <div className='flex h-12 w-12 items-center justify-center rounded-2xl border bg-card shadow-sm'>
-                                <Logo className='h-8 w-8' />
-                            </div>
-                            <div>
-                                <p className='text-lg font-semibold tracking-tight text-foreground'>Duralog</p>
-                                <p className='text-sm text-muted-foreground'>
-                                    Maintenance tracking that feels deliberate.
-                                </p>
-                            </div>
-                        </div>
+        <main className='relative min-h-screen overflow-hidden bg-linear-to-b from-background via-secondary/20 to-background'>
+            <div className='absolute inset-x-0 top-0 h-56 bg-linear-to-b from-secondary/35 to-transparent' />
+            <div className='absolute left-1/2 top-16 size-72 -translate-x-1/2 rounded-full bg-primary/8 blur-3xl' />
 
-                        <div className='max-w-xl space-y-6'>
-                            <div className='space-y-3'>
-                                <p className='text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground'>
-                                    Vehicle service records
-                                </p>
-                                <h1 className='text-4xl font-semibold leading-tight text-foreground xl:text-5xl'>
-                                    A clearer home for your garage history.
-                                </h1>
-                                <p className='max-w-lg text-base leading-7 text-muted-foreground'>
-                                    Review service work, upcoming maintenance, and vehicle details from a single account
-                                    instead of scattered receipts and notes.
-                                </p>
-                            </div>
-
-                            <div className='grid gap-3'>
-                                {featureItems.map(item => {
-                                    const Icon = item.icon
-
-                                    return (
-                                        <Card key={item.title} className='bg-background/90'>
-                                            <CardContent className='flex items-start gap-3 p-4'>
-                                                <div className='mt-0.5 rounded-xl border bg-card p-2'>
-                                                    <Icon className='h-4 w-4' />
-                                                </div>
-                                                <div>
-                                                    <p className='font-medium text-foreground'>{item.title}</p>
-                                                    <p className='mt-1 text-sm leading-6 text-muted-foreground'>
-                                                        {item.description}
-                                                    </p>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                    )
-                                })}
-                            </div>
-                        </div>
-
-                        <p className='text-sm text-muted-foreground'>
-                            Built for multi-vehicle owners who want less friction and better records.
-                        </p>
+            <section className='relative flex min-h-screen items-center justify-center px-4 py-8 sm:px-6 lg:px-10'>
+                <div className='flex w-full max-w-md flex-col items-center gap-4'>
+                    <div className='flex w-full items-center justify-between gap-3'>
+                        <Link
+                            to='/'
+                            className='flex items-center gap-3 rounded-md outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+                        >
+                            <ChevronLeft className='size-4 text-muted-foreground' aria-hidden='true' />
+                            <Logo className='size-7' />
+                            <p className='text-sm font-semibold tracking-tight text-foreground'>Duralog</p>
+                        </Link>
+                        {topAction}
                     </div>
-                </section>
 
-                <section className='flex items-center justify-center px-4 py-8 sm:px-6 lg:px-10'>
-                    <div className='w-full max-w-md space-y-5'>
-                        <div className='space-y-2 lg:hidden'>
-                            <div className='flex items-center gap-3'>
-                                <div className='flex h-11 w-11 items-center justify-center rounded-2xl border bg-card shadow-sm'>
-                                    <Logo className='h-7 w-7' />
+                    <Card className='w-full border-border/70 bg-card/95 shadow-xl shadow-secondary/15 backdrop-blur'>
+                        <CardHeader
+                            className={cn('space-y-0 items-center text-center', eyebrow ? 'gap-3' : 'gap-2 pb-5')}
+                        >
+                            {eyebrow ? (
+                                <div className='inline-flex items-center rounded-full border bg-secondary px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-secondary-foreground'>
+                                    {eyebrow}
                                 </div>
-                                <div>
-                                    <p className='text-lg font-semibold tracking-tight text-foreground'>Duralog</p>
-                                    <p className='text-sm text-muted-foreground'>Vehicle service records</p>
-                                </div>
+                            ) : null}
+                            <div className='flex flex-col gap-1'>
+                                <CardTitle className='text-2xl tracking-tight'>{title}</CardTitle>
+                                <CardDescription className='leading-6'>{description}</CardDescription>
                             </div>
-                        </div>
+                        </CardHeader>
 
-                        <Card className='shadow-lg shadow-secondary/20'>
-                            <CardContent className='space-y-6 p-6 sm:p-7'>
-                                <div className='space-y-2'>
-                                    <p className='text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground'>
-                                        {eyebrow}
-                                    </p>
-                                    <div className='space-y-1'>
-                                        <h2 className='text-2xl font-semibold tracking-tight text-foreground'>
-                                            {title}
-                                        </h2>
-                                        <p className='text-sm leading-6 text-muted-foreground'>{description}</p>
-                                    </div>
-                                </div>
+                        <CardContent className='flex flex-col gap-5'>{children}</CardContent>
 
-                                {children}
-
-                                <div className='border-t pt-4 text-sm text-muted-foreground'>{footer}</div>
-                            </CardContent>
-                        </Card>
-                    </div>
-                </section>
-            </div>
+                        {footer ? (
+                            <CardFooter className='justify-center border-t pt-4 text-center text-sm text-muted-foreground'>
+                                {footer}
+                            </CardFooter>
+                        ) : null}
+                    </Card>
+                </div>
+            </section>
         </main>
     )
 }

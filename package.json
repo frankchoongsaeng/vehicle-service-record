@@ -4,24 +4,27 @@
     "version": "0.0.0",
     "type": "module",
     "scripts": {
-        "dev": "tsx watch src/index.ts",
+        "dev": "npm run dev:web",
+        "dev:web": "tsx watch src/index.ts",
+        "dev:worker": "tsx watch src/worker.ts",
         "start": "node ./dist/index.js",
+        "start:web": "node ./dist/index.js",
+        "start:worker": "node ./dist/worker.js",
         "build": "npm run build:client && npm run build:server",
         "build:client": "remix vite:build",
         "build:server": "tsc -p tsconfig.node.json",
         "db:generate": "prisma generate",
         "db:migrate": "prisma migrate dev",
+        "db:deploy": "prisma migrate deploy",
         "db:push": "prisma db push",
         "db:seed": "tsx prisma/seed.ts",
         "postinstall": "prisma generate",
         "lint": "eslint .",
-        "preview": "npm run start"
+        "preview": "npm run start:web"
     },
     "dependencies": {
         "@bunny.net/storage-sdk": "^0.3.1",
-        "@libsql/client": "^0.17.2",
         "@openauthjs/openauth": "^0.4.3",
-        "@prisma/adapter-libsql": "^6.19.2",
         "@prisma/client": "^6.19.2",
         "@radix-ui/react-avatar": "^1.1.11",
         "@radix-ui/react-dialog": "^1.1.15",
@@ -31,8 +34,10 @@
         "@radix-ui/react-slot": "^1.2.4",
         "@radix-ui/react-tabs": "^1.1.13",
         "@remix-run/express": "^2.17.4",
-        "@remix-run/node": "^2.16.8",
-        "@remix-run/react": "^2.16.8",
+        "@remix-run/node": "^2.17.4",
+        "@remix-run/react": "^2.17.4",
+        "@sentry/node": "^10.46.0",
+        "@sentry/react": "^10.46.0",
         "@types/nodemailer": "^7.0.11",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
@@ -49,12 +54,13 @@
         "react": "^18.3.1",
         "react-day-picker": "^9.14.0",
         "react-dom": "^18.3.1",
+        "stripe": "^21.0.1",
         "tailwind-merge": "^3.5.0",
         "valibot": "^1.1.0"
     },
     "devDependencies": {
         "@eslint/js": "^9.39.4",
-        "@remix-run/dev": "^2.16.8",
+        "@remix-run/dev": "^2.17.4",
         "@tailwindcss/postcss": "^4.2.1",
         "@types/cors": "^2.8.19",
         "@types/express": "^5.0.6",
@@ -75,5 +81,8 @@
         "typescript": "~5.9.3",
         "typescript-eslint": "^8.56.1",
         "vite": "^6.0.0"
+    },
+    "overrides": {
+        "picomatch": "4.0.4"
     }
 }

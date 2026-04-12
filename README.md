@@ -9,6 +9,8 @@ Duralog is a web app to track maintenance and service history for your vehicles 
 - **Rich record details** — service type, date, mileage at service, cost, and notes
 - **Manage workshop contacts** — keep a reusable directory of workshop names, addresses, and phone numbers
 - **Email reminder digests** — evaluate maintenance plans daily, queue due and overdue reminders, and retry delivery with logged attempts
+- **Email verification workflow** — new signups are asked to verify their email before reminder delivery and other email-based services are enabled
+- **Google sign-in** — start or link an account with Google while still using the existing session and onboarding flow
 - **Cross-device access** — data is stored on the backend server, accessible from any device
 - **Comprehensive seed data** — demo vehicles and service records cover dashboards, filters, empty states, and auth isolation checks
 - **Workshop-ready development data** — seeded workshops populate the workshop directory and service-record suggestions immediately
@@ -19,7 +21,7 @@ Duralog is a web app to track maintenance and service history for your vehicles 
 |----------|-------------------------------------|
 | Frontend | Remix 2 + React 18 + TypeScript     |
 | Backend  | Node.js + Express 4 + TypeScript    |
-| Database | Prisma ORM + SQLite or MySQL        |
+| Database | Prisma ORM + MySQL                  |
 | Build    | Vite 6 + Remix Vite plugin          |
 
 ## UI Styling Standard
@@ -60,6 +62,7 @@ For CI or pre-merge checks, run the same command and fail builds if unexpected m
 vehicle-service-record/
 ├── src/
 │   ├── index.ts                 # Express server entry point
+│   ├── worker.ts                # Reminder worker entry point
 │   ├── routes/                  # API route handlers
 │   └── ui/                      # Remix frontend
 │       ├── routes/              # Route modules
@@ -69,6 +72,7 @@ vehicle-service-record/
 │       └── types/               # Frontend types
 ├── prisma/
 │   ├── schema.prisma            # Prisma schema
+│   ├── migrations/              # Prisma migration history
 │   └── seed.ts                  # Development seed script
 ├── public/                      # Static assets
 ├── vite.config.ts               # Remix Vite config
@@ -88,9 +92,12 @@ The project is a single npm package: one install at the root covers both fronten
 ### 2. Initialize the database
 
 ```bash
+docker compose up -d mysql
 npm run db:migrate -- --name init
 npm run db:seed
 ```
+
+The default `.env.example` points Prisma at the local MySQL instance exposed on `127.0.0.1:3306`.
 
 The seed step creates a development login by default:
 
@@ -107,7 +114,7 @@ The seed also creates:
 
 Override those values with `DEV_USER_EMAIL` and `DEV_USER_PASSWORD` in your environment if needed.
 
-### 3. Start both frontend and backend
+### 3. Start the web app
 
 ```bash
 npm run dev
@@ -117,38 +124,143 @@ npm run dev
 
 Open [http://localhost:3001](http://localhost:3001) in your browser.
 
+If you need reminder evaluation and retry processing during local development, start the worker in a second terminal:
+
+```bash
+npm run dev:worker
+```
+
+## Run With Docker Compose and MySQL
+
+The repository includes a Compose stack that starts MySQL, the web application, and a dedicated reminder worker.
+
+1. Copy `.env.example` to `.env` if you have not already.
+2. Set `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`, and `MYSQL_ROOT_PASSWORD` in `.env` if you want values other than the defaults.
+3. Set at least `OPENAUTH_SECRET` in `.env`.
+4. Optionally set `SEED_ON_STARTUP=true` in `.env` if you want demo data loaded automatically.
+5. Start the stack:
+
+```bash
+docker compose up --build
+```
+
+What the app container does on startup:
+
+- regenerates the Prisma client for MySQL
+- applies MySQL migrations with `prisma migrate deploy`
+- optionally runs `npm run db:seed` when `SEED_ON_STARTUP=true`
+- starts the production server on <http://localhost:3001>
+
+What the reminder worker container does on startup:
+
+- regenerates the Prisma client for MySQL
+- skips migrations so only the web container owns deploy-time schema changes
+- starts the background reminder scheduler without binding an HTTP port
+- writes a heartbeat file used by Docker health checks to verify the worker is still alive
+
+The bundled MySQL instance is available on `localhost:3306` using the values from `.env`:
+
+- `MYSQL_DATABASE` defaults to `duralog`
+- `MYSQL_USER` defaults to `duralog`
+- `MYSQL_PASSWORD` defaults to `duralog`
+- `MYSQL_ROOT_PASSWORD` defaults to `root`
+
+The app composes its Prisma connection string from `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`, and `MYSQL_PASSWORD` at runtime, so you do not need to set `DATABASE_URL` manually.
+
+To stop the stack:
+
+```bash
+docker compose down
+```
+
+To stop it and remove the persisted MySQL volume:
+
+```bash
+docker compose down -v
+```
+
 ## Environment
 
 Copy `.env.example` to `.env` and adjust values for your environment.
 
 Important variables:
 
-- `DATABASE_PROVIDER`: optional override for Prisma provider selection. Leave unset to infer from `DATABASE_URL`.
-- `DATABASE_URL`: database connection string. Use `file:./prisma/dev.db` for local SQLite, `libsql://...` for remote libSQL-compatible SQLite, or `mysql://...` for MySQL.
-- `DATABASE_AUTH_TOKEN`: optional auth token for remote libSQL providers that require bearer-style authentication
+- Database
+- `MYSQL_HOST`: MySQL host used to compose the runtime Prisma connection string, defaults to `127.0.0.1` for local development and `mysql` in the bundled app container
+- `MYSQL_PORT`: MySQL port used to compose the runtime Prisma connection string, defaults to `3306`
+- `MYSQL_DATABASE`: database name used by the bundled Docker Compose MySQL service, defaults to `duralog`
+- `MYSQL_USER`: application user used by the bundled Docker Compose MySQL service, defaults to `duralog`
+- `MYSQL_PASSWORD`: application password used by the bundled Docker Compose MySQL service, defaults to `duralog`
+- `MYSQL_ROOT_PASSWORD`: root password used by the bundled Docker Compose MySQL service, defaults to `root`
+
+- Auth
 - `OPENAUTH_SECRET`: signing secret for the login session token
+- `OPENAUTH_SECRET` has no code fallback. The app and bundled Compose stack now require it to be supplied through `.env` or deployment secret management.
 - `OPENAUTH_ISSUER`: token issuer value, defaults to `vehicle-service-record-openauth`
 - `OPENAUTH_AUDIENCE`: token audience value, defaults to `vehicle-service-record-client`
+- `GOOGLE_OAUTH_CLIENT_ID`: OAuth client ID for Google sign-in
+- `GOOGLE_OAUTH_CLIENT_SECRET`: OAuth client secret for Google sign-in
+- Session cookies are host-only. In production they use the `__Host-` prefix, `Path=/`, `HttpOnly`, `SameSite=Lax`, and `Secure`, which means the UI and API should stay on the same HTTPS origin rather than being split across unrelated domains.
+- Sensitive auth endpoints use targeted rate limits for login, signup, password reset requests, and verification resend attempts. When those limits trip, the backend emits `auth.brute_force_detected` warnings and monitoring messages for alerting.
+
+- App links and account email flows
+- `APP_ORIGIN`: canonical app origin used for CORS enforcement and generated email verification links. Set this explicitly for browser-based deployments; CORS does not fall back to the incoming request origin.
+- Google OAuth callback URL: configure `${APP_ORIGIN or current origin}/api/auth/google/callback` in the Google Cloud console. For local development this is usually `http://localhost:3001/api/auth/google/callback`.
+- `EMAIL_VERIFICATION_TTL_HOURS`: how long verification links stay valid, defaults to `24`
+- `EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS`: minimum delay between resend requests, defaults to `60`
+- `PASSWORD_RESET_TTL_HOURS`: how long password reset links stay valid, defaults to `2`
+- `PASSWORD_RESET_RESEND_COOLDOWN_SECONDS`: minimum delay between password reset requests, defaults to `60`
+
+- Development seed user
 - `DEV_USER_EMAIL`: seeded development login email
 - `DEV_USER_PASSWORD`: seeded development login password
+
+- Logging
 - `LOG_LEVEL`: backend log threshold, for example `debug`, `info`, `warn`, or `error`
 - `LOG_READ_REQUEST_SAMPLE_RATE`: production sampling rate for successful read-request lifecycle logs between `0` and `1`
 - `LOG_FILE_PATH`: optional NDJSON backend log file path, useful for searching `requestId` values outside the terminal
-- `REMINDER_SCHEDULER_ENABLED`: enable or disable the reminder scheduler, defaults to `true`
+- Backend logging and monitoring redact email fields plus token-bearing URLs and query parameters so reset links, verification links, cookies, and auth secrets are not written to application logs.
+
+- Bugsink monitoring
+- `BUGSINK_ENABLED`: enable or disable server-side Bugsink reporting, defaults to `true`
+- `BUGSINK_DSN`: Bugsink project DSN for backend events; Bugsink is Sentry-SDK compatible so standard Sentry JavaScript SDK DSNs work
+- `BUGSINK_ENVIRONMENT`: server-side monitoring environment label, defaults to the current `NODE_ENV`
+- `BUGSINK_TRACES_SAMPLE_RATE`: backend trace sampling rate between `0` and `1`, defaults to `0.15`
+- `BUGSINK_PROFILES_SAMPLE_RATE`: backend profiling sample rate between `0` and `1`, defaults to `0`
+- `VITE_BUGSINK_ENABLED`: enable or disable browser-side Bugsink reporting, defaults to `true`
+- `VITE_BUGSINK_DSN`: Bugsink project DSN for frontend events
+- `VITE_BUGSINK_ENVIRONMENT`: browser monitoring environment label, defaults to the current Vite mode
+- `VITE_BUGSINK_TRACES_SAMPLE_RATE`: browser trace sampling rate between `0` and `1`, defaults to `0.15`
+- `VITE_BUGSINK_REPLAYS_SESSION_SAMPLE_RATE`: browser replay sampling rate for normal sessions, defaults to `0`
+- `VITE_BUGSINK_REPLAYS_ON_ERROR_SAMPLE_RATE`: browser replay sampling rate when an error occurs, defaults to `1`
+
+- Reminder scheduler and alerts
+- `REMINDER_SCHEDULER_ENABLED`: enable or disable the reminder scheduler. Run it as `true` only in the dedicated worker process, and set it to `false` for web processes.
 - `REMINDER_RUN_ON_STARTUP`: run reminder evaluation when the server boots, defaults to `true`
 - `REMINDER_EVALUATION_HOUR_UTC`: daily UTC hour for maintenance digest evaluation, defaults to `8`
 - `REMINDER_RETRY_INTERVAL_MINUTES`: cadence for retrying queued reminder notifications, defaults to `15`
 - `REMINDER_RETRY_BACKOFF_MINUTES`: base backoff between failed delivery attempts, defaults to `15`
 - `REMINDER_MAX_RETRIES`: maximum delivery attempts before a reminder stays failed, defaults to `3`
+
+The web role started by `npm run dev` or `npm run start:web` does not run reminder timers. Use `npm run dev:worker` locally, or the dedicated `reminder-worker` service in Docker Compose, when you want reminders processed.
+
+- SMTP transport
 - `SMTP_HOST`: optional SMTP host used for real email delivery; if unset, reminder emails are logged locally instead of sent
 - `SMTP_PORT`: SMTP port, defaults to `587`
 - `SMTP_SECURE`: set to `true` for implicit TLS SMTP transports
 - `SMTP_USER`: optional SMTP username
 - `SMTP_PASS`: optional SMTP password
-- `SMTP_FROM`: sender address for reminder emails; required for SMTP delivery
+- `SMTP_FROM`: fallback sender address used when a category-specific sender is not set
+- `SMTP_FROM_ALERTS`: sender address for reminder and alert emails
+- `SMTP_FROM_SECURITY`: sender address for password resets and other security-sensitive emails
+- `SMTP_FROM_WELCOME`: sender address for welcome and email verification emails
+
+- AI image services
 - `OPENAI_API_KEY`: required for the async vehicle image generation service
 - `OPENAI_IMAGE_MODEL`: optional OpenAI image model override, defaults to `gpt-image-1`
 - `OPENAI_IMAGE_CLASSIFIER_MODEL`: optional OpenAI model override for the image classifier service, defaults to `gpt-4.1-mini`
+
+- Bunny storage
 - `BUNNY_STORAGE_ZONE_NAME`: Bunny Storage zone name used by the image upload service
 - `BUNNY_STORAGE_ACCESS_KEY`: Bunny Storage API access key used by the image upload service
 - `BUNNY_STORAGE_REGION`: Bunny Storage region identifier, defaults to `Falkenstein`
@@ -168,36 +280,41 @@ Each line in that file is one JSON log record, so you can grep or ingest it with
 
 Reminder delivery attempts are also recorded in the database, so you can inspect notification status, retry counts, and provider responses without relying only on stdout logs.
 
-## Database Providers
+## Bugsink Monitoring
 
-The app supports three database connection modes behind Prisma:
+The app now supports Bugsink on both the Express backend and the Remix frontend using the standard Sentry JavaScript SDKs.
 
-- local SQLite
-- remote libSQL-compatible SQLite
-- MySQL
+What is captured:
 
-Provider selection is inferred from `DATABASE_URL` unless you set `DATABASE_PROVIDER` explicitly.
+- backend request failures, uncaught exceptions, unhandled promise rejections, Prisma and Express traces, and reminder scheduler failures
+- explicit spans around billing checkout and subscription sync, OpenAI image classification and generation, VIN decoding, and outbound email delivery
+- frontend route-change breadcrumbs, API request breadcrumbs, distributed tracing headers, session user context, and network or server-side API failures
+- correlated domain breadcrumbs from the existing structured logger so Bugsink issues include recent auth, billing, reminder, vehicle, and workshop events
 
-Examples:
+Minimal setup:
 
 ```bash
-# Local development database
-DATABASE_URL="file:./prisma/dev.db"
+BUGSINK_DSN="https://<key>@bugsink.example.com/<project-id>"
+VITE_BUGSINK_DSN="https://<key>@bugsink.example.com/<project-id>"
+```
 
-# Remote libSQL database
-DATABASE_URL="libsql://your-database-host"
-DATABASE_AUTH_TOKEN="your-optional-token"
+If you also want browser replays for error investigations, raise `VITE_BUGSINK_REPLAYS_SESSION_SAMPLE_RATE` above `0`. Replays are configured with masked text and blocked media by default.
 
-# MySQL database
-DATABASE_URL="mysql://user:password@127.0.0.1:3306/duralog"
+## Database
+
+The app uses MySQL only.
+
+Effective connection string:
+
+```bash
+mysql://$MYSQL_USER:$MYSQL_PASSWORD@$MYSQL_HOST:$MYSQL_PORT/$MYSQL_DATABASE
 ```
 
 Notes:
 
-- The backend runtime, Prisma CLI commands, and `npm run db:seed` all follow the same provider selection.
-- SQLite and MySQL use separate migration histories. SQLite uses `prisma/migrations`; MySQL uses `prisma/mysql/migrations`. Prisma generates the provider-specific MySQL schema from the canonical `prisma/schema.prisma` definition when needed.
-- After switching between SQLite and MySQL, run `npm run db:generate` before starting the app so the Prisma client matches the active provider.
-- Remote SQLite URLs must be libSQL-compatible. Plain remote `sqlite://` URLs are not supported by Prisma.
+- The backend runtime, Prisma CLI commands, and `npm run db:seed` all compose the same MySQL connection string from `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`, and `MYSQL_PASSWORD`.
+- Prisma schema and migrations now live in the default locations: `prisma/schema.prisma` and `prisma/migrations`.
+- When bootstrapping locally, start MySQL before running `npm run db:migrate`.
 
 ## Login Flow
 
@@ -218,7 +335,7 @@ After running migrations, seed data, and the dev servers, validate the change wi
 6. Open the workshops page from the hamburger menu, create a workshop, edit it, and confirm the saved address and phone number reload correctly
 7. Open Settings, set reminder day and mileage thresholds, and confirm the preferences save without errors
 8. Edit a vehicle and set its reminder override to `custom` or `disabled`, then confirm the form saves and reloads the same mode
-9. If SMTP is not configured, check the server logs after startup and confirm the reminder scheduler logs a digest preview instead of failing
+9. Start the reminder worker and, if SMTP is not configured, check the worker logs after startup to confirm the reminder scheduler logs a digest preview instead of failing
 10. Open the seeded vehicle with no service history and confirm empty-state behavior is correct
 11. Refresh the page and confirm the session persists
 12. Sign out and confirm the session clears and the app returns to `/login`
@@ -289,4 +406,4 @@ npm run build
 npm run start
 ```
 
-The `start` script runs `node ./dist/index.js`. Ensure all required environment variables, especially `DATABASE_URL` and `OPENAUTH_SECRET`, are set before running in production.
+The `start` script runs `node ./dist/index.js`. Ensure all required environment variables, especially `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`, and `OPENAUTH_SECRET`, are set before running in production.

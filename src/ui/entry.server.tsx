@@ -4,6 +4,7 @@ import { createReadableStreamFromReadable } from '@remix-run/node'
 import { RemixServer } from '@remix-run/react'
 import { isbot } from 'isbot'
 import { renderToPipeableStream } from 'react-dom/server'
+import { captureServerException } from '../monitoring/server.js'
 
 const ABORT_DELAY = 5_000
 
@@ -45,10 +46,12 @@ function handleBotRequest(
                     pipe(body)
                 },
                 onShellError(error: unknown) {
+                    captureServerException(error, { renderer: 'remix-ssr', target: 'bot-shell' })
                     reject(error)
                 },
                 onError(error: unknown) {
                     responseStatusCode = 500
+                    captureServerException(error, { renderer: 'remix-ssr', target: 'bot-stream' })
                     if (shellRendered) {
                         console.error(error)
                     }
@@ -87,10 +90,12 @@ function handleBrowserRequest(
                     pipe(body)
                 },
                 onShellError(error: unknown) {
+                    captureServerException(error, { renderer: 'remix-ssr', target: 'browser-shell' })
                     reject(error)
                 },
                 onError(error: unknown) {
                     responseStatusCode = 500
+                    captureServerException(error, { renderer: 'remix-ssr', target: 'browser-stream' })
                     if (shellRendered) {
                         console.error(error)
                     }

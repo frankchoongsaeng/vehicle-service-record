@@ -1,6 +1,8 @@
 import { useId, useMemo, useState } from 'react'
 
+import * as api from '../api/client.js'
 import { useAuth } from '../auth/useAuth.js'
+import { BillingGateNotice } from './BillingGateNotice.js'
 import { DEFAULT_PREFERRED_CURRENCY } from '../lib/currency.js'
 import { Button } from './ui/button.js'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card.js'
@@ -32,6 +34,7 @@ export default function ServiceRecordForm({ initial, availableWorkshops = [], on
     })
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
+    const [billingError, setBillingError] = useState<ReturnType<typeof api.getBillingGateResponse>>(null)
     const today = new Date()
     const preferredCurrency = auth.user?.preferredCurrency ?? DEFAULT_PREFERRED_CURRENCY
     const workshopSuggestions = useMemo(
@@ -48,6 +51,7 @@ export default function ServiceRecordForm({ initial, availableWorkshops = [], on
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setError('')
+        setBillingError(null)
 
         if (!form.date) {
             setError('Date is required')
@@ -64,6 +68,7 @@ export default function ServiceRecordForm({ initial, availableWorkshops = [], on
                 notes: form.notes || undefined
             })
         } catch (err) {
+            setBillingError(api.getBillingGateResponse(err))
             setError(err instanceof Error ? err.message : 'Something went wrong')
         } finally {
             setLoading(false)
@@ -77,6 +82,7 @@ export default function ServiceRecordForm({ initial, availableWorkshops = [], on
             </CardHeader>
             <CardContent>
                 <form className='space-y-4' onSubmit={handleSubmit}>
+                    {billingError ? <BillingGateNotice billingError={billingError} compact /> : null}
                     {error && (
                         <p className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'>
                             {error}

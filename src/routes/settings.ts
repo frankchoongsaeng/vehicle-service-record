@@ -8,6 +8,7 @@ import { asyncHandler } from '../middleware/asyncHandler.js'
 import { requireAuth } from '../middleware/auth.js'
 import { uploadBufferImage } from '../services/imageUpload.js'
 import {
+    isHistorySortOrder,
     isPreferredCurrencyCode,
     isProfileImageMimeType,
     PROFILE_IMAGE_MAX_BYTES,
@@ -23,6 +24,7 @@ type SettingsUpdatePayload = {
     lastName?: unknown
     country?: unknown
     preferredCurrency?: unknown
+    historySortOrder?: unknown
 }
 
 function normalizeOptionalText(value: unknown, field: string, maxLength: number): string | null {
@@ -30,8 +32,19 @@ function normalizeOptionalText(value: unknown, field: string, maxLength: number)
         return null
     }
 
+    const fieldLabel =
+        field === 'firstName'
+            ? 'First name'
+            : field === 'lastName'
+            ? 'Last name'
+            : field === 'country'
+            ? 'Country'
+            : field === 'profileImageUrl'
+            ? 'Profile image link'
+            : 'This field'
+
     if (typeof value !== 'string') {
-        throw new Error(`${field} must be a string`)
+        throw new Error(`${fieldLabel} must be text.`)
     }
 
     const normalized = value.trim()
@@ -41,7 +54,7 @@ function normalizeOptionalText(value: unknown, field: string, maxLength: number)
     }
 
     if (normalized.length > maxLength) {
-        throw new Error(`${field} must be ${maxLength} characters or fewer`)
+        throw new Error(`${fieldLabel} must be ${maxLength} characters or fewer.`)
     }
 
     return normalized
@@ -59,11 +72,11 @@ function normalizeProfileImageUrl(value: unknown): string | null {
     try {
         parsedUrl = new URL(normalized)
     } catch {
-        throw new Error('profileImageUrl must be a valid URL')
+        throw new Error('Profile image link must be a valid web address.')
     }
 
     if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
-        throw new Error('profileImageUrl must use http or https')
+        throw new Error('Profile image link must start with http:// or https://.')
     }
 
     return normalized
@@ -132,7 +145,7 @@ router.post(
             })
 
             if (isStorageConfigurationError(error)) {
-                res.status(503).json({ error: 'Profile image uploads are not configured on this server.' })
+                res.status(503).json({ error: 'Profile image uploads are not available right now.' })
                 return
             }
 
@@ -172,7 +185,7 @@ router.get(
         })
 
         if (!user) {
-            res.status(404).json({ error: 'User not found' })
+            res.status(404).json({ error: 'We could not find your account.' })
             return
         }
 
@@ -200,11 +213,21 @@ router.put(
             let preferredCurrency: string | undefined
             if (body.preferredCurrency != null) {
                 if (typeof body.preferredCurrency !== 'string' || !isPreferredCurrencyCode(body.preferredCurrency)) {
-                    res.status(400).json({ error: 'preferredCurrency must be one of the supported currency codes' })
+                    res.status(400).json({ error: 'Choose a supported currency.' })
                     return
                 }
 
                 preferredCurrency = body.preferredCurrency
+            }
+
+            let historySortOrder: string | undefined
+            if (body.historySortOrder != null) {
+                if (!isHistorySortOrder(body.historySortOrder)) {
+                    res.status(400).json({ error: 'Choose either newest first or oldest first for service history.' })
+                    return
+                }
+
+                historySortOrder = body.historySortOrder
             }
 
             const user = await prisma.user.update({
@@ -214,7 +237,8 @@ router.put(
                     ...(body.lastName !== undefined ? { last_name: lastName } : {}),
                     ...(body.country !== undefined ? { country } : {}),
                     ...(body.profileImageUrl !== undefined ? { profile_image_url: profileImageUrl } : {}),
-                    ...(preferredCurrency !== undefined ? { preferred_currency: preferredCurrency } : {})
+                    ...(preferredCurrency !== undefined ? { preferred_currency: preferredCurrency } : {}),
+                    ...(historySortOrder !== undefined ? { history_sort_order: historySortOrder } : {})
                 },
                 select: authUserSelect
             })
@@ -233,8 +257,31 @@ router.put(
                 error: error instanceof Error ? error.message : 'Unknown validation error'
             })
 
-            res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid settings payload' })
+            res.status(400).json({
+                error: error instanceof Error ? error.message : 'We could not save those settings.'
+            })
         }
+    })
+)
+
+router.post(
+    '/onboarding/complete',
+    asyncHandler(async (req: Request, res: Response) => {
+        const authUser = req.authUser!
+        const user = await prisma.user.update({
+            where: { id: authUser.id },
+            data: {
+                onboarding_completed_at: new Date()
+            },
+            select: authUserSelect
+        })
+
+        settingsLogger.info('settings.onboarding_completed', {
+            requestId: req.requestId,
+            userId: authUser.id
+        })
+
+        res.json({ user: serializeAuthUser(user) })
     })
 )
 

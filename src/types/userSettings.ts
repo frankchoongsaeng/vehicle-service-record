@@ -67,6 +67,12 @@ export type PreferredCurrencyCode = string
 
 export const DEFAULT_PREFERRED_CURRENCY: PreferredCurrencyCode = 'USD'
 
+export const HISTORY_SORT_ORDERS = ['newest_first', 'oldest_first'] as const
+
+export type HistorySortOrder = (typeof HISTORY_SORT_ORDERS)[number]
+
+export const DEFAULT_HISTORY_SORT_ORDER: HistorySortOrder = 'newest_first'
+
 const preferredCurrencyLookup = new Map(PREFERRED_CURRENCIES.map(currency => [currency.value, currency] as const))
 
 export const PROFILE_IMAGE_MAX_BYTES = 5 * 1024 * 1024
@@ -77,6 +83,10 @@ export type ProfileImageMimeType = (typeof PROFILE_IMAGE_MIME_TYPES)[number]
 
 export function isPreferredCurrencyCode(value: string): value is PreferredCurrencyCode {
     return preferredCurrencyLookup.has(value)
+}
+
+export function isHistorySortOrder(value: unknown): value is HistorySortOrder {
+    return typeof value === 'string' && HISTORY_SORT_ORDERS.includes(value as HistorySortOrder)
 }
 
 export function isProfileImageMimeType(value: string): value is ProfileImageMimeType {

@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express'
 
+import { isBillingAccessError, sendBillingError } from '../billing/error.js'
+import { assertCanEnableReminderEmails, assertCanUseVehicleReminderOverrides } from '../billing/service.js'
 import { prisma } from '../db.js'
 import { createLogger } from '../logging/logger.js'
 import { asyncHandler } from '../middleware/asyncHandler.js'
@@ -141,6 +143,7 @@ router.get(
             prisma.user.findUnique({
                 where: { id: authUser.id },
                 select: {
+                    email_verified_at: true,
                     reminder_email_enabled: true,
                     reminder_digest_enabled: true
                 }
@@ -161,6 +164,7 @@ router.get(
         }
 
         res.json({
+            emailVerificationRequired: user.email_verified_at == null,
             reminderEmailEnabled: user.reminder_email_enabled,
             reminderDigestEnabled: user.reminder_digest_enabled,
             rule: serializeRule(rule)
@@ -179,6 +183,10 @@ router.put(
             const reminderDigestEnabled =
                 body.reminderDigestEnabled == null ? true : Boolean(body.reminderDigestEnabled)
             const rule = normalizeRule(body.rule)
+
+            if (reminderEmailEnabled || reminderDigestEnabled || rule) {
+                await assertCanEnableReminderEmails(authUser.id)
+            }
 
             const user = await prisma.user.update({
                 where: { id: authUser.id },
@@ -202,11 +210,17 @@ router.put(
             })
 
             res.json({
+                emailVerificationRequired: authUser.emailVerifiedAt == null,
                 reminderEmailEnabled: user.reminder_email_enabled,
                 reminderDigestEnabled: user.reminder_digest_enabled,
                 rule: serializeRule(createdRule)
             })
         } catch (error) {
+            if (isBillingAccessError(error)) {
+                sendBillingError(res, error)
+                return
+            }
+
             res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid reminder preferences' })
         }
     })
@@ -258,7 +272,7 @@ router.put(
             const mode = body.mode
 
             if (!isReminderPreferenceMode(mode)) {
-                res.status(400).json({ error: 'mode must be inherit, custom, or disabled' })
+                res.status(400).json({ error: 'Choose a valid reminder setting.' })
                 return
             }
 
@@ -268,6 +282,10 @@ router.put(
             if (normalizedMode === 'custom' && !rule) {
                 res.status(400).json({ error: 'A custom vehicle rule requires at least one threshold' })
                 return
+            }
+
+            if (normalizedMode === 'custom') {
+                await assertCanUseVehicleReminderOverrides(authUser.id)
             }
 
             const updatedVehicle = await prisma.vehicle.update({
@@ -296,6 +314,11 @@ router.put(
                 rule: serializeRule(updatedRule)
             })
         } catch (error) {
+            if (isBillingAccessError(error)) {
+                sendBillingError(res, error)
+                return
+            }
+
             res.status(400).json({
                 error: error instanceof Error ? error.message : 'Invalid vehicle reminder preferences'
             })

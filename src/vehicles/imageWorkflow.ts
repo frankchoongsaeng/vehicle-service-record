@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client'
+import { withServerMonitoringSpan } from '../monitoring/server.js'
 
 const IMAGE_VIEW = 'default'
 const IMAGE_PROMPT_VERSION = 'vehicle-image-v1'
@@ -236,24 +237,50 @@ export async function ensureVehicleImage(
     tx: Prisma.TransactionClient,
     source: VehicleImageSource
 ): Promise<EnsuredVehicleImage | null> {
-    const descriptor = buildVehicleImageDescriptor(source)
+    return withServerMonitoringSpan(
+        'vehicle_image.ensure_unclassified_record',
+        {
+            make: source.make,
+            model: source.model,
+            year: source.year,
+            trim: source.trim,
+            hasColor: Boolean(source.color?.trim())
+        },
+        async () => {
+            const descriptor = buildVehicleImageDescriptor(source)
 
-    if (!descriptor) {
-        return null
-    }
+            if (!descriptor) {
+                return null
+            }
 
-    return ensureVehicleImageFromDescriptor(tx, descriptor)
+            return ensureVehicleImageFromDescriptor(tx, descriptor)
+        }
+    )
 }
 
 export async function ensureClassifiedVehicleImage(
     tx: VehicleImageClient,
     source: ClassifiedVehicleImageSource
 ): Promise<EnsuredVehicleImage | null> {
-    const descriptor = buildClassifiedVehicleImageDescriptor(source)
+    return withServerMonitoringSpan(
+        'vehicle_image.ensure_classified_record',
+        {
+            make: source.make,
+            model: source.model,
+            year: source.year,
+            trim: source.trim,
+            yearStart: source.yearStart,
+            yearEnd: source.yearEnd,
+            view: source.view ?? undefined
+        },
+        async () => {
+            const descriptor = buildClassifiedVehicleImageDescriptor(source)
 
-    if (!descriptor) {
-        return null
-    }
+            if (!descriptor) {
+                return null
+            }
 
-    return ensureVehicleImageFromDescriptor(tx, descriptor, { classifierCompleted: true })
+            return ensureVehicleImageFromDescriptor(tx, descriptor, { classifierCompleted: true })
+        }
+    )
 }

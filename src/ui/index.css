@@ -272,3 +272,107 @@ body {
         transform: translateY(-1px) scaleX(1.03);
     }
 }
+
+/* ── Landing page scroll-reveal ── */
+
+@keyframes landing-fade-up {
+    from {
+        opacity: 0;
+        transform: translateY(24px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes landing-fade-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes landing-scale-in {
+    from {
+        opacity: 0;
+        transform: scale(0.92);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.landing-reveal {
+    opacity: 0;
+}
+
+.landing-reveal.is-visible {
+    animation: landing-fade-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.landing-reveal.is-visible.landing-delay-1 {
+    animation-delay: 0.08s;
+}
+.landing-reveal.is-visible.landing-delay-2 {
+    animation-delay: 0.16s;
+}
+.landing-reveal.is-visible.landing-delay-3 {
+    animation-delay: 0.24s;
+}
+.landing-reveal.is-visible.landing-delay-4 {
+    animation-delay: 0.32s;
+}
+.landing-reveal.is-visible.landing-delay-5 {
+    animation-delay: 0.4s;
+}
+.landing-reveal.is-visible.landing-delay-6 {
+    animation-delay: 0.48s;
+}
+
+.landing-reveal-scale {
+    opacity: 0;
+}
+
+.landing-reveal-scale.is-visible {
+    animation: landing-scale-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.landing-hero-enter {
+    animation: landing-fade-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.landing-hero-enter-delay-1 {
+    animation: landing-fade-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.12s both;
+}
+
+.landing-hero-enter-delay-2 {
+    animation: landing-fade-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.24s both;
+}
+
+.landing-hero-enter-delay-3 {
+    animation: landing-fade-in 1s cubic-bezier(0.16, 1, 0.3, 1) 0.4s both;
+}
+
+@keyframes landing-glow-drift {
+    0%,
+    100% {
+        transform: translate(0, 0) scale(1);
+        opacity: 0.3;
+    }
+    33% {
+        transform: translate(30px, -20px) scale(1.05);
+        opacity: 0.45;
+    }
+    66% {
+        transform: translate(-20px, 10px) scale(0.95);
+        opacity: 0.35;
+    }
+}
+
+.landing-glow-orb {
+    animation: landing-glow-drift 12s ease-in-out infinite;
+}

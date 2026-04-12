@@ -34,7 +34,14 @@ async function writeWorkerHealthcheck(status: 'starting' | 'healthy' | 'stopping
 }
 
 function startWorkerHeartbeat(): void {
-    void writeWorkerHealthcheck('healthy')
+    void writeWorkerHealthcheck('healthy').catch(error => {
+        captureServerException(error, {
+            lifecycle: 'worker.healthcheck.write',
+            instanceId,
+            workerHealthcheckFilePath
+        })
+        workerLogger.error('worker.healthcheck_write_failed', { error, instanceId, workerHealthcheckFilePath })
+    })
 
     workerHeartbeatInterval = setInterval(() => {
         void writeWorkerHealthcheck('healthy').catch(error => {

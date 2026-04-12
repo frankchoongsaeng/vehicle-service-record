@@ -319,16 +319,13 @@ router.post(
             const normalizedWorkshopName = typeof workshop === 'string' ? workshop.trim() : ''
 
             if (normalizedWorkshopName) {
-                const workshops = await prisma.workshop.findMany({
-                    where: { user_id: authUser.id },
-                    select: { name: true }
+                const lookupName = normalizeWorkshopLookupName(normalizedWorkshopName)
+                const existingWorkshop = await prisma.workshop.findFirst({
+                    where: { user_id: authUser.id, name: lookupName },
+                    select: { id: true }
                 })
-                const hasMatchingWorkshop = workshops.some(
-                    entry =>
-                        normalizeWorkshopLookupName(entry.name) === normalizeWorkshopLookupName(normalizedWorkshopName)
-                )
 
-                if (!hasMatchingWorkshop) {
+                if (!existingWorkshop) {
                     await assertCanCreateWorkshop(authUser.id)
                 }
             }
@@ -471,16 +468,13 @@ router.put(
             const normalizedWorkshopName = typeof workshop === 'string' ? workshop.trim() : ''
 
             if (normalizedWorkshopName) {
-                const workshops = await prisma.workshop.findMany({
-                    where: { user_id: authUser.id },
-                    select: { name: true }
+                const lookupName = normalizeWorkshopLookupName(normalizedWorkshopName)
+                const existingWorkshop = await prisma.workshop.findFirst({
+                    where: { user_id: authUser.id, name: lookupName },
+                    select: { id: true }
                 })
-                const hasMatchingWorkshop = workshops.some(
-                    entry =>
-                        normalizeWorkshopLookupName(entry.name) === normalizeWorkshopLookupName(normalizedWorkshopName)
-                )
 
-                if (!hasMatchingWorkshop) {
+                if (!existingWorkshop) {
                     await assertCanCreateWorkshop(authUser.id)
                 }
             }
